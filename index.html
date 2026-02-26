@@ -352,6 +352,7 @@ input[type="range"]{accent-color:var(--gold);width:100%}
   <button class="lang-btn active" id="lang-en" onclick="setLang('en')">EN</button>
   <button class="lang-btn" id="lang-es" onclick="setLang('es')">ES</button>
   <div class="tb-div"></div>
+  <span id="collab-ind" style="font-family:var(--fm);font-size:11px;color:var(--blue);white-space:nowrap;display:none;padding:0 6px;border:1px solid rgba(74,158,255,.3);border-radius:3px;" title="Other tabs open"></span>
   <span id="save-ind" class="saved">● Saved</span>
   <button class="btn-save" onclick="saveAll()">Save</button>
 </div>
@@ -606,6 +607,14 @@ input[type="range"]{accent-color:var(--gold);width:100%}
             <button class="mt" id="tool-erase" title="Erase (E)" onclick="setTool('erase')">✕</button>
           </div>
           <div class="map-tool-group">
+            <button class="mt" id="tool-stair" title="Stairs (S)" onclick="setTool('stair')" style="font-size:11px">⊟</button>
+            <button class="mt" id="tool-light" title="Light (L)" onclick="setTool('light')" style="font-size:11px">◉</button>
+            <button class="mt" id="tool-person" title="Player/NPC (Y)" onclick="setTool('person')" style="font-size:13px">☺</button>
+            <button class="mt" id="tool-enemy" title="Enemy (X)" onclick="setTool('enemy')" style="font-size:12px">☠</button>
+            <button class="mt" id="tool-arrow" title="Arrow (A)" onclick="setTool('arrow')" style="font-size:13px">➤</button>
+            <button class="mt" id="tool-draw" title="Freehand Draw (D)" onclick="setTool('draw')" style="font-size:13px">✏</button>
+          </div>
+          <div class="map-tool-group">
             <button class="mt" title="Undo (Ctrl+Z)" onclick="mapUndo()">↩</button>
             <button class="mt" title="Redo (Ctrl+Y)" onclick="mapRedo()">↪</button>
           </div>
@@ -719,8 +728,9 @@ input[type="range"]{accent-color:var(--gold);width:100%}
       <div class="mod-hdr"><div class="mod-title">Export</div></div>
       <div class="mod-body">
         <div class="g3">
-          <div class="exp-card"><div class="exp-card-title">📦 Full Project</div><div class="exp-card-desc">Complete JSON backup of all GDD, LDD, Tasks, Maps, Charts and Assets.</div><button class="btn btn-gold" onclick="exportFullProject()">Export JSON</button></div>
-          <div class="exp-card"><div class="exp-card-title">🗺️ Maps Package</div><div class="exp-card-desc">Export current map as PNG image or JSON data.</div><div style="display:flex;gap:6px;"><button class="btn" onclick="exportMapJSON()">JSON</button><button class="btn" onclick="exportMapPNG()">PNG</button></div></div>
+          <div class="exp-card" style="border-color:var(--gold-dim);background:rgba(201,162,39,.04)"><div class="exp-card-title" style="color:var(--gold)">📑 Full PDF Report</div><div class="exp-card-desc">Complete project PDF: GDD + LDD + Maps in one document. Open browser print dialog to save as PDF.</div><button class="btn btn-gold" onclick="exportFullPDF()">Full PDF</button></div>
+          <div class="exp-card"><div class="exp-card-title">📦 Full Project</div><div class="exp-card-desc">Complete JSON backup of all GDD, LDD, Tasks, Maps, Charts and Assets. Reimport to continue editing.</div><button class="btn btn-gold" onclick="exportFullProject()">Export JSON</button></div>
+          <div class="exp-card"><div class="exp-card-title">🗺️ Maps Package</div><div class="exp-card-desc">Export current map as PNG image or JSON data for re-editing.</div><div style="display:flex;gap:6px;"><button class="btn" onclick="exportMapJSON()">JSON</button><button class="btn" onclick="exportMapPNG()">PNG</button></div></div>
           <div class="exp-card"><div class="exp-card-title">📄 GDD</div><div class="exp-card-desc">Game Design Document as Markdown, JSON, or print as PDF.</div><div style="display:flex;gap:6px;"><button class="btn" onclick="exportGDDMarkdown()">MD</button><button class="btn" onclick="exportGDDJSON()">JSON</button><button class="btn btn-gold" onclick="exportGDDPDF()">PDF</button></div></div>
           <div class="exp-card"><div class="exp-card-title">📐 LDD</div><div class="exp-card-desc">Level Design Document as JSON or print as PDF.</div><div style="display:flex;gap:6px;"><button class="btn" onclick="exportLDDJSON()">JSON</button><button class="btn btn-gold" onclick="exportLDDPDF()">PDF</button></div></div>
           <div class="exp-card"><div class="exp-card-title">📊 Charts</div><div class="exp-card-desc">Export difficulty, pacing and flow curves as PNG images.</div><button class="btn" onclick="exportChartPNG()">PNG</button></div>
@@ -978,6 +988,79 @@ function showToast(msg) {
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
 }
+
+// ════════════════════════════════════════════════════════════
+// REAL-TIME CROSS-TAB SYNC (BroadcastChannel)
+// ════════════════════════════════════════════════════════════
+const _BC = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('invictus_sync') : null;
+const _MY_TAB = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+let _activeTabs = {};
+let _bcSyncPending = false;
+
+function _bcBroadcastSave() {
+  if (!_BC) return;
+  try { _BC.postMessage({type:'save',tab:_MY_TAB,payload:JSON.stringify(PS.data)}); } catch(e){}
+}
+function _bcBroadcastPresence() {
+  if (!_BC) return;
+  const mod = document.querySelector('.sb-item.active')?.dataset?.mod || 'dashboard';
+  _BC.postMessage({type:'presence',tab:_MY_TAB,section:mod,time:Date.now()});
+}
+function _bcUpdateCollabUI() {
+  const now = Date.now();
+  Object.keys(_activeTabs).forEach(t=>{ if(now-_activeTabs[t].time>12000) delete _activeTabs[t]; });
+  const cnt = Object.keys(_activeTabs).length;
+  const el = document.getElementById('collab-ind');
+  if (!el) return;
+  if (cnt > 0) {
+    const sections = [...new Set(Object.values(_activeTabs).map(t=>t.section))].join(', ');
+    el.textContent = '● ' + cnt + ' tab' + (cnt>1?'s':'') + ' open · ' + sections;
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+function _bcApplyRemoteData(data) {
+  try {
+    PS._merge(data);
+    // Re-render current module
+    const mod = document.querySelector('.sb-item.active')?.dataset?.mod;
+    if (mod) showModule(mod);
+    showToast('🔄 Synced from another tab');
+  } catch(e){}
+}
+
+if (_BC) {
+  _BC.onmessage = function(e) {
+    const d = e.data;
+    if (!d || d.tab === _MY_TAB) return;
+    if (d.type === 'save') {
+      _activeTabs[d.tab] = {time:Date.now(), section:d.section||'–'};
+      _bcUpdateCollabUI();
+      if (!_bcSyncPending) {
+        _bcSyncPending = true;
+        setTimeout(()=>{ _bcSyncPending=false; try{_bcApplyRemoteData(JSON.parse(d.payload));}catch(ex){} }, 800);
+      }
+    } else if (d.type === 'presence') {
+      _activeTabs[d.tab] = {time:Date.now(), section:d.section||'–'};
+      _bcUpdateCollabUI();
+    } else if (d.type === 'bye') {
+      delete _activeTabs[d.tab];
+      _bcUpdateCollabUI();
+    }
+  };
+  window.addEventListener('beforeunload', ()=> { try{_BC.postMessage({type:'bye',tab:_MY_TAB});}catch(e){} });
+  setInterval(_bcBroadcastPresence, 5000);
+  setTimeout(_bcBroadcastPresence, 500);
+}
+
+// Hook into autoSave to broadcast
+const _origAutoSave = autoSave;
+function autoSave() {
+  _origAutoSave();
+  if (_BC) { clearTimeout(_bcTimer); _bcTimer = setTimeout(_bcBroadcastSave, 3200); }
+}
+let _bcTimer;
 
 // Field saved feedback
 function flashSaved() {
@@ -1582,13 +1665,40 @@ const GDD_SECS = [
   ]}
 ];
 
+function calcDocCompletion(docKey, secs) {
+  const data = PS.data.docs[docKey] || {};
+  let total=0, filled=0;
+  secs.forEach(grp=>grp.items.forEach(sec=>{
+    if(!sec.fields) return;
+    sec.fields.forEach(f=>{
+      total++;
+      const val=(data[sec.key]&&data[sec.key][f.k])||'';
+      if(val.trim().length>3) filled++;
+    });
+  }));
+  return total?Math.round(filled/total*100):0;
+}
+
+function updateDocProgress(docKey, secs) {
+  const pct = calcDocCompletion(docKey, secs);
+  const bar = document.getElementById(docKey+'-progress-bar');
+  const lbl = document.getElementById(docKey+'-progress-lbl');
+  if(bar) bar.style.width = pct+'%';
+  if(lbl) lbl.textContent = pct+'%';
+}
+
 function initGDD() {
   if (!PS.data.docs.gdd) PS.data.docs.gdd={};
   const nav = document.getElementById('gdd-nav');
   const content = document.getElementById('gdd-content');
   nav.innerHTML=''; content.innerHTML='';
-
-  const infoBox=`<div class="doc-info-box"><strong>📋 GDD — Game Design Document</strong><br>This is the central document of your project. It defines <em>what</em> the game is and <em>how</em> it plays. Each section autosaves as you type. Export as MD, JSON, or PDF when ready.</div>`;
+  const pct = calcDocCompletion('gdd', GDD_SECS);
+  const infoBox=`<div class="doc-info-box"><strong>📋 GDD — Game Design Document</strong><br>This is the central document of your project. It defines <em>what</em> the game is and <em>how</em> it plays. Each section autosaves as you type. Export as MD, JSON, or PDF when ready.
+    <div style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+      <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;"><div id="gdd-progress-bar" style="height:100%;background:var(--gold);border-radius:3px;transition:width .4s;width:${pct}%"></div></div>
+      <span id="gdd-progress-lbl" style="font-family:var(--fm);font-size:11px;color:var(--gold);min-width:32px">${pct}%</span>
+      <span style="font-size:10px;color:var(--text-muted)">complete</span>
+    </div></div>`;
   content.innerHTML=infoBox;
 
   let firstKey=null;
@@ -1637,6 +1747,7 @@ function onDocInput(doc, secKey, fieldKey, val) {
   PS.data.docs[doc][secKey][fieldKey]=val;
   flashSaved();
   autoSave();
+  updateDocProgress(doc, doc==='gdd'?GDD_SECS:LDD_SECS);
 }
 
 function switchDocSec(doc, key) {
@@ -1881,6 +1992,7 @@ const MAP = {
   drawStart: null,
   drawCurrent: null,
   polyPoints: [],
+  drawPoints: null, // freehand draw
   // Pan state
   isPanning: false,
   panStartMouse: null,
@@ -1911,7 +2023,13 @@ const HINTS = {
   poly:'Click to add points · Double-click to close polygon · Esc to cancel',
   circle:'Click center then drag to set radius',
   text:'Click to place a text label',
-  erase:'Click on any object to delete it'
+  erase:'Click on any object to delete it',
+  stair:'Click and drag to place a staircase',
+  light:'Click to place a light source',
+  person:'Click to place a player / NPC spawn point',
+  enemy:'Click to place an enemy spawn point',
+  arrow:'Click and drag to draw a directional arrow',
+  draw:'Hold and drag to draw freehand — release to finish'
 };
 
 function initMapEditor() {
@@ -2043,6 +2161,36 @@ function mapMD(e) {
     return;
   }
 
+  // Click-to-place tools
+  if (MAP.tool === 'light') {
+    mapPushHistory();
+    const r=48; const id='obj_'+Date.now();
+    const obj={id,type:'light',name:'Light',layer:MAP.activeLayer,x:snap(w.x),y:snap(w.y),r,w:r*2,h:r*2,fill:'#ffcc55',opacity:0.6};
+    MAP.objects.push(obj); MAP.selectedIds.clear(); MAP.selectedIds.add(id);
+    renderMap(); renderMapProps(); autoSave(); mapSaveCurrent(); return;
+  }
+  if (MAP.tool === 'person') {
+    mapPushHistory();
+    const id='obj_'+Date.now();
+    const obj={id,type:'person',name:'Player',layer:MAP.activeLayer,x:snap(w.x),y:snap(w.y),w:20,h:32,fill:'#4a9eff',opacity:1};
+    MAP.objects.push(obj); MAP.selectedIds.clear(); MAP.selectedIds.add(id);
+    renderMap(); renderMapProps(); autoSave(); mapSaveCurrent(); return;
+  }
+  if (MAP.tool === 'enemy') {
+    mapPushHistory();
+    const id='obj_'+Date.now();
+    const obj={id,type:'enemy',name:'Enemy',layer:MAP.activeLayer,x:snap(w.x),y:snap(w.y),w:24,h:28,fill:'#e05252',opacity:1};
+    MAP.objects.push(obj); MAP.selectedIds.clear(); MAP.selectedIds.add(id);
+    renderMap(); renderMapProps(); autoSave(); mapSaveCurrent(); return;
+  }
+
+  // Freehand draw start
+  if (MAP.tool === 'draw') {
+    MAP.isDrawing = true;
+    MAP.drawPoints = [{x:snap(w.x), y:snap(w.y)}];
+    return;
+  }
+
   MAP.isDrawing = true;
   MAP.drawStart = {x: snap(w.x), y: snap(w.y)};
   MAP.drawCurrent = {x: snap(w.x), y: snap(w.y)};
@@ -2092,7 +2240,14 @@ function mapMM(e) {
     return;
   }
 
-  if (MAP.isDrawing && MAP.tool !== 'poly') {
+  if (MAP.isDrawing && MAP.tool === 'draw' && MAP.drawPoints) {
+    const pt = {x:snap(w.x), y:snap(w.y)};
+    const last = MAP.drawPoints[MAP.drawPoints.length-1];
+    if (Math.hypot(pt.x-last.x, pt.y-last.y) > 6) { MAP.drawPoints.push(pt); renderMap(); }
+    return;
+  }
+
+  if (MAP.isDrawing && MAP.tool !== 'poly' && MAP.tool !== 'draw') {
     MAP.drawCurrent = {x: snap(w.x), y: snap(w.y)};
     renderMap(); return;
   }
@@ -2120,6 +2275,25 @@ function mapMU(e) {
     MAP._histOnce = false;
     autoSave(); mapSaveCurrent(); return;
   }
+  // Handle freehand draw finish
+  if (MAP.tool === 'draw') {
+    MAP.isDrawing = false;
+    if (MAP.drawPoints && MAP.drawPoints.length >= 2) {
+      mapPushHistory();
+      const id='obj_'+Date.now(); const pts=MAP.drawPoints;
+      const obj={id,type:'draw',name:'Drawing',layer:MAP.activeLayer,
+        points:JSON.parse(JSON.stringify(pts)),
+        x:Math.min(...pts.map(p=>p.x)),y:Math.min(...pts.map(p=>p.y)),
+        w:Math.max(...pts.map(p=>p.x))-Math.min(...pts.map(p=>p.x)),
+        h:Math.max(...pts.map(p=>p.y))-Math.min(...pts.map(p=>p.y)),
+        fill:'transparent',stroke:'#4ecb71',opacity:1};
+      MAP.objects.push(obj); MAP.drawPoints=null;
+      MAP.selectedIds.clear(); MAP.selectedIds.add(id);
+      renderMap(); renderMapProps(); autoSave(); mapSaveCurrent();
+    } else { MAP.drawPoints=null; }
+    return;
+  }
+
   if (!MAP.isDrawing || MAP.tool === 'poly') return;
   MAP.isDrawing = false;
 
@@ -2144,6 +2318,13 @@ function mapMU(e) {
   } else if (MAP.tool==='circle') {
     const r=Math.max(4,Math.hypot(c.x-s.x,c.y-s.y));
     obj={id,type:'circle',name:'Circle',layer,x:s.x,y:s.y,r:snap(r),w:snap(r)*2,h:snap(r)*2,fill:'#1e2e18',stroke:'#4a7a3a',opacity:1};
+  } else if (MAP.tool==='stair') {
+    const x=Math.min(s.x,c.x), y=Math.min(s.y,c.y), w2=Math.abs(c.x-s.x), h=Math.abs(c.y-s.y);
+    if(w2<4&&h<4) return;
+    obj={id,type:'stair',name:'Stairs',layer,x,y,w:w2,h,fill:'#2a2010',stroke:'#c9a227',opacity:1,steps:4};
+  } else if (MAP.tool==='arrow') {
+    if(Math.hypot(c.x-s.x,c.y-s.y)<4) return;
+    obj={id,type:'arrow',name:'Arrow',layer,x:s.x,y:s.y,x2:c.x,y2:c.y,w:Math.abs(c.x-s.x),h:Math.abs(c.y-s.y),fill:'#c9a227',stroke:'#c9a227',opacity:1};
   }
   if (obj) {
     MAP.objects.push(obj);
@@ -2180,12 +2361,16 @@ function getObjectAt(wx, wy) {
   for(let i=MAP.objects.length-1;i>=0;i--){
     const obj=MAP.objects[i];
     if(MAP.hiddenLayers.has(obj.layer)||MAP.lockedLayers.has(obj.layer)) continue;
-    if(obj.type==='circle'){if(Math.hypot(wx-obj.x,wy-obj.y)<=obj.r)return obj;}
+    if(obj.type==='circle'||obj.type==='light'){if(Math.hypot(wx-obj.x,wy-obj.y)<=(obj.r||32))return obj;}
     else if(obj.type==='poly'){if(pointInPoly(wx,wy,obj.points))return obj;}
+    else if(obj.type==='arrow'){if(_ptLineDist(wx,wy,obj.x,obj.y,obj.x2!==undefined?obj.x2:obj.x+64,obj.y2!==undefined?obj.y2:obj.y)<=8)return obj;}
+    else if(obj.type==='draw'){if(obj.points&&_ptNearPath(wx,wy,obj.points,8))return obj;}
     else{if(wx>=obj.x&&wx<=obj.x+obj.w&&wy>=obj.y&&wy<=obj.y+obj.h)return obj;}
   }
   return null;
 }
+function _ptLineDist(px,py,x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1,l2=dx*dx+dy*dy;if(l2===0)return Math.hypot(px-x1,py-y1);const t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/l2));return Math.hypot(px-(x1+t*dx),py-(y1+t*dy));}
+function _ptNearPath(px,py,pts,thresh){for(let i=0;i<pts.length-1;i++){if(_ptLineDist(px,py,pts[i].x,pts[i].y,pts[i+1].x,pts[i+1].y)<thresh)return true;}return false;}
 
 function pointInPoly(x,y,pts){
   let inside=false;
@@ -2197,7 +2382,7 @@ function pointInPoly(x,y,pts){
 }
 
 function getResizeHandle(obj, sx, sy) {
-  if (obj.type==='circle'||obj.type==='text'||obj.type==='poly') return null;
+  if (obj.type==='circle'||obj.type==='text'||obj.type==='poly'||obj.type==='light'||obj.type==='arrow'||obj.type==='draw'||obj.type==='person'||obj.type==='enemy') return null;
   const s = w2s(obj.x, obj.y);
   const ex = obj.x+obj.w, ey = obj.y+obj.h;
   const se = w2s(ex, ey);
@@ -2267,8 +2452,8 @@ function renderMap() {
     ctx.strokeStyle='#c9a227';
     ctx.lineWidth=2;
     ctx.setLineDash([5,3]);
-    if(obj.type==='circle'){
-      const p=w2s(obj.x,obj.y),r=obj.r*MAP.cam.zoom;
+    if(obj.type==='circle'||obj.type==='light'){
+      const p=w2s(obj.x,obj.y),r=(obj.r||32)*MAP.cam.zoom;
       ctx.beginPath();ctx.arc(p.x,p.y,r+3,0,Math.PI*2);ctx.stroke();
     } else if(obj.type==='poly'){
       ctx.beginPath();
@@ -2276,6 +2461,12 @@ function renderMap() {
       ctx.moveTo(pts[0].x,pts[0].y);
       pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
       ctx.closePath();ctx.stroke();
+    } else if(obj.type==='arrow'){
+      const p=w2s(obj.x,obj.y),p2=w2s(obj.x2!==undefined?obj.x2:obj.x+64,obj.y2!==undefined?obj.y2:obj.y);
+      ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p2.x,p2.y);ctx.stroke();
+    } else if(obj.type==='draw'||obj.type==='person'||obj.type==='enemy'){
+      const p=w2s(obj.x,obj.y),q=w2s(obj.x+(obj.w||24),obj.y+(obj.h||32));
+      ctx.strokeRect(p.x-3,p.y-3,q.x-p.x+6,q.y-p.y+6);
     } else {
       const p=w2s(obj.x,obj.y),q=w2s(obj.x+obj.w,obj.y+obj.h);
       ctx.strokeRect(p.x-2,p.y-2,q.x-p.x+4,q.y-p.y+4);
@@ -2295,8 +2486,19 @@ function renderMap() {
     ctx.save();
     ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);ctx.globalAlpha=.7;
     if(MAP.tool==='circle'){const r=Math.hypot(c.x-s.x,c.y-s.y);ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.stroke();}
+    else if(MAP.tool==='arrow'){
+      ctx.setLineDash([]);ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(c.x,c.y);ctx.stroke();
+      const ang=Math.atan2(c.y-s.y,c.x-s.x),al=14;
+      ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(c.x-al*Math.cos(ang-.45),c.y-al*Math.sin(ang-.45));ctx.lineTo(c.x-al*Math.cos(ang+.45),c.y-al*Math.sin(ang+.45));ctx.closePath();ctx.fill();
+    }
     else ctx.strokeRect(s.x,s.y,c.x-s.x,c.y-s.y);
     ctx.restore();
+  }
+  // Freehand draw preview
+  if(MAP.tool==='draw'&&MAP.isDrawing&&MAP.drawPoints&&MAP.drawPoints.length>1){
+    ctx.save();ctx.strokeStyle='#4ecb71';ctx.lineWidth=2;ctx.globalAlpha=.8;ctx.setLineDash([]);
+    ctx.beginPath();const dps=MAP.drawPoints.map(p=>w2s(p.x,p.y));ctx.moveTo(dps[0].x,dps[0].y);dps.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();ctx.restore();
   }
 
   // Polygon in progress
@@ -2337,6 +2539,59 @@ function drawObj(obj,ctx) {
     ctx.closePath();
     ctx.fillStyle=obj.fill||'#1e2e18';ctx.fill();
     ctx.strokeStyle=obj.stroke||'#4a9eff';ctx.lineWidth=1;ctx.stroke();
+  } else if(obj.type==='stair'){
+    const q=w2s(obj.x+obj.w,obj.y+obj.h);
+    const sw=q.x-p.x, sh=q.y-p.y;
+    ctx.fillStyle=obj.fill||'#2a2010';ctx.fillRect(p.x,p.y,sw,sh);
+    ctx.strokeStyle=obj.stroke||'#c9a227';ctx.lineWidth=Math.max(0.5,1.5*MAP.cam.zoom);ctx.strokeRect(p.x,p.y,sw,sh);
+    const steps=obj.steps||4;
+    ctx.strokeStyle=(obj.stroke||'#c9a227')+'66';ctx.lineWidth=0.5;ctx.setLineDash([2,2]);
+    for(let i=1;i<steps;i++){
+      ctx.beginPath();ctx.moveTo(p.x+sw*i/steps,p.y);ctx.lineTo(p.x+sw*i/steps,p.y+sh);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(p.x,p.y+sh*i/steps);ctx.lineTo(p.x+sw,p.y+sh*i/steps);ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    if(obj.name&&MAP.cam.zoom>0.3){ctx.font=`${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.fillStyle='rgba(201,162,39,0.7)';ctx.fillText(obj.name,p.x+3,p.y-3);}
+  } else if(obj.type==='light'){
+    const lr=(obj.r||48)*MAP.cam.zoom;
+    const grad=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,lr);
+    const fc=obj.fill||'#ffcc55';
+    grad.addColorStop(0,fc+'bb');grad.addColorStop(0.45,fc+'44');grad.addColorStop(1,fc+'00');
+    ctx.beginPath();ctx.arc(p.x,p.y,lr,0,Math.PI*2);ctx.fillStyle=grad;ctx.fill();
+    ctx.beginPath();ctx.arc(p.x,p.y,Math.max(3,5*MAP.cam.zoom),0,Math.PI*2);ctx.fillStyle=fc;ctx.fill();
+    if(obj.name&&MAP.cam.zoom>0.3){ctx.font=`${Math.max(7,9*MAP.cam.zoom)}px Barlow`;ctx.fillStyle=fc;ctx.fillText(obj.name,p.x+6,p.y-lr*.6);}
+  } else if(obj.type==='person'){
+    const sz=Math.max(3,10*MAP.cam.zoom);
+    const fc=obj.fill||'#4a9eff';
+    ctx.beginPath();ctx.arc(p.x+sz*.6,p.y+sz*.7,sz*.6,0,Math.PI*2);ctx.fillStyle=fc;ctx.fill();
+    ctx.beginPath();ctx.moveTo(p.x+sz*.6,p.y+sz*1.3);ctx.lineTo(p.x+sz*.6,p.y+sz*2.4);
+    ctx.moveTo(p.x,p.y+sz*1.6);ctx.lineTo(p.x+sz*1.2,p.y+sz*1.6);
+    ctx.moveTo(p.x+sz*.6,p.y+sz*2.4);ctx.lineTo(p.x+sz*.1,p.y+sz*3.2);
+    ctx.moveTo(p.x+sz*.6,p.y+sz*2.4);ctx.lineTo(p.x+sz*1.1,p.y+sz*3.2);
+    ctx.strokeStyle=fc;ctx.lineWidth=Math.max(1,1.5*MAP.cam.zoom);ctx.stroke();
+    if(obj.name&&MAP.cam.zoom>0.4){ctx.font=`bold ${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.fillStyle=fc;ctx.fillText(obj.name,p.x-4,p.y-2);}
+  } else if(obj.type==='enemy'){
+    const sz=Math.max(3,9*MAP.cam.zoom);
+    const fc=obj.fill||'#e05252';
+    ctx.beginPath();ctx.moveTo(p.x+sz,p.y);ctx.lineTo(p.x+sz*2,p.y+sz*1.2);ctx.lineTo(p.x+sz,p.y+sz*2.4);ctx.lineTo(p.x,p.y+sz*1.2);ctx.closePath();
+    ctx.fillStyle=fc+'33';ctx.fill();ctx.strokeStyle=fc;ctx.lineWidth=Math.max(1,1.5*MAP.cam.zoom);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(p.x+sz*.25,p.y+sz*.45);ctx.lineTo(p.x+sz*1.75,p.y+sz*1.95);
+    ctx.moveTo(p.x+sz*1.75,p.y+sz*.45);ctx.lineTo(p.x+sz*.25,p.y+sz*1.95);
+    ctx.strokeStyle=fc;ctx.lineWidth=Math.max(1,2*MAP.cam.zoom);ctx.stroke();
+    if(obj.name&&MAP.cam.zoom>0.4){ctx.font=`bold ${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.fillStyle=fc;ctx.fillText(obj.name,p.x-4,p.y-2);}
+  } else if(obj.type==='arrow'){
+    const p2=w2s(obj.x2!==undefined?obj.x2:obj.x+64,obj.y2!==undefined?obj.y2:obj.y);
+    const fc=obj.fill||'#c9a227';
+    ctx.strokeStyle=fc;ctx.lineWidth=Math.max(1.5,2.5*MAP.cam.zoom);ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p2.x,p2.y);ctx.stroke();
+    const ang=Math.atan2(p2.y-p.y,p2.x-p.x),al=Math.max(10,14*MAP.cam.zoom);
+    ctx.beginPath();ctx.moveTo(p2.x,p2.y);ctx.lineTo(p2.x-al*Math.cos(ang-.45),p2.y-al*Math.sin(ang-.45));ctx.lineTo(p2.x-al*Math.cos(ang+.45),p2.y-al*Math.sin(ang+.45));ctx.closePath();ctx.fillStyle=fc;ctx.fill();
+    if(obj.name&&MAP.cam.zoom>0.4){ctx.font=`${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.fillStyle=fc;ctx.fillText(obj.name,(p.x+p2.x)/2+2,(p.y+p2.y)/2-4);}
+  } else if(obj.type==='draw'){
+    if(!obj.points||obj.points.length<2){ctx.restore();return;}
+    const dpts=obj.points.map(pt=>w2s(pt.x,pt.y));
+    ctx.beginPath();ctx.moveTo(dpts[0].x,dpts[0].y);dpts.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y));
+    ctx.strokeStyle=obj.stroke||'#4ecb71';ctx.lineWidth=Math.max(1,2*MAP.cam.zoom);ctx.stroke();
   } else {
     const q=w2s(obj.x+obj.w,obj.y+obj.h);
     const w=q.x-p.x, h=q.y-p.y;
@@ -2363,7 +2618,7 @@ function mapRedo(){if(!MAP.future.length)return;MAP.history.push(JSON.stringify(
 
 function setTool(tool) {
   MAP.tool=tool;
-  MAP.polyPoints=[];MAP.isDrawing=false;
+  MAP.polyPoints=[];MAP.isDrawing=false;MAP.drawPoints=null;
   document.querySelectorAll('.mt[id^="tool-"]').forEach(b=>b.classList.remove('active'));
   const btn=document.getElementById('tool-'+tool);
   if(btn) btn.classList.add('active');
@@ -2670,6 +2925,56 @@ function exportGDDPDF(){collectDocData();const win=window.open('','_blank');let 
 function exportLDDJSON(){collectDocData();dlText(JSON.stringify(PS.data.docs.ldd,null,2),'LDD.json','application/json');}
 function exportLDDPDF(){collectDocData();const win=window.open('','_blank');let html=`<html><head><style>body{font-family:Georgia,serif;max-width:820px;margin:40px auto;color:#111;line-height:1.7}h1{color:#8a5a00;border-bottom:3px solid #c9a227;padding-bottom:10px}h2{color:#5a3a00;margin-top:36px;border-bottom:1px solid #ddd;padding-bottom:4px}pre{white-space:pre-wrap;background:#fafaf5;padding:10px;border-left:3px solid #c9a227;border-radius:3px}hr{border:1px solid #eee;margin:20px 0}</style></head><body><h1>📐 Level Design Document</h1>`;LDD_SECS.forEach(grp=>{html+=`<h2>${grp.grp}</h2>`;grp.items.forEach(sec=>{html+=`<h3>${sec.icon} ${sec.label}</h3>`;if(sec.fields)sec.fields.forEach(f=>{const val=(PS.data.docs.ldd[sec.key]&&PS.data.docs.ldd[sec.key][f.k])||'(empty)';html+=`<p><strong>${f.l}:</strong></p><pre>${val.replace(/</g,'&lt;')}</pre>`;});html+='<hr>';});});html+='</body></html>';win.document.write(html);win.document.close();setTimeout(()=>win.print(),500);}
 
+function exportFullPDF(){
+  collectDocData(); mapSaveCurrent();
+  const mapImg = MAP.canvas ? MAP.canvas.toDataURL('image/png') : null;
+  const projectName = PS.data.currentProject || 'Game Project';
+  const now = new Date().toLocaleDateString();
+  const gddPct = calcDocCompletion('gdd', GDD_SECS);
+  const lddPct = calcDocCompletion('ldd', LDD_SECS);
+  const CSS=`body{font-family:Georgia,serif;max-width:860px;margin:40px auto;color:#111;line-height:1.7}
+    .cover{text-align:center;padding:60px 0 40px;border-bottom:3px solid #c9a227;margin-bottom:40px}
+    .cover h1{font-size:36px;color:#5a3800;margin-bottom:8px}
+    .cover .sub{font-size:14px;color:#888}
+    .prog{display:inline-block;width:140px;height:8px;background:#eee;border-radius:4px;vertical-align:middle;margin:0 8px}
+    .prog-fill{height:100%;border-radius:4px;background:#c9a227}
+    h1{color:#8a5a00;border-bottom:3px solid #c9a227;padding-bottom:10px;font-size:24px;margin-top:48px}
+    h2{color:#5a3a00;margin-top:32px;font-size:18px;border-bottom:1px solid #e0d0a0;padding-bottom:4px}
+    h3{color:#5a4a10;margin-top:20px;font-size:14px}
+    pre{white-space:pre-wrap;font-family:inherit;background:#fafaf5;padding:10px;border-left:3px solid #c9a227;border-radius:3px;font-size:12px}
+    .map-img{max-width:100%;border:1px solid #ddd;border-radius:6px;margin:16px 0}
+    hr{border:1px solid #eee;margin:16px 0}
+    .skip{color:#bbb;font-style:italic;font-size:11px}
+    @media print{.cover{page-break-after:always}h1{page-break-before:always}}`;
+  let html=`<html><head><style>${CSS}</style></head><body>
+    <div class="cover">
+      <div style="font-size:48px;margin-bottom:16px">🎮</div>
+      <h1>${projectName}</h1>
+      <div class="sub">Full Project Document · Generated ${now}</div>
+      <div style="margin-top:20px;font-size:13px;color:#666">
+        GDD: <span class="prog"><span class="prog-fill" style="width:${gddPct}%"></span></span>${gddPct}% complete &nbsp;&nbsp;
+        LDD: <span class="prog"><span class="prog-fill" style="width:${lddPct}%"></span></span>${lddPct}% complete
+      </div>
+    </div>`;
+  // GDD
+  html+=`<h1>📋 Game Design Document</h1>`;
+  GDD_SECS.forEach(grp=>{html+=`<h2>${grp.grp}</h2>`;grp.items.forEach(sec=>{html+=`<h3>${sec.icon} ${sec.label}</h3>`;if(sec.fields)sec.fields.forEach(f=>{const val=(PS.data.docs.gdd[sec.key]&&PS.data.docs.gdd[sec.key][f.k])||'';html+=val.trim()?`<p><strong>${f.l}:</strong></p><pre>${val.replace(/</g,'&lt;')}</pre>`:`<p><strong>${f.l}:</strong> <span class="skip">(not filled)</span></p>`;});html+='<hr>';});});
+  // LDD
+  html+=`<h1>📐 Level Design Document</h1>`;
+  LDD_SECS.forEach(grp=>{html+=`<h2>${grp.grp}</h2>`;grp.items.forEach(sec=>{if(!sec.fields)return;html+=`<h3>${sec.icon} ${sec.label}</h3>`;sec.fields.forEach(f=>{const val=(PS.data.docs.ldd[sec.key]&&PS.data.docs.ldd[sec.key][f.k])||'';html+=val.trim()?`<p><strong>${f.l}:</strong></p><pre>${val.replace(/</g,'&lt;')}</pre>`:`<p><strong>${f.l}:</strong> <span class="skip">(not filled)</span></p>`;});html+='<hr>';});});
+  // Maps
+  if(PS.data.maps&&PS.data.maps.length){
+    html+=`<h1>🗺️ Maps</h1>`;
+    PS.data.maps.forEach(m=>{html+=`<h2>${m.name}</h2><p style="font-size:11px;color:#888">${m.objects?m.objects.length:0} objects · Created ${new Date(m.created||Date.now()).toLocaleDateString()}</p>`;});
+    if(mapImg){html+=`<h3>Current Map Preview</h3><img class="map-img" src="${mapImg}" alt="Map">`;}
+  }
+  html+=`</body></html>`;
+  const win=window.open('','_blank');
+  win.document.write(html);win.document.close();
+  setTimeout(()=>win.print(),600);
+  showToast('Opening full PDF…');
+}
+
 // ════════════════════════════════════════════════════════════
 // BEAT TABLE (LDD Excel-like)
 // ════════════════════════════════════════════════════════════
@@ -2786,6 +3091,13 @@ function initFlowCanvas(){
   canvas.addEventListener('mouseup',()=>{if(FC.dragging){FC.dragging=null;saveFlowchart();}});
   canvas.addEventListener('click',e=>{
     if(e.target===canvas||e.target.id==='flow-svg'){FC.connectFrom=null;FC.selectedNode=null;renderFlowNodes();}
+  });
+  canvas.addEventListener('contextmenu',e=>{
+    e.preventDefault();
+    const cr=canvas.getBoundingClientRect();
+    const mx=e.clientX-cr.left, my=e.clientY-cr.top;
+    const hit=FC.nodes.find(n=>mx>=n.x&&mx<=n.x+154&&my>=n.y&&my<=n.y+120);
+    if(hit){deleteFlowNode(hit.id);}
   });
 }
 
@@ -3170,7 +3482,7 @@ document.addEventListener('keydown', e => {
   if(e.key==='Escape'){closeModal();if(MAP.polyPoints){MAP.polyPoints=[];MAP.isDrawing=false;renderMap();}FC.connectFrom=null;FC.selectedNode=null;renderFlowNodes();}
   const tag=document.activeElement.tagName;
   if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||document.activeElement.contentEditable==='true') return;
-  const toolKeys={v:'select',h:'pan',r:'rect',w:'wall',p:'poly',c:'circle',t:'text',e:'erase',g:'grid',f:'fit'};
+  const toolKeys={v:'select',h:'pan',r:'rect',w:'wall',p:'poly',c:'circle',t:'text',e:'erase',g:'grid',f:'fit',s:'stair',l:'light',y:'person',x:'enemy',a:'arrow',d:'draw'};
   if(toolKeys[e.key]) {
     if(e.key==='g') toggleGrid();
     else if(e.key==='f') fitToScreen();
@@ -3178,6 +3490,8 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
   }
   if(e.key==='Delete'||e.key==='Backspace'){
+    const _aMod=document.querySelector('.sb-item.active')?.dataset?.mod;
+    if(_aMod==='ldd'&&FC.selectedNode){deleteFlowNode(FC.selectedNode);return;}
     if(MAP.selectedIds.size){mapPushHistory();MAP.selectedIds.forEach(id=>{MAP.objects=MAP.objects.filter(o=>o.id!==id);});MAP.selectedIds.clear();renderMap();renderMapProps();autoSave();mapSaveCurrent();}
   }
   if(e.key==='+') zoomMap(1.2);
