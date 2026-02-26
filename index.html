@@ -1258,6 +1258,7 @@ const FIREBASE = {
     } catch(err) {
       console.error('[Firebase] init failed:', err);
       this._setStatus('error', '⚠ Firebase offline');
+      showToast('⚠ Firebase offline — ' + (err.message || 'check Firebase Console rules'));
     }
   },
 
@@ -1439,11 +1440,75 @@ const FIREBASE = {
         const txt = await res.text().catch(()=>'');
         console.error('[Firebase] write failed:', res.status, txt);
         this._setStatus('error', '⚠ Write err ' + res.status);
+        if (res.status === 401 || res.status === 403) {
+          showToast('⚠ Firebase: Permission denied — rules expired, check Firebase Console');
+        } else {
+          showToast('⚠ Firebase write error ' + res.status);
+        }
       }
     } catch(err) {
       console.error('[Firebase] network error:', err);
       this._setStatus('error', '⚠ Offline');
+      showToast('⚠ Firebase: no connection');
     }
+  },
+
+  // ── Diagnostics ───────────────────────────────────────────
+  async testConnection() {
+    const el = document.getElementById('fb-test-result');
+    if (el) el.innerHTML = '<span style="color:var(--gold)">Testing…</span>';
+    let html = '';
+
+    // Test READ
+    try {
+      const res = await fetch(this._stateUrl + '?shallow=true', { cache:'no-store' });
+      if (res.ok) {
+        html += '<div style="color:var(--green)">✓ Read OK (HTTP ' + res.status + ')</div>';
+      } else {
+        const txt = await res.text().catch(()=>'');
+        html += '<div style="color:var(--red)">✗ Read FAILED — HTTP ' + res.status + '</div>';
+        if (res.status === 401 || res.status === 403) {
+          html += '<div style="color:var(--text-muted);font-size:10px;margin-top:3px">→ Firebase test mode rules expired (30-day limit).<br>Go to <strong>Firebase Console → Realtime Database → Rules</strong> and set:<br><code style="font-family:var(--fm)">"read": true, "write": true</code></div>';
+        } else {
+          html += '<div style="color:var(--text-muted);font-size:10px">Response: ' + txt.slice(0,120) + '</div>';
+        }
+      }
+    } catch(e) {
+      html += '<div style="color:var(--red)">✗ Read ERROR: ' + e.message + '</div>';
+    }
+
+    // Test WRITE (a temporary key, then delete it)
+    try {
+      const testUrl = `${this.dbUrl}/projects/${this.projectId}/__ping.json`;
+      const res = await fetch(testUrl, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ ts: Date.now(), by: this.sessionId })
+      });
+      if (res.ok) {
+        html += '<div style="color:var(--green)">✓ Write OK</div>';
+        fetch(testUrl, { method:'DELETE' }).catch(()=>{});
+      } else {
+        html += '<div style="color:var(--red)">✗ Write FAILED — HTTP ' + res.status + '</div>';
+      }
+    } catch(e) {
+      html += '<div style="color:var(--red)">✗ Write ERROR: ' + e.message + '</div>';
+    }
+
+    // Test PRESENCE endpoint
+    try {
+      const res = await fetch(this._presUrl + '?shallow=true', { cache:'no-store' });
+      if (res.ok) {
+        const data = await res.json().catch(()=>null);
+        const count = data ? Object.keys(data).length : 0;
+        html += '<div style="color:var(--green)">✓ Presence OK — ' + count + ' session(s) in DB</div>';
+      } else {
+        html += '<div style="color:var(--red)">✗ Presence FAILED — HTTP ' + res.status + '</div>';
+      }
+    } catch(e) {
+      html += '<div style="color:var(--red)">✗ Presence ERROR: ' + e.message + '</div>';
+    }
+
+    if (el) el.innerHTML = html || '<span style="color:var(--text-muted)">No results</span>';
   },
 
   // ── Helpers ───────────────────────────────────────────────
@@ -1662,6 +1727,16 @@ function openFirebaseModal() {
       2. Use the same <em>Project ID</em> — everyone shares that save slot<br>
       3. Changes sync in ~1 sec to all open tabs/browsers<br>
       4. Presence heartbeat every 8 s — shows who is online
+    </div>
+    <div style="margin-top:12px;border:1px solid rgba(224,82,82,.25);border-radius:6px;padding:10px;background:rgba(224,82,82,.04)">
+      <div style="font-size:10px;font-family:var(--fu);letter-spacing:1px;color:var(--red);margin-bottom:6px">⚠ TROUBLESHOOTING — IF SYNC IS BROKEN</div>
+      <div style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin-bottom:8px">
+        Firebase <em>test mode</em> rules expire after <strong>30 days</strong>. If saves stop working, go to:<br>
+        <strong>Firebase Console → Realtime Database → Rules</strong> and publish:<br>
+        <code style="font-family:var(--fm);background:var(--bg-input);padding:2px 5px;border-radius:3px">{ "rules": { ".read": true, ".write": true } }</code>
+      </div>
+      <button class="btn btn-sm" style="font-size:11px" onclick="FIREBASE.testConnection()">🔍 Test Connection Now</button>
+      <div id="fb-test-result" style="margin-top:8px;font-size:11px;line-height:1.7;font-family:var(--fm)"></div>
     </div>`;
 
   openModal('🔥 Firebase Sync', body, [
