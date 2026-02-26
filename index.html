@@ -965,6 +965,7 @@ const PS = {
   },
   _merge(p) {
     if (!p) return;
+    const keepLocalTs = this.data._localTs; // never overwrite local save timestamp with remote
     this.data.tasks = p.tasks || [];
     this.data.maps = p.maps || [];
     this.data.calendarEvents = p.calendarEvents || [];
@@ -975,6 +976,7 @@ const PS = {
     this.data.currentProject = p.currentProject || 'Project Alpha';
     this.data.studying = p.studying || { topics:[], notes:[] };
     this.data.notes = p.notes || { lists:[{id:'nl_default',name:'General',color:'#c9a227',icon:'📋',items:[]}], activeList:'nl_default' };
+    if (keepLocalTs) this.data._localTs = keepLocalTs;
   },
   _idbSave() {
     if (!window.indexedDB) return;
@@ -1092,7 +1094,9 @@ function autoSave() {
   // Full local save — 3s (unchanged)
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(() => {
-    collectDocData(); mapSaveCurrent(); PS.save();
+    collectDocData(); mapSaveCurrent();
+    PS.data._localTs = Date.now();
+    PS.save();
     if (CLOUD.enabled) cloudPush();
     if (_BC) { clearTimeout(_bcTimer); _bcTimer = setTimeout(_bcBroadcastSave, 200); }
   }, 3000);
@@ -1103,6 +1107,7 @@ function saveAll() {
   collectDocData();
   mapSaveCurrent();
   setTimeout(() => {
+    PS.data._localTs = Date.now();
     PS.save();
     if (CLOUD.enabled) cloudPush();
     FIREBASE.push();
@@ -1318,10 +1323,23 @@ const FIREBASE = {
     const res = await fetch(this._stateUrl, { cache:'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status + ' — check Firebase rules');
     const payload = await res.json();
+
     if (payload && payload.data) {
-      this._lastRemoteTs = payload.ts || 0;
-      PS._merge(payload.data); _fbApply();
-      this._addLog('✓ State loaded (ts ' + new Date(this._lastRemoteTs).toLocaleTimeString() + ')');
+      const firebaseTs = payload.ts || 0;
+      const localTs    = PS.data._localTs || 0;
+
+      if (firebaseTs > localTs) {
+        // Firebase is newer → merge it
+        this._lastRemoteTs = firebaseTs;
+        PS._merge(payload.data); _fbApply();
+        this._addLog('✓ Firebase is newer — loaded remote state');
+      } else {
+        // Local is newer (or same age) → push our data up to Firebase
+        this._addLog('⬆ Local is newer — pushing to Firebase (was: ' +
+          new Date(firebaseTs).toLocaleTimeString() + ', local: ' +
+          new Date(localTs).toLocaleTimeString() + ')');
+        await this._doWrite();
+      }
     } else {
       this._addLog('ℹ Empty DB — seeding with local data');
       await this._doWrite();
