@@ -1240,6 +1240,7 @@ const FIREBASE = {
   _heartbeat:       null,
   _ready:           false,
   _writeQueue:      false,  // true if a write arrived before _ready
+  _log:             [],     // last 8 events for the modal live log
 
   // ── URL helpers ───────────────────────────────────────────
   get _stateUrl()   { return `${this.dbUrl}/projects/${this.projectId}/state.json`; },
@@ -1251,17 +1252,20 @@ const FIREBASE = {
   // Called from init() — loads current state then subscribes to changes
   async init() {
     this._setStatus('connecting', 'Firebase…');
+    this._addLog('🔌 Connecting to project "' + this.projectId + '"…');
     try {
       await this._loadState();
       this._subscribeState();
       this._subscribePresence();
       this._startHeartbeat();
       this._ready = true;
+      this._addLog('✓ Ready — SSE subscribed');
       // Flush any write that happened while we were initialising
       if (this._writeQueue) { this._writeQueue = false; this._doWrite(); }
     } catch(err) {
       console.error('[Firebase] init failed:', err);
       this._setStatus('error', '⚠ Firebase offline');
+      this._addLog('✗ Init failed: ' + err.message);
       showToast('⚠ Firebase offline — ' + (err.message || 'check Firebase Console rules'));
     }
   },
@@ -1336,6 +1340,7 @@ const FIREBASE = {
         // ⚡ Anti-loop: Firebase echoes our own writes back — ignore them
         if (payload.sessionId === this.sessionId) return;
         console.log('[Firebase] received update from', payload.sessionId);
+        this._addLog('⬇ Update from ' + (payload.sessionId||'?').slice(0,12));
         PS._merge(payload.data);
         _fbApply();
         this._setStatus('ok', '⬇ Synced');
@@ -1439,6 +1444,7 @@ const FIREBASE = {
         body:    JSON.stringify(payload)
       });
       if (res.ok) {
+        this._addLog('⬆ Saved OK');
         this._setStatus('ok', this._lbl());
       } else {
         const txt = await res.text().catch(()=>'');
@@ -1513,6 +1519,39 @@ const FIREBASE = {
     }
 
     if (el) el.innerHTML = html || '<span style="color:var(--text-muted)">No results</span>';
+  },
+
+  // ── Live log ──────────────────────────────────────────────
+  _addLog(msg) {
+    const t = new Date().toLocaleTimeString();
+    this._log.unshift('[' + t + '] ' + msg);
+    if (this._log.length > 8) this._log.pop();
+    // Refresh log panel if modal is open
+    const el = document.getElementById('fb-live-log');
+    if (el) el.innerHTML = this._log.map(l => '<div>' + l + '</div>').join('');
+  },
+
+  // ── Force Sync ────────────────────────────────────────────
+  async forceSync() {
+    this._addLog('⬇ Force sync requested…');
+    showToast('🔄 Syncing from Firebase…');
+    try {
+      const res = await fetch(this._stateUrl, { cache: 'no-store' });
+      if (!res.ok) { showToast('⚠ Sync failed: HTTP ' + res.status); this._addLog('✗ Fetch failed HTTP ' + res.status); return; }
+      const payload = await res.json();
+      if (payload && payload.data) {
+        PS._merge(payload.data);
+        _fbApply();
+        showToast('✓ Synced from Firebase');
+        this._addLog('✓ Force sync OK — data applied');
+      } else {
+        showToast('Firebase path is empty');
+        this._addLog('⚠ Firebase path empty');
+      }
+    } catch(e) {
+      showToast('⚠ Sync error: ' + e.message);
+      this._addLog('✗ Error: ' + e.message);
+    }
   },
 
   // ── Helpers ───────────────────────────────────────────────
@@ -1707,12 +1746,22 @@ function openFirebaseModal() {
     ? online.map(u => `<span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;margin:2px">${u.sessionId===FIREBASE.sessionId?'<span style="color:var(--green)">●</span>':'<span style="color:var(--blue)">●</span>'} ${u.name||'User'}</span>`).join('')
     : '<span style="font-size:11px;color:var(--text-muted)">No one else connected</span>';
 
+  const logHtml = FIREBASE._log.length
+    ? FIREBASE._log.map(l => '<div>' + l + '</div>').join('')
+    : '<div style="color:var(--text-muted)">No events yet</div>';
+
   const body = `
     <div style="background:rgba(78,203,113,.06);border:1px solid rgba(78,203,113,.25);border-radius:8px;padding:12px;margin-bottom:14px">
       <div style="font-size:10px;font-family:var(--fu);letter-spacing:1px;color:var(--green);margin-bottom:8px">🔥 FIREBASE — LIVE STATUS</div>
       <div style="font-size:12px;color:var(--text-primary);margin-bottom:6px"><strong>Status:</strong> ${status} &nbsp; <strong>Project:</strong> <code style="font-family:var(--fm);color:var(--gold)">${proj}</code></div>
-      <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px"><strong>Online now:</strong></div>
-      <div style="display:flex;flex-wrap:wrap;gap:2px">${othersHtml}</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px"><strong>Online now:</strong></div>
+      <div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:10px">${othersHtml}</div>
+      <div style="font-size:10px;font-family:var(--fu);letter-spacing:1px;color:var(--text-muted);margin-bottom:4px">EVENT LOG</div>
+      <div id="fb-live-log" style="font-family:var(--fm);font-size:10px;color:var(--text-secondary);line-height:1.7;background:var(--bg-input);border-radius:4px;padding:6px 8px;max-height:110px;overflow-y:auto">${logHtml}</div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-sm" style="font-size:11px" onclick="FIREBASE.forceSync()">🔄 Force Sync Now</button>
+        <button class="btn btn-sm" style="font-size:11px" onclick="FIREBASE._log=[];document.getElementById('fb-live-log').innerHTML='<div style=\'color:var(--text-muted)\'>Cleared</div>'">Clear Log</button>
+      </div>
     </div>
     <div class="fg" style="margin-bottom:10px">
       <label class="fl">Your Display Name</label>
