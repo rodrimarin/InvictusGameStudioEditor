@@ -1219,37 +1219,54 @@ const CLOUD = {
 // FIREBASE REALTIME DATABASE — real-time sync (no SDK needed)
 // Uses REST API + SSE (EventSource) — plug-and-play, no build step
 // ════════════════════════════════════════════════════════════
+let _fbPresence = {};  // live presence map: { sessionId: { name, ts, sessionId } }
+
 const FIREBASE = {
-  dbUrl:     'https://invictus-game-studio-default-rtdb.firebaseio.com',
-  projectId: localStorage.getItem('fb_project') || 'default',
-  // Unique per browser tab — used to filter our own writes from the SSE stream
-  sessionId: 'sess_' + Date.now().toString(36) + Math.random().toString(36).slice(2),
-  _throttleTimer:  null,
-  _throttleDelay:  100,   // 100 ms = max 10 writes/sec
-  _pendingWrite:   false,
-  _sse:            null,
-  _ready:          false, // becomes true once initial load completes
+  dbUrl:      'https://invictus-game-studio-default-rtdb.firebaseio.com',
+  projectId:  localStorage.getItem('fb_project') || 'default',
+  userName:   localStorage.getItem('fb_username') || ('User_' + Math.random().toString(36).slice(2,5).toUpperCase()),
+  // New random ID every page load — used to filter our own writes from the SSE echo
+  sessionId:  'sess_' + Date.now().toString(36) + Math.random().toString(36).slice(2),
 
-  get _url() {
-    return `${this.dbUrl}/projects/${this.projectId}/state.json`;
-  },
+  _throttleTimer:   null,
+  _throttleDelay:   100,    // 100 ms → max 10 writes/sec
+  _pendingWrite:    false,
+  _stateSse:        null,
+  _presSse:         null,
+  _heartbeat:       null,
+  _ready:           false,
+  _writeQueue:      false,  // true if a write arrived before _ready
 
-  // Called from init() after local data is loaded
+  // ── URL helpers ───────────────────────────────────────────
+  get _stateUrl()   { return `${this.dbUrl}/projects/${this.projectId}/state.json`; },
+  get _presUrl()    { return `${this.dbUrl}/projects/${this.projectId}/presence.json`; },
+  get _myPresUrl()  { return `${this.dbUrl}/projects/${this.projectId}/presence/${this.sessionId}.json`; },
+
+  // ── Public API ────────────────────────────────────────────
+
+  // Called from init() — loads current state then subscribes to changes
   async init() {
     this._setStatus('connecting', 'Firebase…');
     try {
-      await this._load();
-      this._subscribe();
+      await this._loadState();
+      this._subscribeState();
+      this._subscribePresence();
+      this._startHeartbeat();
       this._ready = true;
+      // Flush any write that happened while we were initialising
+      if (this._writeQueue) { this._writeQueue = false; this._doWrite(); }
     } catch(err) {
-      console.warn('[Firebase] init failed:', err);
-      this._setStatus('error', '⚠ Offline');
+      console.error('[Firebase] init failed:', err);
+      this._setStatus('error', '⚠ Firebase offline');
     }
   },
 
-  // Throttled write — called from autoSave / saveAll
+  // Throttled write (max 10×/sec) — call from autoSave / saveAll
   push() {
-    if (!this._ready) return;
+    if (!this._ready) {
+      this._writeQueue = true;   // remember there's a pending write
+      return;
+    }
     if (this._throttleTimer) { this._pendingWrite = true; return; }
     this._doWrite();
     this._throttleTimer = setTimeout(() => {
@@ -1258,90 +1275,181 @@ const FIREBASE = {
     }, this._throttleDelay);
   },
 
-  // Switch project — persists to localStorage
+  // Switch to a different project (different save slot)
   setProject(id) {
     if (!id || id === this.projectId) return;
+    this._cleanup();
     this.projectId = id;
     localStorage.setItem('fb_project', id);
     this._ready = false;
-    if (this._sse) { try { this._sse.close(); } catch(e) {} this._sse = null; }
     this.init();
   },
 
-  async _load() {
-    const res = await fetch(this._url, { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+  setUserName(name) {
+    if (!name) return;
+    this.userName = name;
+    localStorage.setItem('fb_username', name);
+  },
+
+  // ── Internal ──────────────────────────────────────────────
+
+  _cleanup() {
+    if (this._stateSse) { try { this._stateSse.close(); } catch(e) {} this._stateSse = null; }
+    if (this._presSse)  { try { this._presSse.close();  } catch(e) {} this._presSse  = null; }
+    if (this._heartbeat) { clearInterval(this._heartbeat); this._heartbeat = null; }
+    // Remove our presence entry
+    fetch(this._myPresUrl, { method:'DELETE', keepalive:true }).catch(()=>{});
+  },
+
+  async _loadState() {
+    const res = await fetch(this._stateUrl, { cache:'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' — check Firebase test mode rules');
     const payload = await res.json();
     if (payload && payload.data) {
-      // Firebase has data — merge over local (Firebase is authoritative on load)
       PS._merge(payload.data);
       _fbApply();
-      this._setStatus('ok', '🔥 Firebase');
+      console.log('[Firebase] loaded state from', this.projectId);
     } else {
-      // Firebase path is empty — seed it with current local state
-      this._setStatus('ok', '🔥 Firebase');
-      this.push();
+      // Firebase is empty — push our local state up immediately (bypass _ready)
+      console.log('[Firebase] path empty, seeding with local state');
+      await this._doWrite();   // direct write, no throttle needed
     }
   },
 
-  _subscribe() {
-    if (this._sse) { try { this._sse.close(); } catch(e) {} }
-    this._sse = new EventSource(this._url);
+  // ── State SSE ─────────────────────────────────────────────
+  _subscribeState() {
+    if (this._stateSse) { try { this._stateSse.close(); } catch(e) {} }
+    this._stateSse = new EventSource(this._stateUrl);
 
-    // PUT = full-path overwrite (our PUT requests trigger this on all listeners)
-    this._sse.addEventListener('put', e => {
+    // PUT fires on: (1) initial connect with current state, (2) any PUT from any client
+    this._stateSse.addEventListener('put', e => {
       try {
         const ev = JSON.parse(e.data);
-        if (!ev || ev.data === null) return;         // path deleted — ignore
+        if (!ev || ev.data === null) return;
         const payload = ev.data;
         if (!payload || !payload.data) return;
-        if (payload.sessionId === this.sessionId) return; // ← our own write, skip
+        // ⚡ Anti-loop: Firebase echoes our own writes back — ignore them
+        if (payload.sessionId === this.sessionId) return;
+        console.log('[Firebase] received update from', payload.sessionId);
         PS._merge(payload.data);
         _fbApply();
         this._setStatus('ok', '⬇ Synced');
-        setTimeout(() => this._setStatus('ok', '🔥 Firebase'), 2000);
-      } catch(err) { console.warn('[Firebase] put event:', err); }
+        setTimeout(() => this._setStatus('ok', this._lbl()), 2000);
+      } catch(err) { console.warn('[Firebase] state put error:', err); }
     });
 
-    // PATCH = partial update (PATCH requests — future use)
-    this._sse.addEventListener('patch', e => {
+    this._stateSse.addEventListener('patch', e => {
       try {
         const ev = JSON.parse(e.data);
         if (!ev || !ev.data) return;
         const payload = ev.data;
         if (payload.sessionId === this.sessionId) return;
-        if (payload.data) {
-          PS._merge(payload.data);
-          _fbApply();
-          this._setStatus('ok', '⬇ Synced');
-          setTimeout(() => this._setStatus('ok', '🔥 Firebase'), 2000);
-        }
+        if (payload.data) { PS._merge(payload.data); _fbApply(); }
       } catch(err) {}
     });
 
-    this._sse.addEventListener('keep-alive', () => { /* heartbeat — connection alive */ });
-
-    this._sse.onerror = () => {
+    this._stateSse.onerror = () => {
+      console.warn('[Firebase] state SSE error, reconnecting in 5s');
       this._setStatus('error', '⚠ Reconnecting…');
-      try { this._sse.close(); } catch(e) {}
-      setTimeout(() => this._subscribe(), 5000);
+      try { this._stateSse.close(); } catch(e) {}
+      setTimeout(() => this._subscribeState(), 5000);
     };
   },
 
+  // ── Presence SSE ──────────────────────────────────────────
+  _subscribePresence() {
+    if (this._presSse) { try { this._presSse.close(); } catch(e) {} }
+    this._presSse = new EventSource(this._presUrl);
+
+    this._presSse.addEventListener('put', e => {
+      try {
+        const ev = JSON.parse(e.data);
+        if (ev.path === '/') {
+          _fbPresence = ev.data || {};
+        } else {
+          const key = ev.path.replace(/^\//, '');
+          if (ev.data === null) delete _fbPresence[key];
+          else _fbPresence[key] = ev.data;
+        }
+        _fbRenderOnline();
+        this._setStatus('ok', this._lbl());
+      } catch(err) {}
+    });
+
+    this._presSse.addEventListener('patch', e => {
+      try {
+        const ev = JSON.parse(e.data);
+        const d = ev.data || {};
+        Object.keys(d).forEach(k => {
+          if (d[k] === null) delete _fbPresence[k]; else _fbPresence[k] = d[k];
+        });
+        _fbRenderOnline();
+        this._setStatus('ok', this._lbl());
+      } catch(err) {}
+    });
+
+    this._presSse.onerror = () => {
+      try { this._presSse.close(); } catch(e) {}
+      setTimeout(() => this._subscribePresence(), 8000);
+    };
+  },
+
+  // ── Heartbeat & presence ──────────────────────────────────
+  _startHeartbeat() {
+    this._writePresence();
+    this._heartbeat = setInterval(() => {
+      this._writePresence();
+      this._cleanStalePresence();
+    }, 8000);
+    window.addEventListener('beforeunload', () => {
+      fetch(this._myPresUrl, { method:'DELETE', keepalive:true }).catch(()=>{});
+    });
+  },
+
+  _writePresence() {
+    fetch(this._myPresUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ name: this.userName, ts: Date.now(), sessionId: this.sessionId })
+    }).catch(err => console.warn('[Firebase] presence write error:', err));
+  },
+
+  _cleanStalePresence() {
+    const cutoff = Date.now() - 25000;  // 25s timeout
+    Object.entries(_fbPresence).forEach(([k, v]) => {
+      if (v && v.ts < cutoff && k !== this.sessionId) {
+        fetch(`${this.dbUrl}/projects/${this.projectId}/presence/${k}.json`, { method:'DELETE' }).catch(()=>{});
+      }
+    });
+  },
+
+  // ── Write ─────────────────────────────────────────────────
   async _doWrite() {
     const payload = { data: PS.data, sessionId: this.sessionId, ts: Date.now() };
     this._setStatus('saving', '⬆ Saving…');
     try {
-      const res = await fetch(this._url, {
+      const res = await fetch(this._stateUrl, {
         method:  'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type':'application/json' },
         body:    JSON.stringify(payload)
       });
-      this._setStatus(res.ok ? 'ok' : 'error', res.ok ? '🔥 Firebase' : '⚠ Write err');
+      if (res.ok) {
+        this._setStatus('ok', this._lbl());
+      } else {
+        const txt = await res.text().catch(()=>'');
+        console.error('[Firebase] write failed:', res.status, txt);
+        this._setStatus('error', '⚠ Write err ' + res.status);
+      }
     } catch(err) {
-      console.warn('[Firebase] write error:', err);
+      console.error('[Firebase] network error:', err);
       this._setStatus('error', '⚠ Offline');
     }
+  },
+
+  // ── Helpers ───────────────────────────────────────────────
+  _lbl() {
+    const n = _fbOnlineCount();
+    return n > 1 ? `🔥 ${n} online` : '🔥 Firebase';
   },
 
   _setStatus(type, label) {
@@ -1350,10 +1458,10 @@ const FIREBASE = {
     const btn = document.getElementById('cloud-btn');
     if (!dot || !lbl) return;
     const cfg = {
-      connecting: { dot:'#c9a227', shadow:'none',                           border:'rgba(201,162,39,.4)', color:'#c9a227' },
-      saving:     { dot:'#c9a227', shadow:'none',                           border:'rgba(201,162,39,.4)', color:'#c9a227' },
-      ok:         { dot:'#4ecb71', shadow:'0 0 0 3px rgba(78,203,113,.2)',   border:'rgba(78,203,113,.4)', color:'#4ecb71' },
-      error:      { dot:'#e05252', shadow:'none',                           border:'rgba(224,82,82,.4)',  color:'#e05252' }
+      connecting: { dot:'#c9a227', shadow:'none',                          border:'rgba(201,162,39,.4)', color:'#c9a227' },
+      saving:     { dot:'#c9a227', shadow:'none',                          border:'rgba(201,162,39,.4)', color:'#c9a227' },
+      ok:         { dot:'#4ecb71', shadow:'0 0 0 3px rgba(78,203,113,.2)', border:'rgba(78,203,113,.4)', color:'#4ecb71' },
+      error:      { dot:'#e05252', shadow:'none',                          border:'rgba(224,82,82,.4)',  color:'#e05252' }
     };
     const s = cfg[type] || cfg.ok;
     dot.style.background = s.dot;
@@ -1363,24 +1471,49 @@ const FIREBASE = {
   }
 };
 
-// Re-render whichever module is currently on screen after a Firebase state update
+// ── Presence helpers ──────────────────────────────────────────
+function _fbOnlineCount() {
+  const cutoff = Date.now() - 20000;
+  return Object.values(_fbPresence).filter(u => u && u.ts > cutoff).length;
+}
+
+function _fbRenderOnline() {
+  const cutoff  = Date.now() - 20000;
+  const online  = Object.values(_fbPresence).filter(u => u && u.ts > cutoff);
+  const others  = online.filter(u => u.sessionId !== FIREBASE.sessionId);
+  const collab  = document.getElementById('collab-ind');
+  if (!collab) return;
+  if (others.length > 0) {
+    const names = others.map(u => u.name || 'User').slice(0, 4).join(', ');
+    collab.textContent = `👥 ${others.length} online: ${names}`;
+    collab.style.cssText = 'display:flex;align-items:center;font-family:var(--fm);font-size:11px;color:var(--green);white-space:nowrap;padding:0 8px;border:1px solid rgba(78,203,113,.3);border-radius:3px;gap:4px;';
+  } else {
+    collab.style.display = 'none';
+  }
+}
+
+// Re-render the currently visible module after a Firebase remote update
 function _fbApply() {
-  try { refreshDashboard(); } catch(e) {}
+  try { if (typeof refreshDashboard === 'function') refreshDashboard(); } catch(e) {}
   const mod = document.querySelector('.sb-item.active')?.dataset?.mod;
   if (!mod) return;
-  if      (mod === 'map')   { try { renderMap(); renderMapLayers(); renderMapProps(); } catch(e) {} }
-  else if (mod === 'notes') { try { renderNotesLists(); renderNotesItems(); } catch(e) {} }
-  else if (mod === 'tasks') { try { renderTasks(); } catch(e) {} }
-  else if (mod === 'gdd')   { try { initGDD(); } catch(e) {} }
-  else if (mod === 'ldd')   { try { initLDD(); } catch(e) {} }
+  try {
+    if      (mod === 'map')   { if (MAP.currentMapId) { renderMap(); renderMapLayers(); renderMapProps(); } }
+    else if (mod === 'notes') { renderNotesLists(); renderNotesItems(); }
+    else if (mod === 'tasks') { renderTasks(); }
+    else if (mod === 'gdd')   { initGDD(); }
+    else if (mod === 'ldd')   { initLDD(); }
+    // 'studying' intentionally skipped — would disrupt the web reader iframe
+  } catch(err) { console.warn('[Firebase] _fbApply error in module', mod, err); }
 }
 
 function cloudLoadSettings() {
   CLOUD.apiKey = localStorage.getItem('igs_cloud_key') || '';
   CLOUD.binId = localStorage.getItem('igs_cloud_bin') || '';
   CLOUD.enabled = !!(CLOUD.apiKey && CLOUD.binId);
-  _cloudUpdateUI();
-  if (CLOUD.enabled) { cloudPull(); startCloudPolling(); }
+  // Only update the cloud indicator if JSONBin is enabled —
+  // Firebase will own the indicator otherwise
+  if (CLOUD.enabled) { _cloudUpdateUI(); cloudPull(); startCloudPolling(); }
 }
 
 function _cloudUpdateUI(status) {
@@ -1496,45 +1629,57 @@ async function cloudCreateBin(apiKey, name) {
 
 // ── Firebase settings modal ───────────────────────────────
 function openFirebaseModal() {
-  const dbUrl = FIREBASE.dbUrl;
-  const proj  = FIREBASE.projectId;
-  const sid   = FIREBASE.sessionId;
+  const proj   = FIREBASE.projectId;
+  const uname  = FIREBASE.userName;
   const status = document.getElementById('cloud-lbl')?.textContent || '…';
+  const cutoff = Date.now() - 20000;
+  const online = Object.values(_fbPresence).filter(u => u && u.ts > cutoff);
+  const othersHtml = online.length
+    ? online.map(u => `<span style="display:inline-flex;align-items:center;gap:5px;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;margin:2px">${u.sessionId===FIREBASE.sessionId?'<span style="color:var(--green)">●</span>':'<span style="color:var(--blue)">●</span>'} ${u.name||'User'}</span>`).join('')
+    : '<span style="font-size:11px;color:var(--text-muted)">No one else connected</span>';
+
   const body = `
-    <div style="background:rgba(255,140,0,.06);border:1px solid rgba(201,162,39,.25);border-radius:8px;padding:14px;margin-bottom:16px;">
-      <div style="font-size:12px;font-family:var(--fu);letter-spacing:.5px;color:var(--gold);margin-bottom:8px">🔥 FIREBASE REALTIME DATABASE</div>
-      <div style="font-size:11px;color:var(--text-secondary);line-height:1.8">
-        <strong style="color:var(--text-primary)">Database URL:</strong><br>
-        <code style="font-family:var(--fm);font-size:10px;color:var(--gold)">${dbUrl}</code><br><br>
-        <strong style="color:var(--text-primary)">Status:</strong> <span style="color:var(--green)">${status}</span><br>
-        <strong style="color:var(--text-primary)">Session ID:</strong> <span style="font-family:var(--fm);font-size:10px;color:var(--text-muted)">${sid}</span>
-      </div>
+    <div style="background:rgba(78,203,113,.06);border:1px solid rgba(78,203,113,.25);border-radius:8px;padding:12px;margin-bottom:14px">
+      <div style="font-size:10px;font-family:var(--fu);letter-spacing:1px;color:var(--green);margin-bottom:8px">🔥 FIREBASE — LIVE STATUS</div>
+      <div style="font-size:12px;color:var(--text-primary);margin-bottom:6px"><strong>Status:</strong> ${status} &nbsp; <strong>Project:</strong> <code style="font-family:var(--fm);color:var(--gold)">${proj}</code></div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px"><strong>Online now:</strong></div>
+      <div style="display:flex;flex-wrap:wrap;gap:2px">${othersHtml}</div>
+    </div>
+    <div class="fg" style="margin-bottom:10px">
+      <label class="fl">Your Display Name</label>
+      <input class="fi" id="fb-name-input" value="${uname}" placeholder="e.g. Rodrigo" style="font-family:var(--fb)">
     </div>
     <div class="fg">
-      <label class="fl">Project ID</label>
-      <input class="fi" id="fb-proj-input" value="${proj}" placeholder="default"
-        style="font-family:var(--fm)" title="Data is stored at /projects/{projectId}/state — change to isolate projects">
+      <label class="fl">Project ID <span style="font-size:10px;color:var(--text-muted)">(shared with your team)</span></label>
+      <input class="fi" id="fb-proj-input" value="${proj}" placeholder="default" style="font-family:var(--fm)">
       <div style="font-size:10px;color:var(--text-muted);margin-top:4px">
-        Data path: <code style="font-family:var(--fm)">/projects/<strong id="fb-path-preview">${proj}</strong>/state</code>
+        Firebase path: <code style="font-family:var(--fm)">/projects/<strong id="fb-path-preview">${proj}</strong>/state</code>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--text-secondary);margin-top:14px;line-height:1.7;background:var(--bg-panel);border-radius:6px;padding:10px;">
-      <strong>How it works:</strong><br>
-      • All changes auto-save to Firebase (max 10×/sec)<br>
-      • Every open tab/browser syncs in real time via SSE<br>
-      • No login needed — uses Realtime DB in test mode<br>
-      • Change <em>Project ID</em> to work on a different save slot
+    <div style="font-size:11px;color:var(--text-secondary);margin-top:12px;line-height:1.7;background:var(--bg-panel);border-radius:6px;padding:10px">
+      <strong>How to use with a team:</strong><br>
+      1. Everyone opens the same URL (GitHub Pages)<br>
+      2. Use the same <em>Project ID</em> — everyone shares that save slot<br>
+      3. Changes sync in ~1 sec to all open tabs/browsers<br>
+      4. Presence heartbeat every 8 s — shows who is online
     </div>`;
+
   openModal('🔥 Firebase Sync', body, [
     { label:'Cancel', cls:'btn', fn: closeModal },
-    { label:'Save & Reconnect', cls:'btn btn-gold', fn: () => {
-      const id = document.getElementById('fb-proj-input')?.value?.trim();
-      if (id) { FIREBASE.setProject(id); showToast('Firebase reconnected to "' + id + '"'); }
+    { label:'Save', cls:'btn btn-gold', fn: () => {
+      const id   = document.getElementById('fb-proj-input')?.value?.trim();
+      const name = document.getElementById('fb-name-input')?.value?.trim();
+      if (name) FIREBASE.setUserName(name);
+      if (id && id !== FIREBASE.projectId) {
+        FIREBASE.setProject(id);
+        showToast('Firebase reconnected → "' + id + '"');
+      } else {
+        showToast('Name saved ✓');
+      }
       closeModal();
     }}
   ]);
-  // Live preview of path
-  const inp = document.getElementById('fb-proj-input');
+  const inp  = document.getElementById('fb-proj-input');
   const prev = document.getElementById('fb-path-preview');
   if (inp && prev) inp.oninput = () => { prev.textContent = inp.value || 'default'; };
 }
