@@ -1072,13 +1072,17 @@ function setSaveStatus(s) {
 }
 
 let _autoSaveTimer;
+let _fbQuickTimer;
 function autoSave() {
   if (!PS.data.settings.autosave) return;
+  // Fast Firebase push — 800ms after last change (real-time feel)
+  clearTimeout(_fbQuickTimer);
+  _fbQuickTimer = setTimeout(() => { collectDocData(); mapSaveCurrent(); FIREBASE.push(); }, 800);
+  // Full local save — 3s (unchanged)
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(() => {
     collectDocData(); mapSaveCurrent(); PS.save();
     if (CLOUD.enabled) cloudPush();
-    FIREBASE.push();
     if (_BC) { clearTimeout(_bcTimer); _bcTimer = setTimeout(_bcBroadcastSave, 200); }
   }, 3000);
 }
