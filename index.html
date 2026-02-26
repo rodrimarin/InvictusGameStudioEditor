@@ -353,6 +353,10 @@ input[type="range"]{accent-color:var(--gold);width:100%}
   <button class="lang-btn" id="lang-es" onclick="setLang('es')">ES</button>
   <div class="tb-div"></div>
   <span id="collab-ind" style="font-family:var(--fm);font-size:11px;color:var(--blue);white-space:nowrap;display:none;padding:0 6px;border:1px solid rgba(74,158,255,.3);border-radius:3px;" title="Other tabs open"></span>
+  <button id="cloud-btn" onclick="openCloudModal()" title="Cloud Sync Settings" style="background:none;border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer;font-family:var(--fm);font-size:11px;color:var(--text-secondary);transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap">
+    <span id="cloud-dot" style="width:7px;height:7px;border-radius:50%;background:var(--text-muted);display:inline-block;flex-shrink:0"></span>
+    <span id="cloud-lbl">Cloud OFF</span>
+  </button>
   <span id="save-ind" class="saved">● Saved</span>
   <button class="btn-save" onclick="saveAll()">Save</button>
 </div>
@@ -939,14 +943,22 @@ let _autoSaveTimer;
 function autoSave() {
   if (!PS.data.settings.autosave) return;
   clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(() => { collectDocData(); mapSaveCurrent(); PS.save(); }, 3000);
+  _autoSaveTimer = setTimeout(() => {
+    collectDocData(); mapSaveCurrent(); PS.save();
+    if (CLOUD.enabled) cloudPush();
+    if (_BC) { clearTimeout(_bcTimer); _bcTimer = setTimeout(_bcBroadcastSave, 200); }
+  }, 3000);
 }
 
 function saveAll() {
   setSaveStatus('saving');
   collectDocData();
   mapSaveCurrent();
-  setTimeout(() => PS.save(), 100);
+  setTimeout(() => {
+    PS.save();
+    if (CLOUD.enabled) cloudPush();
+    if (_BC) _bcBroadcastSave();
+  }, 100);
   showToast('Project saved ✓');
 }
 
@@ -1054,13 +1066,204 @@ if (_BC) {
   setTimeout(_bcBroadcastPresence, 500);
 }
 
-// Hook into autoSave to broadcast
-const _origAutoSave = autoSave;
-function autoSave() {
-  _origAutoSave();
-  if (_BC) { clearTimeout(_bcTimer); _bcTimer = setTimeout(_bcBroadcastSave, 3200); }
-}
 let _bcTimer;
+
+// ════════════════════════════════════════════════════════════
+// CLOUD SYNC — JSONBin.io (free, no server needed)
+// ════════════════════════════════════════════════════════════
+const CLOUD = {
+  apiKey: '',
+  binId: '',
+  enabled: false,
+  polling: null,
+  lastVersion: null,
+  pushing: false
+};
+
+function cloudLoadSettings() {
+  CLOUD.apiKey = localStorage.getItem('igs_cloud_key') || '';
+  CLOUD.binId = localStorage.getItem('igs_cloud_bin') || '';
+  CLOUD.enabled = !!(CLOUD.apiKey && CLOUD.binId);
+  _cloudUpdateUI();
+  if (CLOUD.enabled) { cloudPull(); startCloudPolling(); }
+}
+
+function _cloudUpdateUI(status) {
+  const dot = document.getElementById('cloud-dot');
+  const lbl = document.getElementById('cloud-lbl');
+  const btn = document.getElementById('cloud-btn');
+  if (!dot || !lbl) return;
+  if (!CLOUD.enabled) {
+    dot.style.background = 'var(--text-muted)';
+    lbl.textContent = 'Cloud OFF';
+    btn.style.borderColor = 'var(--border)';
+    btn.style.color = 'var(--text-secondary)';
+  } else if (status === 'syncing') {
+    dot.style.background = 'var(--orange)';
+    lbl.textContent = '↑ Syncing…';
+    btn.style.borderColor = 'rgba(224,120,32,.5)';
+    btn.style.color = 'var(--orange)';
+  } else if (status === 'error') {
+    dot.style.background = 'var(--red)';
+    lbl.textContent = '✕ Sync Error';
+    btn.style.borderColor = 'rgba(224,82,82,.5)';
+    btn.style.color = 'var(--red)';
+  } else if (status === 'pulling') {
+    dot.style.background = 'var(--blue)';
+    lbl.textContent = '↓ Receiving…';
+    btn.style.borderColor = 'rgba(74,158,255,.5)';
+    btn.style.color = 'var(--blue)';
+  } else {
+    // connected / idle
+    dot.style.background = 'var(--green)';
+    dot.style.boxShadow = '0 0 0 3px rgba(78,203,113,.2)';
+    lbl.textContent = '☁ Live';
+    btn.style.borderColor = 'rgba(78,203,113,.4)';
+    btn.style.color = 'var(--green)';
+  }
+}
+
+async function cloudPush() {
+  if (!CLOUD.enabled || CLOUD.pushing) return;
+  CLOUD.pushing = true;
+  _cloudUpdateUI('syncing');
+  try {
+    const resp = await fetch(`https://api.jsonbin.io/v3/b/${CLOUD.binId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': CLOUD.apiKey,
+        'X-Bin-Versioning': 'false'
+      },
+      body: JSON.stringify(PS.data)
+    });
+    if (resp.ok) { _cloudUpdateUI(); }
+    else { _cloudUpdateUI('error'); }
+  } catch(e) { _cloudUpdateUI('error'); }
+  CLOUD.pushing = false;
+}
+
+async function cloudPull(silent) {
+  if (!CLOUD.enabled) return;
+  if (!silent) _cloudUpdateUI('pulling');
+  try {
+    const resp = await fetch(`https://api.jsonbin.io/v3/b/${CLOUD.binId}/latest`, {
+      headers: { 'X-Master-Key': CLOUD.apiKey, 'X-Bin-Meta': 'true' }
+    });
+    if (!resp.ok) { _cloudUpdateUI('error'); return; }
+    const data = await resp.json();
+    const ver = data.metadata && data.metadata.version;
+    if (ver && ver !== CLOUD.lastVersion) {
+      CLOUD.lastVersion = ver;
+      if (CLOUD.lastVersion && data.record) {
+        // Apply remote data
+        const remoteData = data.record;
+        PS._merge(remoteData);
+        // Re-render current module
+        const mod = document.querySelector('.sb-item.active')?.dataset?.mod;
+        if (mod) showModule(mod);
+        if (!silent) showToast('🔄 Synced from cloud ✓');
+      }
+    }
+    _cloudUpdateUI();
+  } catch(e) { _cloudUpdateUI('error'); }
+}
+
+function startCloudPolling() {
+  if (CLOUD.polling) clearInterval(CLOUD.polling);
+  if (!CLOUD.enabled) return;
+  CLOUD.polling = setInterval(() => cloudPull(true), 10000); // poll every 10s
+}
+
+function stopCloudPolling() {
+  if (CLOUD.polling) { clearInterval(CLOUD.polling); CLOUD.polling = null; }
+}
+
+async function cloudCreateBin(apiKey, name) {
+  try {
+    const resp = await fetch('https://api.jsonbin.io/v3/b', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': apiKey,
+        'X-Bin-Name': name || 'Invictus Project',
+        'X-Bin-Private': 'false'
+      },
+      body: JSON.stringify(PS.data)
+    });
+    if (resp.ok) {
+      const d = await resp.json();
+      return d.metadata && d.metadata.id;
+    }
+  } catch(e) {}
+  return null;
+}
+
+function openCloudModal() {
+  const body = `
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;line-height:1.7;background:rgba(74,158,255,.06);border:1px solid rgba(74,158,255,.2);border-radius:6px;padding:12px;">
+      <strong style="color:var(--blue)">☁ Como funciona:</strong><br>
+      1. Creá una cuenta gratis en <a href="https://jsonbin.io" target="_blank" style="color:var(--blue)">jsonbin.io</a><br>
+      2. Copiá tu <strong>Master Key</strong> (en la sección API Keys)<br>
+      3. Pegá la key abajo y hacé click en <strong>"Crear Bin"</strong><br>
+      4. Compartí el <strong>Bin ID</strong> con tu equipo — todos usan la misma key y bin.<br>
+      5. Los cambios se sincronizan automáticamente cada 10 segundos.
+    </div>
+    <div class="fg">
+      <label class="fl">Master Key (API Key)</label>
+      <input class="fi" id="cloud-key-inp" type="password" placeholder="$2b$10$..." value="${CLOUD.apiKey}" autocomplete="off">
+    </div>
+    <div class="fg">
+      <label class="fl">Bin ID</label>
+      <div style="display:flex;gap:8px;">
+        <input class="fi" id="cloud-bin-inp" placeholder="64abc1234def..." value="${CLOUD.binId}" style="flex:1">
+        <button class="btn btn-sm" onclick="cloudModalCreateBin()">Crear Bin</button>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Dejá vacío y hacé click "Crear Bin" para crear uno nuevo automáticamente</div>
+    </div>
+    <div id="cloud-modal-status" style="font-family:var(--fm);font-size:11px;min-height:16px;margin-top:4px"></div>`;
+  const footer = `
+    <button class="btn btn-danger btn-sm" onclick="cloudDisable()">Desactivar</button>
+    <button class="btn btn-sm" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-gold" onclick="cloudModalSave()">Activar Cloud Sync</button>`;
+  openModal('☁ Cloud Sync — JSONBin.io', body, footer);
+}
+
+async function cloudModalCreateBin() {
+  const key = document.getElementById('cloud-key-inp').value.trim();
+  if (!key) { document.getElementById('cloud-modal-status').textContent = '✕ Ingresá tu Master Key primero'; return; }
+  document.getElementById('cloud-modal-status').textContent = '⏳ Creando bin…';
+  const id = await cloudCreateBin(key, PS.data.currentProject || 'Invictus Project');
+  if (id) {
+    document.getElementById('cloud-bin-inp').value = id;
+    document.getElementById('cloud-modal-status').innerHTML = `✓ Bin creado: <strong style="color:var(--gold)">${id}</strong> — Compartí este ID con tu equipo`;
+  } else {
+    document.getElementById('cloud-modal-status').innerHTML = '<span style="color:var(--red)">✕ Error — Verificá tu API key</span>';
+  }
+}
+
+function cloudModalSave() {
+  const key = document.getElementById('cloud-key-inp').value.trim();
+  const bin = document.getElementById('cloud-bin-inp').value.trim();
+  if (!key || !bin) { document.getElementById('cloud-modal-status').textContent = '✕ Completá los dos campos'; return; }
+  CLOUD.apiKey = key;
+  CLOUD.binId = bin;
+  CLOUD.enabled = true;
+  CLOUD.lastVersion = null;
+  localStorage.setItem('igs_cloud_key', key);
+  localStorage.setItem('igs_cloud_bin', bin);
+  closeModal();
+  startCloudPolling();
+  cloudPull();
+  showToast('☁ Cloud Sync activado ✓');
+}
+
+function cloudDisable() {
+  CLOUD.enabled = false; CLOUD.apiKey = ''; CLOUD.binId = '';
+  localStorage.removeItem('igs_cloud_key'); localStorage.removeItem('igs_cloud_bin');
+  stopCloudPolling(); _cloudUpdateUI(); closeModal();
+  showToast('Cloud Sync desactivado');
+}
 
 // Field saved feedback
 function flashSaved() {
@@ -1666,17 +1869,23 @@ const GDD_SECS = [
 ];
 
 function calcDocCompletion(docKey, secs) {
-  const data = PS.data.docs[docKey] || {};
-  let total=0, filled=0;
-  secs.forEach(grp=>grp.items.forEach(sec=>{
-    if(!sec.fields) return;
-    sec.fields.forEach(f=>{
-      total++;
-      const val=(data[sec.key]&&data[sec.key][f.k])||'';
-      if(val.trim().length>3) filled++;
+  try {
+    const data = PS.data.docs[docKey] || {};
+    let total=0, filled=0;
+    secs.forEach(grp=>{
+      if(!grp.items) return;
+      grp.items.forEach(sec=>{
+        if(!sec.fields) return;
+        sec.fields.forEach(f=>{
+          total++;
+          const raw = data[sec.key] ? data[sec.key][f.k] : undefined;
+          const val = typeof raw === 'string' ? raw : '';
+          if(val.trim().length>3) filled++;
+        });
+      });
     });
-  }));
-  return total?Math.round(filled/total*100):0;
+    return total?Math.round(filled/total*100):0;
+  } catch(e) { return 0; }
 }
 
 function updateDocProgress(docKey, secs) {
@@ -3769,8 +3978,11 @@ function init() {
     // Seed Level Design Book
     seedLevelDesignBook();
 
+    // Cloud Sync — load saved settings and start polling if configured
+    cloudLoadSettings();
+
     // Autosave every 90s
-    setInterval(()=>{collectDocData();mapSaveCurrent();PS.save();},90000);
+    setInterval(()=>{collectDocData();mapSaveCurrent();PS.save();if(CLOUD.enabled)cloudPush();},90000);
   });
 }
 
