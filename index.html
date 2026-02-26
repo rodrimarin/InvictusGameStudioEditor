@@ -768,10 +768,31 @@ input[type="range"]{accent-color:var(--gold);width:100%}
         <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
           <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;">
             <span style="font-family:var(--fu);font-size:14px;font-weight:700;color:var(--gold);letter-spacing:1px;" id="study-current-topic">All Notes</span>
-            <input type="text" class="fi" style="max-width:200px;padding:3px 8px;font-size:11px;" placeholder="Search notes…" oninput="filterStudyNotes(this.value)" id="study-search">
-            <span style="margin-left:auto;font-family:var(--fm);font-size:10px;color:var(--text-secondary);" id="study-count"></span>
+            <input type="text" class="fi" style="max-width:200px;padding:3px 8px;font-size:11px;" placeholder="Search notes…" oninput="filterStudyNotes(this.value)" id="study-search" id="study-notes-search-row">
+            <span style="font-family:var(--fm);font-size:10px;color:var(--text-secondary);" id="study-count"></span>
+            <div style="margin-left:auto;display:flex;gap:4px;border-left:1px solid var(--border);padding-left:10px;">
+              <button id="study-tab-notes" class="btn btn-sm" onclick="switchStudyView('notes')" style="font-size:10px;background:var(--gold);color:#000;border-color:var(--gold)">📝 Notes</button>
+              <button id="study-tab-web" class="btn btn-sm" onclick="switchStudyView('web')" style="font-size:10px;">🌐 Web Reader</button>
+            </div>
           </div>
           <div id="study-notes-grid" style="flex:1;overflow-y:auto;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;align-content:start;"></div>
+          <!-- WEB READER PANEL -->
+          <div id="study-webview-panel" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+            <div style="padding:6px 12px;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center;flex-shrink:0;background:var(--bg-panel);">
+              <input class="fi" id="study-url-bar" value="https://book.leveldesignbook.com/introduction" style="flex:1;font-size:11px;font-family:var(--fm);" placeholder="https://…" onkeydown="if(event.key==='Enter')studyGoUrl()">
+              <button class="btn btn-gold btn-sm" onclick="studyGoUrl()" style="font-size:11px;">Go</button>
+              <button class="btn btn-sm" onclick="window.open(document.getElementById('study-url-bar').value,'_blank')" style="font-size:11px;" title="Open in new tab">↗ New Tab</button>
+            </div>
+            <div id="study-iframe-wrap" style="flex:1;position:relative;overflow:hidden;">
+              <iframe id="study-iframe" style="width:100%;height:100%;border:none;display:block;" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+              <div id="study-iframe-blocked" style="display:none;position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg-main);gap:12px;">
+                <div style="font-size:32px">🚫</div>
+                <div style="font-family:var(--fu);font-size:13px;color:var(--text-primary);">This site blocks embedding</div>
+                <div style="font-size:11px;color:var(--text-secondary);max-width:320px;text-align:center">Some sites prevent being shown in iframes. Use the button below to open it in a new tab.</div>
+                <button class="btn btn-gold" onclick="window.open(document.getElementById('study-url-bar').value,'_blank')">↗ Open in New Tab</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -3398,16 +3419,18 @@ function renderFlowConnections() {
     const midX=(x1+x2)/2+10, midY=(y1+y2)/2;
     if(conn.label){
       const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+      const labelTxt=conn.label.substring(0,32);
+      const labelW=Math.max(44,labelTxt.length*5.5+14);
       const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      rect.setAttribute('x',midX-20);rect.setAttribute('y',midY-9);
-      rect.setAttribute('width','40');rect.setAttribute('height','16');
+      rect.setAttribute('x',midX-labelW/2);rect.setAttribute('y',midY-9);
+      rect.setAttribute('width',String(labelW));rect.setAttribute('height','16');
       rect.setAttribute('rx','3');rect.setAttribute('fill','#1a1a0a');
       rect.setAttribute('stroke','#3a3020');
       const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
       txt.setAttribute('x',midX);txt.setAttribute('y',midY+3);
       txt.setAttribute('text-anchor','middle');txt.setAttribute('font-size','8');
       txt.setAttribute('fill','#c9a227');txt.setAttribute('font-family','Barlow');
-      txt.textContent=conn.label.substring(0,8);
+      txt.textContent=labelTxt;
       g.appendChild(rect);g.appendChild(txt);
       g.style.cursor='pointer';
       g.onclick=()=>editFlowConnection(ci);
@@ -3419,12 +3442,37 @@ function renderFlowConnections() {
 function editFlowConnection(idx){
   const conn=FC.connections[idx];
   if(!conn)return;
-  const label=prompt('Connection label (leave empty for none):',conn.label||'');
-  if(label===null)return;
-  const del=confirm('Delete this connection? (Cancel to keep)');
-  if(del){fcPushHistory();FC.connections.splice(idx,1);}
-  else{conn.label=label;conn.dashed=conn.dashed?false:confirm('Make dashed (optional paths)?');}
-  saveFlowchart();renderFlowConnections();
+  const safeLabel=(conn.label||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  openModal('Edit Connection',
+    `<div class="fg"><label class="fl">Label <small style="color:var(--text-muted)">(optional)</small></label>
+     <input class="fi" id="fc-edit-label" value="${safeLabel}" placeholder="e.g. door, shortcut, requires key…"></div>
+     <div class="fg"><label class="fl">Line Color</label>
+     <div style="display:flex;gap:8px;flex-wrap:wrap;">${_fcColorBtnsHtml(conn.color||'#8a6e1a','fc-edit')}</div>
+     <input type="hidden" id="fc-edit-color" value="${conn.color||'#8a6e1a'}"></div>
+     <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">
+       <input type="checkbox" id="fc-edit-dashed" ${conn.dashed?'checked':''}> Dashed line (optional path)
+     </label></div>`,
+    `<button class="btn btn-danger btn-sm" onclick="deleteFlowConn(${idx})">🗑 Delete</button>
+     <button class="btn btn-sm" onclick="closeModal()">Cancel</button>
+     <button class="btn btn-gold" onclick="saveFlowConn(${idx})">Save</button>`
+  );
+}
+function saveFlowConn(idx){
+  const conn=FC.connections[idx];
+  if(!conn){closeModal();return;}
+  fcPushHistory();
+  conn.label=document.getElementById('fc-edit-label')?.value||'';
+  conn.color=document.getElementById('fc-edit-color')?.value||'#8a6e1a';
+  conn.dashed=document.getElementById('fc-edit-dashed')?.checked||false;
+  if(PS.data.docs.ldd.flowchart)PS.data.docs.ldd.flowchart.connections=FC.connections;
+  saveFlowchart();renderFlowConnections();closeModal();
+}
+function deleteFlowConn(idx){
+  if(!confirm('Delete this connection?'))return;
+  fcPushHistory();
+  FC.connections.splice(idx,1);
+  if(PS.data.docs.ldd.flowchart)PS.data.docs.ldd.flowchart.connections=FC.connections;
+  saveFlowchart();renderFlowConnections();closeModal();
 }
 
 function addFlowNode(type) {
@@ -3456,23 +3504,60 @@ function changeNodeIcon(id){
   if(emoji!==null){node.icon=emoji||node.icon;if(PS.data.docs.ldd.flowchart)PS.data.docs.ldd.flowchart.nodes=FC.nodes;renderFlowNodes();saveFlowchart();}
 }
 
+let _pendingConn=null;
+function _fcColorBtnsHtml(selectedColor,btnIdPrefix){
+  const colors=[{v:'#8a6e1a',l:'Gold',t:'#c9a227'},{v:'#4a9eff',l:'Blue',t:'#4a9eff'},{v:'#4ecb71',l:'Green',t:'#4ecb71'},{v:'#e05252',l:'Red',t:'#e05252'}];
+  return colors.map(c=>`<button type="button" onclick="setFcColor('${c.v}',this,'${btnIdPrefix}')" class="btn btn-sm" style="border-color:${c.v};color:${c.t};${selectedColor===c.v?'outline:2px solid '+c.t+';outline-offset:2px;':''}">${c.l}</button>`).join('');
+}
+function setFcColor(color,btn,prefix){
+  document.getElementById(prefix+'-color').value=color;
+  const btns=btn.closest('div');
+  if(btns) btns.querySelectorAll('button').forEach(b=>{b.style.outline='none';});
+  btn.style.outline=`2px solid ${color}`;btn.style.outlineOffset='2px';
+}
 function startConnect(fromId) {
   if(FC.connectFrom && FC.connectFrom!==fromId){
     if(!FC.connections.find(c=>c.from===FC.connectFrom&&c.to===fromId)){
-      fcPushHistory();
-      const label=prompt('Connection label (optional, e.g. "door" or leave empty):','')||'';
-      FC.connections.push({from:FC.connectFrom,to:fromId,label,color:'#8a6e1a',dashed:false});
-      if(!PS.data.docs.ldd.flowchart)PS.data.docs.ldd.flowchart={nodes:[],connections:[]};
-      PS.data.docs.ldd.flowchart.connections=FC.connections;
-      renderFlowConnections();saveFlowchart();
-      showToast('Connection created');
+      _pendingConn={from:FC.connectFrom,to:fromId};
+      FC.connectFrom=null;
+      renderFlowNodes();
+      openModal('New Connection',
+        `<div class="fg"><label class="fl">Label <small style="color:var(--text-muted)">(optional)</small></label>
+         <input class="fi" id="fc-new-label" placeholder="e.g. door, shortcut, requires key…" autofocus></div>
+         <div class="fg"><label class="fl">Line Color</label>
+         <div style="display:flex;gap:8px;flex-wrap:wrap;">${_fcColorBtnsHtml('#8a6e1a','fc-new')}</div>
+         <input type="hidden" id="fc-new-color" value="#8a6e1a"></div>
+         <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--text-secondary);">
+           <input type="checkbox" id="fc-new-dashed"> Dashed line (optional path)
+         </label></div>`,
+        `<button class="btn btn-sm" onclick="cancelFlowConn()">Cancel</button>
+         <button class="btn btn-gold" onclick="confirmFlowConn()">Create Connection</button>`
+      );
+    } else {
+      FC.connectFrom=null;
+      renderFlowNodes();
     }
-    FC.connectFrom=null;
   } else {
     FC.connectFrom=fromId;
     showToast('Now click "link" on another node to connect');
+    renderFlowNodes();
   }
-  renderFlowNodes();
+}
+function confirmFlowConn(){
+  if(!_pendingConn)return;
+  fcPushHistory();
+  const label=document.getElementById('fc-new-label')?.value||'';
+  const color=document.getElementById('fc-new-color')?.value||'#8a6e1a';
+  const dashed=document.getElementById('fc-new-dashed')?.checked||false;
+  FC.connections.push({from:_pendingConn.from,to:_pendingConn.to,label,color,dashed});
+  if(!PS.data.docs.ldd.flowchart)PS.data.docs.ldd.flowchart={nodes:[],connections:[]};
+  PS.data.docs.ldd.flowchart.connections=FC.connections;
+  renderFlowConnections();saveFlowchart();
+  closeModal();showToast('Connection created ✓');
+  _pendingConn=null;
+}
+function cancelFlowConn(){
+  _pendingConn=null;FC.connectFrom=null;renderFlowNodes();closeModal();
 }
 
 function deleteFlowNode(id) {
@@ -3662,6 +3747,54 @@ function openStudyNoteView(id){
   openModal(note.title,body,footer);
 }
 
+
+// ════════════════════════════════════════════════════════════
+// STUDYING — WEB READER
+// ════════════════════════════════════════════════════════════
+let _studyView='notes';
+function switchStudyView(view){
+  _studyView=view;
+  const notesGrid=document.getElementById('study-notes-grid');
+  const webPanel=document.getElementById('study-webview-panel');
+  const searchInput=document.querySelector('#study-search');
+  const countEl=document.getElementById('study-count');
+  const tabNotes=document.getElementById('study-tab-notes');
+  const tabWeb=document.getElementById('study-tab-web');
+  if(view==='notes'){
+    if(notesGrid){notesGrid.style.display='grid';}
+    if(webPanel){webPanel.style.display='none';}
+    if(searchInput){searchInput.style.display='';}
+    if(countEl){countEl.style.display='';}
+    if(tabNotes){tabNotes.style.background='var(--gold)';tabNotes.style.color='#000';tabNotes.style.borderColor='var(--gold)';}
+    if(tabWeb){tabWeb.style.background='';tabWeb.style.color='';tabWeb.style.borderColor='';}
+  } else {
+    if(notesGrid){notesGrid.style.display='none';}
+    if(webPanel){webPanel.style.display='flex';}
+    if(searchInput){searchInput.style.display='none';}
+    if(countEl){countEl.style.display='none';}
+    if(tabNotes){tabNotes.style.background='';tabNotes.style.color='';tabNotes.style.borderColor='';}
+    if(tabWeb){tabWeb.style.background='var(--gold)';tabWeb.style.color='#000';tabWeb.style.borderColor='var(--gold)';}
+    // Load URL if iframe is blank
+    const iframe=document.getElementById('study-iframe');
+    if(iframe&&(iframe.src==='about:blank'||!iframe.src)){
+      studyGoUrl();
+    }
+  }
+}
+function studyGoUrl(){
+  const urlBar=document.getElementById('study-url-bar');
+  if(!urlBar)return;
+  let url=urlBar.value.trim();
+  if(!url)return;
+  if(!url.startsWith('http://') && !url.startsWith('https://')) url='https://'+url;
+  urlBar.value=url;
+  const iframe=document.getElementById('study-iframe');
+  const blocked=document.getElementById('study-iframe-blocked');
+  if(!iframe)return;
+  if(blocked){blocked.style.display='none';}
+  iframe.src=url;
+  iframe.onerror=()=>{if(blocked){blocked.style.display='flex';}};
+}
 
 // ════════════════════════════════════════════════════════════
 // KEYBOARD SHORTCUTS
