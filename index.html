@@ -904,8 +904,9 @@ input[type="range"]{accent-color:var(--gold);width:100%}
             <div class="panel-title" style="margin:0">Topics</div>
           </div>
           <div id="study-topics-nav" style="flex:1;overflow-y:auto;padding:6px;"></div>
-          <div style="padding:8px;border-top:1px solid var(--border);">
+          <div style="padding:8px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:4px;">
             <button class="btn btn-sm" style="width:100%" onclick="openStudyTopicModal()">+ Add Topic</button>
+            <button class="btn btn-sm" style="width:100%;font-size:10px;color:var(--text-secondary);border-color:var(--border-dark)" onclick="openStudySectionModal()">— Add Section</button>
           </div>
         </div>
         <!-- RIGHT: Notes area -->
@@ -923,7 +924,7 @@ input[type="range"]{accent-color:var(--gold);width:100%}
           <!-- WEB READER PANEL -->
           <div id="study-webview-panel" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
             <div style="padding:6px 12px;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center;flex-shrink:0;background:var(--bg-panel);">
-              <input class="fi" id="study-url-bar" value="https://book.leveldesignbook.com/introduction" style="flex:1;font-size:11px;font-family:var(--fm);" placeholder="https://…" onkeydown="if(event.key==='Enter')studyGoUrl()">
+              <input class="fi" id="study-url-bar" value="https://book.leveldesignbook.com/introduction" style="flex:1;font-size:11px;font-family:var(--fm);" placeholder="https://…" onkeydown="if(event.key==='Enter')studyGoUrl()" onblur="studySaveUrl()">
               <button class="btn btn-gold btn-sm" onclick="studyGoUrl()" style="font-size:11px;">Go</button>
               <button class="btn btn-sm" onclick="window.open(document.getElementById('study-url-bar').value,'_blank')" style="font-size:11px;" title="Open in new tab">↗ New Tab</button>
               <button class="btn btn-sm" onclick="enterFocusMode()" style="font-size:11px;border-color:var(--gold-dim);color:var(--gold)" title="Focus mode — hide all panels">⛶ Focus</button>
@@ -2503,7 +2504,7 @@ function renderTaskCal() {
 // ════════════════════════════════════════════════════════════
 // CALENDAR (2026)
 // ════════════════════════════════════════════════════════════
-let calYear = 2026, calMonth = 0;
+const _calNow=new Date(); let calYear=_calNow.getFullYear(), calMonth=_calNow.getMonth();
 
 function calNav(dir) {
   calMonth += dir;
@@ -5037,6 +5038,7 @@ function saveFlowchart(){autoSave();}
 // ════════════════════════════════════════════════════════════
 if(!PS.data.studying) PS.data.studying={topics:[],notes:[]};
 let _studyActiveTopic = null;
+let _studyDragIdx = null;
 
 function ensureStudying(){if(!PS.data.studying)PS.data.studying={topics:[],notes:[]};}
 
@@ -5056,13 +5058,17 @@ function saveStudyTopic(){
   if(!name){showToast('Name required');return;}
   const topic={id:'topic_'+Date.now(),name,icon:document.getElementById('st-icon').value||'📖',color:document.getElementById('st-color').value};
   PS.data.studying.topics.push(topic);
-  closeModal();renderStudyTopics();autoSave();showToast('Topic created ✓');
+  closeModal();renderStudyTopics();
+  if(!PS.data._sectionTs)PS.data._sectionTs={};
+  PS.data._sectionTs['studying']=Date.now();
+  if(typeof _localDirty!=='undefined')_localDirty.add('studying');
+  saveAll();FIREBASE.push();showToast('Topic created ✓');
 }
 
 function openStudyNoteModal(id){
   ensureStudying();
   const note=id?PS.data.studying.notes.find(n=>n.id===id):null;
-  const topics=PS.data.studying.topics;
+  const topics=PS.data.studying.topics.filter(t=>!t.type||t.type==='topic');
   const body=`
     <div class="fg"><label class="fl">Title</label><input class="fi" id="sn-title" value="${note?note.title:''}" placeholder="Note title…"></div>
     <div class="fg"><label class="fl">Topic</label>
@@ -5099,7 +5105,11 @@ function saveStudyNote(id){
   };
   if(id){const idx=PS.data.studying.notes.findIndex(n=>n.id===id);if(idx>=0)PS.data.studying.notes[idx]=note;else PS.data.studying.notes.push(note);}
   else PS.data.studying.notes.push(note);
-  closeModal();renderStudyNotes();autoSave();showToast('Note saved ✓');
+  closeModal();renderStudyNotes();
+  if(!PS.data._sectionTs)PS.data._sectionTs={};
+  PS.data._sectionTs['studying']=Date.now();
+  if(typeof _localDirty!=='undefined')_localDirty.add('studying');
+  saveAll();FIREBASE.push();showToast('Note saved ✓');
 }
 
 function deleteStudyNote(id){
@@ -5113,34 +5123,64 @@ function renderStudyTopics(){
   const nav=document.getElementById('study-topics-nav');
   if(!nav)return;
   nav.innerHTML='';
-  // All notes
+  // All notes row
   const allDiv=document.createElement('div');
   allDiv.style.cssText=`padding:6px 10px;cursor:pointer;font-family:var(--fu);font-size:12px;font-weight:500;color:${_studyActiveTopic===null?'var(--gold)':'var(--text-secondary)'};border-left:2px solid ${_studyActiveTopic===null?'var(--gold)':'transparent'};border-radius:0 4px 4px 0;transition:all .1s;text-transform:uppercase;letter-spacing:.5px;background:${_studyActiveTopic===null?'rgba(201,162,39,.08)':'transparent'};margin-bottom:2px;`;
   allDiv.innerHTML='📚 All Notes';
   allDiv.onclick=()=>{_studyActiveTopic=null;document.getElementById('study-current-topic').textContent='All Notes';renderStudyNotes();renderStudyTopics();};
   nav.appendChild(allDiv);
 
-  PS.data.studying.topics.forEach((topic, idx)=>{
+  const items=PS.data.studying.topics;
+  items.forEach((item,idx)=>{
+    // ── SECTION HEADER ──
+    if(item.type==='section'){
+      const sDiv=document.createElement('div');
+      sDiv.draggable=true;
+      sDiv.style.cssText=`padding:10px 10px 3px;font-family:var(--fu);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:grab;position:relative;border-top:1px solid var(--border);margin-top:6px;margin-bottom:2px;user-select:none;`;
+      const secLabel=document.createElement('span');
+      secLabel.style.flex='1';
+      secLabel.textContent='— '+item.name;
+      const secActs=document.createElement('span');
+      secActs.style.cssText='display:none;gap:2px;flex-shrink:0;';
+      secActs.innerHTML=`<button title="Rename" onclick="event.stopPropagation();_studyRenameSection('${item.id}')" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-secondary);padding:1px 3px;line-height:1">✎</button><button title="Delete section" onclick="event.stopPropagation();_studyDeleteSection('${item.id}')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#e05252;padding:1px 3px;line-height:1">×</button>`;
+      sDiv.appendChild(secLabel);sDiv.appendChild(secActs);
+      sDiv.onmouseenter=()=>{secActs.style.display='flex';};
+      sDiv.onmouseleave=()=>{secActs.style.display='none';};
+      sDiv.ondragstart=e=>{_studyDragIdx=idx;e.dataTransfer.effectAllowed='move';sDiv.style.opacity='.4';};
+      sDiv.ondragend=()=>{sDiv.style.opacity='1';_studyDragIdx=null;};
+      sDiv.ondragover=e=>{if(_studyDragIdx===null||_studyDragIdx===idx)return;e.preventDefault();sDiv.style.background='rgba(201,162,39,.1)';};
+      sDiv.ondragleave=()=>{sDiv.style.background='';};
+      sDiv.ondrop=e=>{e.preventDefault();sDiv.style.background='';_studyDrop(idx);};
+      nav.appendChild(sDiv);
+      return;
+    }
+    // ── TOPIC ITEM ──
+    const topic=item;
     const active=_studyActiveTopic===topic.id;
-    const topics=PS.data.studying.topics;
     const div=document.createElement('div');
-    div.style.cssText=`padding:4px 6px 4px 10px;cursor:pointer;font-family:var(--fu);font-size:12px;font-weight:500;color:${active?topic.color:'var(--text-secondary)'};border-left:2px solid ${active?topic.color:'transparent'};border-radius:0 4px 4px 0;transition:all .1s;text-transform:uppercase;letter-spacing:.5px;background:${active?topic.color+'11':'transparent'};margin-bottom:2px;display:flex;align-items:center;gap:5px;position:relative;`;
+    div.draggable=true;
+    div.style.cssText=`padding:4px 6px 4px 10px;cursor:pointer;font-family:var(--fu);font-size:12px;font-weight:500;color:${active?topic.color:'var(--text-secondary)'};border-left:2px solid ${active?topic.color:'transparent'};border-radius:0 4px 4px 0;transition:all .1s;text-transform:uppercase;letter-spacing:.5px;background:${active?topic.color+'11':'transparent'};margin-bottom:2px;display:flex;align-items:center;gap:5px;position:relative;user-select:none;`;
     const count=PS.data.studying.notes.filter(n=>n.topicId===topic.id).length;
     div.innerHTML=`
+      <span style="cursor:grab;opacity:.4;font-size:10px">⠿</span>
       <span>${topic.icon}</span>
       <span class="st-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${topic.name}">${topic.name}</span>
       <span style="font-family:var(--fm);font-size:9px;opacity:.6">${count}</span>
       <span class="st-actions" style="display:none;gap:2px;flex-shrink:0">
         <button title="Rename" onclick="event.stopPropagation();_studyRenameTopic('${topic.id}')" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-secondary);padding:1px 3px;line-height:1" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text-secondary)'">✎</button>
         <button title="Move up" onclick="event.stopPropagation();_studyMoveTopic('${topic.id}',-1)" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-secondary);padding:1px 3px;line-height:1;${idx===0?'opacity:.2;pointer-events:none':''}" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text-secondary)'">↑</button>
-        <button title="Move down" onclick="event.stopPropagation();_studyMoveTopic('${topic.id}',1)" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-secondary);padding:1px 3px;line-height:1;${idx===topics.length-1?'opacity:.2;pointer-events:none':''}" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text-secondary)'">↓</button>
+        <button title="Move down" onclick="event.stopPropagation();_studyMoveTopic('${topic.id}',1)" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-secondary);padding:1px 3px;line-height:1;${idx===items.length-1?'opacity:.2;pointer-events:none':''}" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text-secondary)'">↓</button>
         <button title="Delete topic" onclick="event.stopPropagation();_studyDeleteTopic('${topic.id}')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#e05252;padding:1px 3px;line-height:1" onmouseover="this.style.color='#ff6b6b'" onmouseout="this.style.color='#e05252'">×</button>
       </span>`;
     const actions=div.querySelector('.st-actions');
     div.onmouseenter=()=>{actions.style.display='flex';};
     div.onmouseleave=()=>{actions.style.display='none';};
+    div.ondragstart=e=>{_studyDragIdx=idx;e.dataTransfer.effectAllowed='move';div.style.opacity='.4';};
+    div.ondragend=()=>{div.style.opacity='1';_studyDragIdx=null;};
+    div.ondragover=e=>{if(_studyDragIdx===null||_studyDragIdx===idx)return;e.preventDefault();div.style.outline='1px dashed var(--gold)';};
+    div.ondragleave=()=>{div.style.outline='';};
+    div.ondrop=e=>{e.preventDefault();div.style.outline='';_studyDrop(idx);};
     div.onclick=()=>{
-      // Save current URL back to the outgoing topic
       const urlBar=document.getElementById('study-url-bar');
       if(_studyActiveTopic && urlBar){
         const prev=PS.data.studying.topics.find(t=>t.id===_studyActiveTopic);
@@ -5148,7 +5188,6 @@ function renderStudyTopics(){
       }
       _studyActiveTopic=topic.id;
       document.getElementById('study-current-topic').textContent=topic.icon+' '+topic.name;
-      // Load this topic's URL into the web reader
       if(topic.url && urlBar){
         urlBar.value=topic.url;
         const iframe=document.getElementById('study-iframe');
@@ -5162,6 +5201,60 @@ function renderStudyTopics(){
     };
     nav.appendChild(div);
   });
+}
+
+function _studyDrop(targetIdx){
+  if(_studyDragIdx===null||_studyDragIdx===targetIdx)return;
+  const arr=PS.data.studying.topics;
+  const dragI=_studyDragIdx;
+  _studyDragIdx=null;
+  const [moved]=arr.splice(dragI,1);
+  const insertAt=targetIdx>dragI?targetIdx-1:targetIdx;
+  arr.splice(insertAt,0,moved);
+  renderStudyTopics();
+  if(!PS.data._sectionTs)PS.data._sectionTs={};
+  PS.data._sectionTs['studying']=Date.now();
+  if(typeof _localDirty!=='undefined')_localDirty.add('studying');
+  autoSave();
+}
+
+function openStudySectionModal(){
+  openModal('Add Section',
+    `<div class="fg"><label class="fl">Section Title</label><input class="fi" id="ss-name" placeholder="e.g. Core Design, References…"></div>`,
+    `<button class="btn btn-sm" onclick="closeModal()">Cancel</button>
+     <button class="btn btn-gold" onclick="saveStudySection()">Add Section</button>`
+  );
+  setTimeout(()=>document.getElementById('ss-name')?.focus(),100);
+}
+
+function saveStudySection(){
+  ensureStudying();
+  const name=document.getElementById('ss-name').value.trim();
+  if(!name){showToast('Name required');return;}
+  PS.data.studying.topics.push({type:'section',id:'sec_'+Date.now(),name});
+  closeModal();renderStudyTopics();
+  if(!PS.data._sectionTs)PS.data._sectionTs={};
+  PS.data._sectionTs['studying']=Date.now();
+  if(typeof _localDirty!=='undefined')_localDirty.add('studying');
+  autoSave();FIREBASE.push();showToast('Section added ✓');
+}
+
+function _studyRenameSection(id){
+  ensureStudying();
+  const sec=PS.data.studying.topics.find(t=>t.id===id&&t.type==='section');
+  if(!sec)return;
+  const name=prompt('Rename section:',sec.name);
+  if(!name||!name.trim())return;
+  sec.name=name.trim();
+  renderStudyTopics();autoSave();
+}
+
+function _studyDeleteSection(id){
+  ensureStudying();
+  const sec=PS.data.studying.topics.find(t=>t.id===id&&t.type==='section');
+  if(!confirm(`Delete section "${sec?.name}"?`))return;
+  PS.data.studying.topics=PS.data.studying.topics.filter(t=>t.id!==id);
+  renderStudyTopics();autoSave();showToast('Section deleted');
 }
 
 function filterStudyNotes(q){renderStudyNotes(q);}
@@ -5418,6 +5511,16 @@ function studyGoUrl(){
   if(blocked){blocked.style.display='none';}
   iframe.src=url;
   iframe.onerror=()=>{if(blocked){blocked.style.display='flex';}};
+}
+
+function studySaveUrl(){
+  const urlBar=document.getElementById('study-url-bar');
+  if(!urlBar||!_studyActiveTopic)return;
+  const url=urlBar.value.trim();
+  if(!url.startsWith('http'))return;
+  ensureStudying();
+  const topic=PS.data.studying.topics.find(t=>t.id===_studyActiveTopic);
+  if(topic && topic.url!==url){topic.url=url;autoSave();}
 }
 
 // ════════════════════════════════════════════════════════════
@@ -5749,9 +5852,9 @@ function init() {
     updateARClock();
     renderCalendar();
 
-    // Init current year calendar
+    // Init current year/month calendar
     const now = new Date();
-    calYear = 2026;
+    calYear = now.getFullYear();
     calMonth = now.getMonth();
     renderCalendar();
 
