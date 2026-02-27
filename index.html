@@ -347,6 +347,17 @@ body.focus-mode #focus-btn{display:flex}
 .ob-name{font-weight:600}
 .ob-loc{color:#555;margin-left:2px}
 
+/* ── UPDATE BANNER ── */
+#update-banner{display:none;padding:0 16px;height:32px;align-items:center;gap:10px;font-size:11px;font-family:var(--fm);flex-shrink:0;border-bottom:1px solid;transition:all .2s}
+#update-banner.ub-info{background:rgba(78,203,113,.07);border-color:rgba(78,203,113,.25);color:var(--green)}
+#update-banner.ub-warn{background:rgba(201,162,39,.09);border-color:rgba(201,162,39,.35);color:var(--gold)}
+#update-banner .ub-msg{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#update-banner button{font-family:var(--fm);font-size:10px;border-radius:3px;padding:2px 10px;cursor:pointer;border:1px solid;transition:all .12s}
+#update-banner .ub-apply{background:var(--gold);color:#000;border-color:var(--gold)}
+#update-banner .ub-apply:hover{opacity:.85}
+#update-banner .ub-dismiss{background:none;color:currentColor;border-color:currentColor;opacity:.5}
+#update-banner .ub-dismiss:hover{opacity:1}
+
 /* ── EMPTY STATE ── */
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;gap:8px;color:var(--text-secondary)}
 .empty-icon{font-size:32px;opacity:.25}
@@ -407,6 +418,14 @@ input[type="range"]{accent-color:var(--gold);width:100%}
 <div id="online-bar">
   <span class="ob-label">🌍 Online</span>
   <span id="online-bar-users"></span>
+</div>
+
+<!-- UPDATE NOTIFICATION BANNER -->
+<div id="update-banner" class="ub-info">
+  <span id="ub-icon">📥</span>
+  <span class="ub-msg" id="ub-msg">Updates available</span>
+  <button class="ub-apply" id="ub-apply-btn" onclick="applyPendingRemote()">✓ Apply Updates</button>
+  <button class="ub-dismiss" onclick="dismissUpdateBanner()">✕</button>
 </div>
 
 <!-- LIFECYCLE BAR -->
@@ -501,6 +520,7 @@ input[type="range"]{accent-color:var(--gold);width:100%}
         <div class="mod-title">Dashboard</div>
         <div class="mod-sub">Project Overview</div>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+          <span id="dash-online-pill" style="display:none;align-items:center;gap:5px;background:rgba(78,203,113,.12);border:1px solid rgba(78,203,113,.3);border-radius:12px;padding:3px 12px;font-family:var(--fm);font-size:11px;color:var(--green);cursor:pointer" onclick="openFirebaseModal()">🌍 0 online</span>
           <span style="font-family:var(--fm);font-size:11px;color:var(--green)">● Autosave ON</span>
         </div>
       </div>
@@ -1152,6 +1172,10 @@ let _fbQuickTimer;
 // Maps sidebar module id → PS.data section key
 const _MOD_SECTION = { tasks:'tasks', map:'maps', notes:'notes', calendar:'calendarEvents',
                        gdd:'docs', ldd:'docs', charts:'charts', assets:'assets', studying:'studying' };
+// Sections locally modified but not yet confirmed pushed — protected from remote overwrite
+const _ALL_SECTIONS = ['tasks','maps','calendarEvents','assets','charts','docs','settings','currentProject','studying','notes'];
+let _localDirty = new Set();
+
 function autoSave() {
   if (!PS.data.settings.autosave) return;
   // Tag which section changed based on the currently active module
@@ -1160,6 +1184,7 @@ function autoSave() {
   if (section) {
     if (!PS.data._sectionTs) PS.data._sectionTs = {};
     PS.data._sectionTs[section] = Date.now();
+    _localDirty.add(section);  // mark as unsaved local change
   }
   // Fast Firebase push — 800ms after last change (real-time feel)
   clearTimeout(_fbQuickTimer);
@@ -1183,8 +1208,7 @@ function saveAll() {
     // Mark all sections as saved now so future remote merges respect our full save
     const now = Date.now();
     if (!PS.data._sectionTs) PS.data._sectionTs = {};
-    ['tasks','maps','calendarEvents','assets','charts','docs','settings','currentProject','studying','notes']
-      .forEach(s => { PS.data._sectionTs[s] = now; });
+    _ALL_SECTIONS.forEach(s => { PS.data._sectionTs[s] = now; });
     PS.data._localTs = now;
     PS.save();
     if (CLOUD.enabled) cloudPush();
@@ -1334,6 +1358,7 @@ const FIREBASE = {
   _heartbeat:     null, _pollTimer: null,
   _ready:         false, _writeQueue: false,
   _lastRemoteTs:  0,
+  _pendingPayload: null,
   _log:           [],
 
   // ── URLs ──────────────────────────────────────────────────
@@ -1441,10 +1466,23 @@ const FIREBASE = {
         this._lastRemoteTs = payload.ts || Date.now();
         const sender = payload.userName || (payload.sessionId||'?').slice(0,8);
         this._addLog('⬇ ' + sender + ' updated');
-        PS._merge(payload.data, true); _fbApply();  // granular: only overwrite newer sections
-        showToast('⬇ ' + sender + ' updated the project');
+        // Find which sections the remote actually changed
+        const remSTs = (payload.data._sectionTs) || {};
+        const locSTs = (PS.data._sectionTs)      || {};
+        const changedSecs = _ALL_SECTIONS.filter(s => (remSTs[s]||0) > (locSTs[s]||0));
+        const conflicts   = changedSecs.filter(s => _localDirty.has(s));
+        if (conflicts.length > 0) {
+          // Remote changed something we also modified locally — show banner, don't overwrite
+          this._pendingPayload = payload;
+          _showUpdateBanner(sender, changedSecs, conflicts);
+          this._addLog('⚠ Conflict on: ' + conflicts.join(', '));
+        } else {
+          // Safe to merge — no dirty conflict
+          PS._merge(payload.data, true); _fbApply();
+          _showUpdateBanner(sender, changedSecs, []);  // notification-only banner (no conflict)
+        }
         this._setStatus('ok', '⬇ Synced');
-        setTimeout(() => this._setStatus('ok', this._lbl()), 2000);
+        setTimeout(() => this._setStatus('ok', this._lbl()), 3000);
       } catch(err) { console.warn('[Firebase] SSE put error:', err); }
     });
     this._stateSse.addEventListener('patch', e => {
@@ -1513,10 +1551,19 @@ const FIREBASE = {
           this._lastRemoteTs = payload.ts || Date.now();
           const sender = payload.userName || (payload.sessionId||'?').slice(0,8);
           this._addLog('⬇ Poll: ' + sender + ' updated');
-          PS._merge(payload.data, true); _fbApply();  // granular merge
-          showToast('⬇ ' + sender + ' updated the project');
+          const remSTs2 = (payload.data._sectionTs) || {};
+          const locSTs2 = (PS.data._sectionTs)      || {};
+          const changedSecs2 = _ALL_SECTIONS.filter(s => (remSTs2[s]||0) > (locSTs2[s]||0));
+          const conflicts2   = changedSecs2.filter(s => _localDirty.has(s));
+          if (conflicts2.length > 0) {
+            this._pendingPayload = payload;
+            _showUpdateBanner(sender, changedSecs2, conflicts2);
+          } else {
+            PS._merge(payload.data, true); _fbApply();
+            _showUpdateBanner(sender, changedSecs2, []);
+          }
           this._setStatus('ok', '⬇ Synced');
-          setTimeout(() => this._setStatus('ok', this._lbl()), 2000);
+          setTimeout(() => this._setStatus('ok', this._lbl()), 3000);
         }
       } catch(e) {}
     }, 5000);
@@ -1565,6 +1612,7 @@ const FIREBASE = {
       if (res.ok) {
         this._addLog('⬆ Saved OK');
         this._setStatus('ok', this._lbl());
+        _localDirty.clear();  // push confirmed — no longer dirty
       } else {
         this._addLog('✗ Write HTTP ' + res.status);
         this._setStatus('error', '⚠ Write err ' + res.status);
@@ -1684,22 +1732,99 @@ function _renderOnlineBar() {
   const bar    = document.getElementById('online-bar');
   const users  = document.getElementById('online-bar-users');
   if (!bar || !users) return;
-  if (online.length === 0) { bar.style.display = 'none'; return; }
-  bar.style.display = 'flex';
-  users.innerHTML = online.map(u => {
-    const isSelf   = u.sessionId === FIREBASE.sessionId;
-    const dotColor = isSelf ? '#4ecb71' : '#4a9eff';
-    const loc      = [u.city, u.country].filter(Boolean).join(', ') || u.ip || '';
-    const modLabel = u.mod ? (_MOD_LABEL[u.mod] || u.mod) : '';
-    return '<span class="ob-user' + (isSelf ? ' is-self' : '') + '">' +
-      '<span class="ob-dot" style="background:' + dotColor + '"></span>' +
-      '<span>' + (u.flag||'🌐') + '</span>' +
-      '<span class="ob-name" style="color:' + dotColor + '">' + (u.name||'User') + '</span>' +
-      (modLabel ? '<span class="ob-loc" style="color:' + dotColor + ';opacity:.6"> · ' + modLabel + '</span>' : '') +
-      (loc ? '<span class="ob-loc">' + loc + '</span>' : '') +
-      (isSelf ? '<span class="ob-loc">(you)</span>' : '') +
-      '</span>';
-  }).join('');
+  if (online.length === 0) { bar.style.display = 'none'; }
+  else {
+    bar.style.display = 'flex';
+    users.innerHTML = online.map(u => {
+      const isSelf   = u.sessionId === FIREBASE.sessionId;
+      const dotColor = isSelf ? '#4ecb71' : '#4a9eff';
+      const loc      = [u.city, u.country].filter(Boolean).join(', ') || u.ip || '';
+      const modLabel = u.mod ? (_MOD_LABEL[u.mod] || u.mod) : '';
+      return '<span class="ob-user' + (isSelf ? ' is-self' : '') + '">' +
+        '<span class="ob-dot" style="background:' + dotColor + '"></span>' +
+        '<span>' + (u.flag||'🌐') + '</span>' +
+        '<span class="ob-name" style="color:' + dotColor + '">' + (u.name||'User') + '</span>' +
+        (modLabel ? '<span class="ob-loc" style="color:' + dotColor + ';opacity:.6"> · ' + modLabel + '</span>' : '') +
+        (loc ? '<span class="ob-loc">' + loc + '</span>' : '') +
+        (isSelf ? '<span class="ob-loc">(you)</span>' : '') +
+        '</span>';
+    }).join('');
+  }
+  // Update dashboard online count pill
+  const pill = document.getElementById('dash-online-pill');
+  if (pill) {
+    if (online.length > 0) {
+      pill.textContent = '🌍 ' + online.length + ' online';
+      pill.style.display = 'inline-flex';
+    } else { pill.style.display = 'none'; }
+  }
+  // Refresh dashboard team widget if on dashboard
+  const onDash = document.querySelector('.sb-item.active')?.dataset?.mod === 'dashboard';
+  if (onDash) {
+    const teamEl = document.getElementById('dash-team');
+    if (teamEl) {
+      if (online.length) {
+        teamEl.innerHTML = online.map(u=>{
+          const isSelf = u.sessionId===FIREBASE.sessionId;
+          const dotC   = isSelf?'#4ecb71':'#4a9eff';
+          const modLbl = (_MOD_LABEL||{})[u.mod]||u.mod||'';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg-card);border-radius:6px;border:1px solid ${dotC}22;margin-bottom:6px">
+            <span style="width:8px;height:8px;border-radius:50%;background:${dotC};flex-shrink:0;display:inline-block"></span>
+            <span style="font-size:16px">${u.flag||'🌐'}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-family:var(--fu);font-size:11px;color:${dotC};font-weight:600">${u.name||'User'}${isSelf?' <span style="opacity:.5;font-size:9px">(you)</span>':''}</div>
+              <div style="font-size:10px;color:var(--text-muted)">${[modLbl,u.city,u.country].filter(Boolean).join(' · ')}</div>
+            </div>
+          </div>`;
+        }).join('');
+      } else {
+        teamEl.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:8px 0">Connect via Firebase to see teammates</div>';
+      }
+    }
+  }
+}
+
+// ── Update banner (shows when remote changes arrive) ──────────
+let _bannerTimer;
+function _showUpdateBanner(sender, changedSecs, conflicts) {
+  const banner  = document.getElementById('update-banner');
+  const msg     = document.getElementById('ub-msg');
+  const applyBtn= document.getElementById('ub-apply-btn');
+  const icon    = document.getElementById('ub-icon');
+  if (!banner || !msg) return;
+  const secNames = changedSecs.map(s => (_MOD_LABEL[s] || s)).join(', ');
+  if (conflicts.length > 0) {
+    // Conflict: user has unsaved edits on same section
+    banner.className = 'ub-warn';
+    icon.textContent = '⚠';
+    msg.textContent  = sender + ' also edited ' + secNames + ' — your edits are protected. Apply their version or keep yours.';
+    applyBtn.style.display = 'inline-block';
+  } else if (changedSecs.length > 0) {
+    // Info: safe merge already applied, just notify
+    banner.className = 'ub-info';
+    icon.textContent = '📥';
+    msg.textContent  = sender + ' updated ' + secNames;
+    applyBtn.style.display = 'none';
+  } else { return; }  // nothing changed
+  banner.style.display = 'flex';
+  clearTimeout(_bannerTimer);
+  if (conflicts.length === 0) _bannerTimer = setTimeout(dismissUpdateBanner, 5000);
+}
+
+function applyPendingRemote() {
+  const payload = FIREBASE._pendingPayload;
+  if (payload && payload.data) {
+    PS._merge(payload.data, true); _fbApply();
+    FIREBASE._pendingPayload = null;
+    _localDirty.clear();
+    showToast('✓ Remote changes applied');
+  }
+  dismissUpdateBanner();
+}
+
+function dismissUpdateBanner() {
+  const b = document.getElementById('update-banner');
+  if (b) b.style.display = 'none';
 }
 
 // ── Apply remote state to currently visible module ────────────
