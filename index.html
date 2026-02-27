@@ -514,7 +514,7 @@ input[type="range"]{accent-color:var(--gold);width:100%}
         <div class="g2" style="margin-bottom:16px;">
           <div class="panel">
             <div class="panel-title">📋 Recent Tasks</div>
-            <table class="ttable"><thead><tr><th>Title</th><th>Status</th><th>Discipline</th><th>Due</th></tr></thead>
+            <table class="ttable"><thead><tr><th>Title</th><th>Status</th><th>Priority</th><th>Discipline</th><th>Time Left</th></tr></thead>
             <tbody id="dash-tasks"></tbody></table>
           </div>
           <div class="panel">
@@ -1183,10 +1183,10 @@ function switchProject(name) { PS.data.currentProject = name; autoSave(); }
 let _toastTimer;
 function showToast(msg) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
+  el.innerHTML = msg;  // supports HTML links for email reminders
   el.classList.add('show');
   clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1957,6 +1957,18 @@ document.getElementById('modal-overlay').addEventListener('click', e => {
 // ════════════════════════════════════════════════════════════
 // DASHBOARD
 // ════════════════════════════════════════════════════════════
+const _PCOLOR = { Low:'var(--blue)', Medium:'var(--orange)', High:'var(--red)', Critical:'#ff2d2d' };
+const _PICON  = { Low:'↓ ', Medium:'→ ', High:'↑ ', Critical:'⚡ ' };
+function timeUntil(dateStr) {
+  if (!dateStr) return '—';
+  const days = Math.ceil((new Date(dateStr) - new Date()) / 86400000);
+  if (days < 0)  return `<span style="color:#e05252;font-weight:700">⚠ ${-days}d ago</span>`;
+  if (days === 0) return `<span style="color:#e05252;font-weight:700">Today!</span>`;
+  if (days === 1) return `<span style="color:#c9a227;font-weight:600">Tomorrow</span>`;
+  if (days <= 3)  return `<span style="color:#c9a227">${days}d left</span>`;
+  if (days <= 7)  return `<span style="color:var(--text-secondary)">${days}d left</span>`;
+  return `<span style="color:var(--text-muted)">${days}d</span>`;
+}
 function refreshDashboard() {
   const tk = PS.data.tasks;
   const total = tk.length;
@@ -1976,7 +1988,9 @@ function refreshDashboard() {
   tk.slice(-6).reverse().forEach(t => {
     const tr = document.createElement('tr');
     tr.onclick = ()=>openTaskModal(t.id);
-    tr.innerHTML = `<td><span class="badge ${sClass(t.status)}">${t.status}</span></td><td style="font-weight:500">${t.title}</td><td>${t.discipline||'—'}</td><td style="font-family:var(--fm);font-size:11px">${t.due||'—'}</td>`;
+    const pCol = _PCOLOR[t.priority] || 'var(--text-muted)';
+    const pIco = _PICON[t.priority]  || '';
+    tr.innerHTML = `<td style="font-weight:500">${t.title}</td><td><span class="badge ${sClass(t.status)}">${t.status}</span></td><td style="color:${pCol};font-size:11px;font-weight:700;white-space:nowrap">${pIco}${t.priority||'—'}</td><td>${t.discipline||'—'}</td><td style="font-family:var(--fm);font-size:11px;white-space:nowrap">${timeUntil(t.due)}</td>`;
     tb.appendChild(tr);
   });
 
@@ -1985,7 +1999,14 @@ function refreshDashboard() {
   const now = new Date();
   const up = PS.data.calendarEvents.filter(e=>new Date(e.date)>=now).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,5);
   up.forEach(ev => {
-    el.innerHTML += `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg-card);border-radius:4px;border:1px solid var(--border);margin-bottom:4px;"><span style="font-family:var(--fm);font-size:10px;color:var(--gold)">${ev.date}</span><span>${ev.title}</span></div>`;
+    const pCol = _PCOLOR[ev.priority] || 'var(--text-muted)';
+    const pIco = _PICON[ev.priority]  || '';
+    el.innerHTML += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg-card);border-radius:4px;border:1px solid var(--border);margin-bottom:4px;cursor:pointer" onclick="showModule('calendar')">
+      <span style="font-family:var(--fm);font-size:10px;color:var(--gold);min-width:72px">${ev.date}</span>
+      <span style="flex:1;font-size:12px">${ev.title}</span>
+      ${ev.priority?`<span style="color:${pCol};font-size:10px;font-weight:700;white-space:nowrap">${pIco}${ev.priority}</span>`:''}
+      <span style="font-family:var(--fm);font-size:10px;white-space:nowrap">${timeUntil(ev.date)}</span>
+    </div>`;
   });
   if (!up.length) el.innerHTML = '<div class="empty"><div class="empty-icon">📅</div><div class="empty-txt">No upcoming events</div></div>';
 
@@ -2280,8 +2301,21 @@ function makeCalCell(year,month,day,other,isToday) {
 
 function openCalEventModal(id, prefill) {
   const ev = id ? PS.data.calendarEvents.find(e=>e.id===id) : null;
-  const body=`<div class="fg"><label class="fl">Event Title</label><input class="fi" id="ev-title" value="${ev?ev.title:''}" placeholder="Event name…"></div>
-    <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="ev-date" value="${ev?ev.date:prefill||''}"></div>
+  const defaultEmail = localStorage.getItem('igs_notify_email') || '';
+  const prioOpts = ['','Low','Medium','High','Critical'].map(p=>`<option value="${p}" ${(ev&&ev.priority||'')==p?'selected':''}>${p||'— No priority —'}</option>`).join('');
+  const notifyOpts = ['','1','3','7'].map(d=>`<option value="${d}" ${(ev&&ev.notifyDays||'')==d?'selected':''}>${d?d+' day(s) before':'— No reminder —'}</option>`).join('');
+  const body=`
+    <div class="fg"><label class="fl">Event Title</label><input class="fi" id="ev-title" value="${ev?ev.title:''}" placeholder="Event name…"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label class="fl">Start Date</label><input class="fi" type="date" id="ev-date" value="${ev?ev.date:prefill||''}"></div>
+      <div class="fg"><label class="fl">End Date <span style="font-size:9px;color:var(--text-muted)">(optional)</span></label><input class="fi" type="date" id="ev-end" value="${ev&&ev.endDate||''}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label class="fl">Priority</label><select class="fs" id="ev-priority">${prioOpts}</select></div>
+      <div class="fg"><label class="fl">Email Reminder</label><select class="fs" id="ev-notify-days">${notifyOpts}</select></div>
+    </div>
+    <div class="fg"><label class="fl">Notify Email <span style="font-size:9px;color:var(--text-muted)">(leave blank to skip email)</span></label>
+      <input class="fi" id="ev-email" type="email" value="${ev&&ev.notifyEmail||defaultEmail}" placeholder="you@email.com" oninput="localStorage.setItem('igs_notify_email',this.value)"></div>
     <div class="fg"><label class="fl">Description</label><textarea class="fta" id="ev-desc">${ev?ev.description||'':''}</textarea></div>`;
   const footer=`${ev?`<button class="btn btn-danger btn-sm" onclick="deleteCalEv('${ev.id}')">Delete</button>`:''}
     <button class="btn btn-sm" onclick="closeModal()">Cancel</button>
@@ -2292,10 +2326,22 @@ function openCalEventModal(id, prefill) {
 function saveCalEv(id) {
   const title=document.getElementById('ev-title').value.trim();
   if(!title){showToast('Title required');return;}
-  const ev={id:id||'ev_'+Date.now(),title,date:document.getElementById('ev-date').value,description:document.getElementById('ev-desc').value};
+  const isNew = !id;
+  const ev={
+    id:id||'ev_'+Date.now(), title,
+    date:document.getElementById('ev-date').value,
+    endDate:document.getElementById('ev-end').value||'',
+    priority:document.getElementById('ev-priority').value||'',
+    notifyDays:document.getElementById('ev-notify-days').value||'',
+    notifyEmail:document.getElementById('ev-email').value.trim()||'',
+    description:document.getElementById('ev-desc').value,
+    _notified: id ? (PS.data.calendarEvents.find(e=>e.id===id)||{})._notified : false
+  };
   if(id){const idx=PS.data.calendarEvents.findIndex(e=>e.id===id);if(idx>=0)PS.data.calendarEvents[idx]=ev;else PS.data.calendarEvents.push(ev);}
   else PS.data.calendarEvents.push(ev);
-  closeModal();renderCalendar();autoSave();showToast('Event saved ✓');
+  closeModal(); renderCalendar(); refreshDashboard(); autoSave();
+  showToast('Event saved ✓');
+  if(isNew && ev.notifyEmail) _sendNewEventEmail(ev);
 }
 function deleteCalEv(id){PS.data.calendarEvents=PS.data.calendarEvents.filter(e=>e.id!==id);closeModal();renderCalendar();autoSave();}
 
@@ -2304,6 +2350,90 @@ function exportICS(){
   PS.data.calendarEvents.forEach(ev=>{const d=(ev.date||'19700101').replace(/-/g,'');ics+=`BEGIN:VEVENT\nUID:${ev.id}@igs\nDTSTART:${d}\nSUMMARY:${ev.title}\nDESCRIPTION:${ev.description||''}\nEND:VEVENT\n`;});
   ics+='END:VCALENDAR';
   dlText(ics,'calendar.ics','text/calendar');
+}
+
+// ── Notification system ───────────────────────────────────────
+// Opens user's email client with pre-filled reminder email
+function _sendNewEventEmail(ev) {
+  if (!ev.notifyEmail) return;
+  const prio = ev.priority ? `[${ev.priority}] ` : '';
+  const sub  = encodeURIComponent(`📅 New Event Scheduled: ${prio}${ev.title}`);
+  const body = encodeURIComponent(
+    `A new event was added to Invictus Game Studio Editor:\n\n` +
+    `📌 ${ev.title}\n` +
+    `📅 Date: ${ev.date}${ev.endDate?' → '+ev.endDate:''}\n` +
+    `⚡ Priority: ${ev.priority||'—'}\n` +
+    `📝 ${ev.description||'No description'}\n\n` +
+    `Reminder: ${ev.notifyDays ? ev.notifyDays + ' day(s) before event' : 'No reminder set'}`
+  );
+  window.open(`mailto:${ev.notifyEmail}?subject=${sub}&body=${body}`);
+}
+
+function _sendDeadlineEmail(ev, daysLeft) {
+  if (!ev.notifyEmail) return;
+  const prio = ev.priority ? `[${ev.priority}] ` : '';
+  const urgency = daysLeft === 0 ? '🔴 TODAY' : daysLeft === 1 ? '🟠 TOMORROW' : `🟡 ${daysLeft} DAYS LEFT`;
+  const sub  = encodeURIComponent(`⏰ ${urgency}: ${prio}${ev.title}`);
+  const body = encodeURIComponent(
+    `DEADLINE REMINDER — Invictus Game Studio\n\n` +
+    `📌 ${ev.title}\n` +
+    `📅 Date: ${ev.date}${ev.endDate?' → '+ev.endDate:''}\n` +
+    `⚡ Priority: ${ev.priority||'—'}\n` +
+    `⏳ Time left: ${daysLeft === 0 ? 'TODAY!' : daysLeft + ' day(s)'}\n` +
+    `📝 ${ev.description||''}\n\n` +
+    `Open the editor: ${location.href}`
+  );
+  window.open(`mailto:${ev.notifyEmail}?subject=${sub}&body=${body}`);
+}
+
+// Browser Notification API — requests permission on first use
+function requestNotifPermission() {
+  if ('Notification' in window && Notification.permission === 'default')
+    Notification.requestPermission();
+}
+
+function _showBrowserNotif(title, body, urgency) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const n = new Notification('Invictus GS — ' + title, {
+    body, icon: 'https://em-content.zobj.net/source/google/387/calendar_1f4c5.png',
+    tag: title, requireInteraction: urgency === 'high'
+  });
+  n.onclick = () => { window.focus(); showModule('calendar'); n.close(); };
+}
+
+// Check all events — fire browser notifs + offer email for approaching deadlines
+function checkDeadlineNotifications() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const notified = JSON.parse(localStorage.getItem('igs_notif_sent')||'{}');
+  let changed = false;
+  PS.data.calendarEvents.forEach(ev => {
+    if (!ev.date) return;
+    const evDate = new Date(ev.date); evDate.setHours(0,0,0,0);
+    const daysLeft = Math.ceil((evDate - today) / 86400000);
+    const notifyDays = parseInt(ev.notifyDays) || 0;
+    if (!notifyDays) return;
+    // Fire notification when daysLeft is exactly notifyDays, or on the day itself
+    const shouldNotify = daysLeft === notifyDays || daysLeft === 1 || daysLeft === 0;
+    if (!shouldNotify) return;
+    const notifKey = ev.id + '_d' + daysLeft;
+    if (notified[notifKey]) return; // already sent today
+    // Browser notification
+    const urgency = daysLeft <= 1 ? 'high' : 'normal';
+    const label = daysLeft === 0 ? 'TODAY' : daysLeft === 1 ? 'Tomorrow' : `in ${daysLeft} days`;
+    _showBrowserNotif(ev.title, `${ev.priority?'['+ev.priority+'] ':''}Event: ${label}`, urgency);
+    // Email — show toast with link so user can open mail client
+    if (ev.notifyEmail) {
+      const prio = ev.priority ? `[${ev.priority}] ` : '';
+      const urgency2 = daysLeft === 0 ? '🔴 TODAY' : daysLeft === 1 ? '🟠 TOMORROW' : `🟡 ${daysLeft} DAYS`;
+      const sub  = encodeURIComponent(`⏰ ${urgency2}: ${prio}${ev.title}`);
+      const body2 = encodeURIComponent(`DEADLINE REMINDER\n\n📌 ${ev.title}\n📅 ${ev.date}\n⚡ Priority: ${ev.priority||'—'}\n⏳ ${label}\n\n${ev.description||''}`);
+      const link = `mailto:${ev.notifyEmail}?subject=${sub}&body=${body2}`;
+      showToast(`⏰ ${ev.title} — ${label}  <a href="${link}" style="color:var(--gold)" onclick="event.stopPropagation()">Send email ↗</a>`);
+    }
+    notified[notifKey] = Date.now();
+    changed = true;
+  });
+  if (changed) localStorage.setItem('igs_notif_sent', JSON.stringify(notified));
 }
 
 // ════════════════════════════════════════════════════════════
@@ -4730,18 +4860,68 @@ function renderStudyTopics(){
   allDiv.onclick=()=>{_studyActiveTopic=null;document.getElementById('study-current-topic').textContent='All Notes';renderStudyNotes();renderStudyTopics();};
   nav.appendChild(allDiv);
 
-  PS.data.studying.topics.forEach(topic=>{
+  PS.data.studying.topics.forEach((topic, idx)=>{
     const active=_studyActiveTopic===topic.id;
+    const topics=PS.data.studying.topics;
     const div=document.createElement('div');
-    div.style.cssText=`padding:6px 10px;cursor:pointer;font-family:var(--fu);font-size:12px;font-weight:500;color:${active?topic.color:'var(--text-secondary)'};border-left:2px solid ${active?topic.color:'transparent'};border-radius:0 4px 4px 0;transition:all .1s;text-transform:uppercase;letter-spacing:.5px;background:${active?topic.color+'11':'transparent'};margin-bottom:2px;display:flex;align-items:center;gap:6px;`;
+    div.style.cssText=`padding:4px 6px 4px 10px;cursor:pointer;font-family:var(--fu);font-size:12px;font-weight:500;color:${active?topic.color:'var(--text-secondary)'};border-left:2px solid ${active?topic.color:'transparent'};border-radius:0 4px 4px 0;transition:all .1s;text-transform:uppercase;letter-spacing:.5px;background:${active?topic.color+'11':'transparent'};margin-bottom:2px;display:flex;align-items:center;gap:5px;position:relative;`;
     const count=PS.data.studying.notes.filter(n=>n.topicId===topic.id).length;
-    div.innerHTML=`<span>${topic.icon}</span><span style="flex:1">${topic.name}</span><span style="font-family:var(--fm);font-size:9px;opacity:.6">${count}</span>`;
+    div.innerHTML=`
+      <span>${topic.icon}</span>
+      <span class="st-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${topic.name}">${topic.name}</span>
+      <span style="font-family:var(--fm);font-size:9px;opacity:.6">${count}</span>
+      <span class="st-actions" style="display:none;gap:2px;flex-shrink:0">
+        <button title="Rename" onclick="event.stopPropagation();_studyRenameTopic('${topic.id}')" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-secondary);padding:1px 3px;line-height:1" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text-secondary)'">✎</button>
+        <button title="Move up" onclick="event.stopPropagation();_studyMoveTopic('${topic.id}',-1)" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-secondary);padding:1px 3px;line-height:1;${idx===0?'opacity:.2;pointer-events:none':''}" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text-secondary)'">↑</button>
+        <button title="Move down" onclick="event.stopPropagation();_studyMoveTopic('${topic.id}',1)" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-secondary);padding:1px 3px;line-height:1;${idx===topics.length-1?'opacity:.2;pointer-events:none':''}" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text-secondary)'">↓</button>
+        <button title="Delete topic" onclick="event.stopPropagation();_studyDeleteTopic('${topic.id}')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#e05252;padding:1px 3px;line-height:1" onmouseover="this.style.color='#ff6b6b'" onmouseout="this.style.color='#e05252'">×</button>
+      </span>`;
+    const actions=div.querySelector('.st-actions');
+    div.onmouseenter=()=>{actions.style.display='flex';};
+    div.onmouseleave=()=>{actions.style.display='none';};
     div.onclick=()=>{_studyActiveTopic=topic.id;document.getElementById('study-current-topic').textContent=topic.icon+' '+topic.name;renderStudyNotes();renderStudyTopics();};
     nav.appendChild(div);
   });
 }
 
 function filterStudyNotes(q){renderStudyNotes(q);}
+
+function _studyRenameTopic(id) {
+  ensureStudying();
+  const topic = PS.data.studying.topics.find(t=>t.id===id);
+  if (!topic) return;
+  const name = prompt('Rename topic:', topic.name);
+  if (!name || !name.trim()) return;
+  topic.name = name.trim();
+  if (_studyActiveTopic === id)
+    document.getElementById('study-current-topic').textContent = topic.icon + ' ' + topic.name;
+  renderStudyTopics(); autoSave();
+}
+
+function _studyMoveTopic(id, dir) {
+  ensureStudying();
+  const arr = PS.data.studying.topics;
+  const idx = arr.findIndex(t=>t.id===id);
+  const to  = idx + dir;
+  if (to < 0 || to >= arr.length) return;
+  [arr[idx], arr[to]] = [arr[to], arr[idx]];
+  renderStudyTopics(); autoSave();
+}
+
+function _studyDeleteTopic(id) {
+  ensureStudying();
+  const topic = PS.data.studying.topics.find(t=>t.id===id);
+  const noteCount = PS.data.studying.notes.filter(n=>n.topicId===id).length;
+  const msg = noteCount
+    ? `Delete "${topic?.name}"? This will also delete its ${noteCount} note(s).`
+    : `Delete "${topic?.name}"?`;
+  if (!confirm(msg)) return;
+  PS.data.studying.topics = PS.data.studying.topics.filter(t=>t.id!==id);
+  PS.data.studying.notes  = PS.data.studying.notes.filter(n=>n.topicId!==id);
+  if (_studyActiveTopic === id) { _studyActiveTopic = null; document.getElementById('study-current-topic').textContent = 'All Notes'; }
+  renderStudyTopics(); renderStudyNotes(); autoSave();
+  showToast('Topic deleted');
+}
 
 function renderStudyNotes(search){
   ensureStudying();
@@ -5297,6 +5477,11 @@ function init() {
 
     // Firebase Realtime Database — connect and subscribe to live updates
     FIREBASE.init();
+
+    // Deadline notifications — request browser permission + check on load
+    requestNotifPermission();
+    setTimeout(checkDeadlineNotifications, 3000); // after data loads
+    setInterval(checkDeadlineNotifications, 3600000); // re-check every hour
 
     // Autosave every 90s (belt-and-suspenders fallback)
     setInterval(()=>{collectDocData();mapSaveCurrent();PS.save();if(CLOUD.enabled)cloudPush();FIREBASE.push();},90000);
