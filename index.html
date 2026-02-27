@@ -588,30 +588,24 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
 /* ════════════════════════════════════════════════════════════
    DOC IMAGE GALLERY
    ════════════════════════════════════════════════════════════ */
-/* ── TWO-COLUMN SECTION LAYOUT (fields left, images right) ── */
-.doc-section-split{display:flex;gap:14px;align-items:flex-start}
-.doc-fields-col{flex:1;min-width:0}
-.doc-imgs-col{width:240px;flex-shrink:0;position:sticky;top:0}
-.doc-imgs-col-hdr{font-family:var(--fu);font-size:9px;letter-spacing:1.5px;color:var(--gold-dim);text-transform:uppercase;padding:2px 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px}
-/* Horizontal scroll gallery */
-.doc-img-gallery{display:flex;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;gap:8px;padding:0 0 8px;scrollbar-width:thin;scrollbar-color:var(--gold-dim) transparent;min-height:118px;align-items:flex-start}
-.doc-img-gallery::-webkit-scrollbar{height:4px}
-.doc-img-gallery::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:2px}
+/* ── PER-FIELD IMAGE GALLERY ────────────────────────────────── */
+/* Compact horizontal strip that sits below each textarea */
+.doc-field-gallery{display:flex;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;gap:6px;padding:6px 2px 6px;margin-top:5px;scrollbar-width:thin;scrollbar-color:var(--gold-dim) transparent;align-items:flex-start;border-top:1px solid rgba(201,162,39,.12)}
+.doc-field-gallery::-webkit-scrollbar{height:3px}
+.doc-field-gallery::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:2px}
 /* Image card: thumb + caption */
-.doc-img-card{flex-shrink:0;width:140px;display:flex;flex-direction:column;gap:4px}
+.doc-img-card{flex-shrink:0;width:110px;display:flex;flex-direction:column;gap:3px}
 .doc-img-thumb{position:relative;border-radius:4px;overflow:hidden;border:1px solid var(--border);transition:border-color .15s}
 .doc-img-thumb:hover{border-color:var(--gold)}
-.doc-img-thumb img{display:block;width:140px;height:88px;object-fit:cover;cursor:zoom-in}
-.doc-img-caption{width:100%;background:var(--bg-input);border:1px solid transparent;border-radius:3px;padding:3px 6px;font-size:10px;color:var(--text-secondary);font-family:var(--fb);outline:none;box-sizing:border-box}
+.doc-img-thumb img{display:block;width:110px;height:70px;object-fit:cover;cursor:zoom-in}
+.doc-img-caption{width:100%;background:var(--bg-input);border:1px solid transparent;border-radius:3px;padding:2px 5px;font-size:9px;color:var(--text-secondary);font-family:var(--fb);outline:none;box-sizing:border-box}
 .doc-img-caption:focus{border-color:var(--gold-dim);color:var(--text-primary)}
 .doc-img-caption::placeholder{color:var(--text-muted)}
-.doc-img-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.78);border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;line-height:18px;text-align:center;padding:0;opacity:0;transition:opacity .15s}
+.doc-img-del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.78);border:none;color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;line-height:16px;text-align:center;padding:0;opacity:0;transition:opacity .15s}
 .doc-img-thumb:hover .doc-img-del{opacity:1}
-.doc-img-add{flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;width:80px;height:88px;border:1px dashed var(--border);border-radius:4px;cursor:pointer;font-size:10px;color:var(--text-muted);font-family:var(--fu);letter-spacing:.5px;gap:4px;transition:all .15s;text-align:center;padding:6px;user-select:none;margin-bottom:24px}
+.doc-img-add{flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;width:70px;height:70px;border:1px dashed var(--border);border-radius:4px;cursor:pointer;font-size:9px;color:var(--text-muted);font-family:var(--fu);letter-spacing:.3px;gap:3px;transition:all .15s;text-align:center;padding:4px;user-select:none}
 .doc-img-add:hover{border-color:var(--gold);color:var(--gold);background:rgba(201,162,39,.05)}
 .doc-img-add input{display:none}
-/* Mobile: stack columns vertically */
-@media(max-width:900px){.doc-section-split{flex-direction:column}.doc-imgs-col{width:100%;position:static}}
 
 /* ════════════════════════════════════════════════════════════
    LAYER CONTEXT MENU
@@ -3288,22 +3282,19 @@ function initGDD() {
       let html=`<div class="doc-sec-title">${sec.icon} ${sec.label}</div>`;
       if(sec.hint) html+=`<div class="doc-info-box">${sec.hint}</div>`;
 
-      html+=`<div class="doc-section-split"><div class="doc-fields-col">`;
       sec.fields.forEach(field=>{
         const val=(PS.data.docs.gdd[sec.key]&&PS.data.docs.gdd[sec.key][field.k])||'';
         const q=DOC_QUESTIONS.gdd[field.k]||'';
+        const imgKey=sec.key+'__'+field.k;
         html+=`<div class="doc-field-wrap">
           <div class="doc-field-label">${field.l}</div>
           ${q?`<div class="doc-guide-q">💬 ${q}</div>`:''}
           <textarea class="doc-ta" rows="${field.rows}" id="gdd-${sec.key}-${field.k}"
             placeholder="${field.ph||''}"
             oninput="onDocInput('gdd','${sec.key}','${field.k}',this.value)">${val}</textarea>
+          <div class="doc-field-gallery" id="doc-imgs-gdd-${imgKey}">${_docImgGalleryHTML('gdd',imgKey)}</div>
         </div>`;
       });
-      html+=`</div><div class="doc-imgs-col">
-        <div class="doc-imgs-col-hdr">Visual References</div>
-        <div class="doc-img-gallery" id="doc-imgs-gdd-${sec.key}">${_docImgGalleryHTML('gdd',sec.key)}</div>
-      </div></div>`;
       html+='<div class="doc-divider"></div>';
       section.innerHTML=html;
       content.appendChild(section);
@@ -3329,7 +3320,10 @@ function _compressImg(dataURL, maxW=900, maxH=700, quality=0.82){
       let w=img.width,h=img.height;
       if(w>maxW||h>maxH){const r=Math.min(maxW/w,maxH/h);w=Math.round(w*r);h=Math.round(h*r);}
       const c=document.createElement('canvas');c.width=w;c.height=h;
-      c.getContext('2d').drawImage(img,0,0,w,h);
+      const ctx2=c.getContext('2d');
+      ctx2.fillStyle='#ffffff'; // white bg so PNG transparency doesn't become black
+      ctx2.fillRect(0,0,w,h);
+      ctx2.drawImage(img,0,0,w,h);
       resolve(c.toDataURL('image/jpeg',quality));
     };
     img.onerror=()=>resolve(dataURL);
@@ -3574,21 +3568,18 @@ function initLDD() {
         if(!PS.data.docs.ldd[sec.key]) PS.data.docs.ldd[sec.key]={};
         if(!PS.data.docs.ldd[sec.key][sec.checklistKey]) PS.data.docs.ldd[sec.key][sec.checklistKey]=sec.defaultItems.map(t=>({text:t,done:false}));
       } else {
-        html+=`<div class="doc-section-split"><div class="doc-fields-col">`;
         sec.fields.forEach(field=>{
           const val=(PS.data.docs.ldd[sec.key]&&PS.data.docs.ldd[sec.key][field.k])||'';
           const q=DOC_QUESTIONS.ldd[field.k]||'';
+          const imgKey=sec.key+'__'+field.k;
           html+=`<div class="doc-field-wrap"><div class="doc-field-label">${field.l}</div>
             ${q?`<div class="doc-guide-q">💬 ${q}</div>`:''}
             <textarea class="doc-ta" rows="${field.rows}" id="ldd-${sec.key}-${field.k}"
               placeholder="${field.ph||''}"
               oninput="onDocInput('ldd','${sec.key}','${field.k}',this.value)">${val}</textarea>
+            <div class="doc-field-gallery" id="doc-imgs-ldd-${imgKey}">${_docImgGalleryHTML('ldd',imgKey)}</div>
           </div>`;
         });
-        html+=`</div><div class="doc-imgs-col">
-          <div class="doc-imgs-col-hdr">Visual References</div>
-          <div class="doc-img-gallery" id="doc-imgs-ldd-${sec.key}">${_docImgGalleryHTML('ldd',sec.key)}</div>
-        </div></div>`;
       }
       html+='<div class="doc-divider"></div>';
       section.innerHTML=html;
