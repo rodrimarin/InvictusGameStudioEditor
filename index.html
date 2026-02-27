@@ -3511,6 +3511,10 @@ const MAP = {
   assetPreset: null, // active image asset from shapes panel
   _imgCache: {}, // cached Image objects keyed by assetId
   _prevSpaceTool: null, // for Space=pan
+  // Marquee (rubber-band) selection
+  isMarquee: false,
+  marqueeStart: null,  // {sx,sy} screen coords
+  marqueeCurrent: null, // {sx,sy} screen coords
   // Pan state
   isPanning: false,
   panStartMouse: null,
@@ -3672,11 +3676,16 @@ function mapMD(e) {
       MAP.dragObjStarts = {};
       MAP.selectedIds.forEach(id=>{
         const obj=MAP.objects.find(o=>o.id===id);
-        if(obj) MAP.dragObjStarts[id]={x:obj.x,y:obj.y};
+        if(obj) MAP.dragObjStarts[id]={x:obj.x,y:obj.y,x2:obj.x2,y2:obj.y2};
       });
       renderMap(); renderMapProps(); renderMapLayers();
     } else {
-      if (!e.shiftKey) { MAP.selectedIds.clear(); renderMap(); renderMapProps(); renderMapLayers(); }
+      // Start rubber-band marquee on empty canvas
+      if (!e.shiftKey) MAP.selectedIds.clear();
+      MAP.isMarquee = true;
+      MAP.marqueeStart = {sx, sy};
+      MAP.marqueeCurrent = {sx, sy};
+      renderMap(); renderMapProps(); renderMapLayers();
     }
     return;
   }
@@ -3761,6 +3770,11 @@ function mapMM(e) {
     renderMap(); return;
   }
 
+  if (MAP.isMarquee && MAP.marqueeStart) {
+    MAP.marqueeCurrent = {sx, sy};
+    renderMap(); return;
+  }
+
   if (MAP.isDragging) {
     mapPushHistoryOnce();
     const dx = w.x - MAP.dragStart.wx, dy = w.y - MAP.dragStart.wy;
@@ -3770,6 +3784,7 @@ function mapMM(e) {
       if (obj && start && !MAP.lockedLayers.has(obj.layer)) {
         obj.x = snap(start.x + dx);
         obj.y = snap(start.y + dy);
+        if(obj.type==='arrow'&&start.x2!==undefined){obj.x2=snap(start.x2+dx);obj.y2=snap(start.y2+dy);}
       }
     });
     renderMap(); renderMapProps(); return;
@@ -3817,6 +3832,18 @@ function mapMM(e) {
 function mapMU(e) {
   MAP.isPanning = false;
   MAP.canvas.style.cursor = 'default';
+
+  if (MAP.isMarquee && MAP.marqueeStart && MAP.marqueeCurrent) {
+    MAP.isMarquee = false;
+    const {sx:x1,sy:y1}=MAP.marqueeStart, {sx:x2,sy:y2}=MAP.marqueeCurrent;
+    const mw=Math.abs(x2-x1), mh=Math.abs(y2-y1);
+    if(mw>4||mh>4){
+      const hits=getObjectsInMarquee(x1,y1,x2,y2);
+      hits.forEach(o=>MAP.selectedIds.add(o.id));
+    }
+    MAP.marqueeStart=null; MAP.marqueeCurrent=null;
+    renderMap(); renderMapProps(); renderMapLayers(); return;
+  }
 
   if (MAP.isDragging) {
     MAP.isDragging = false;
@@ -3953,6 +3980,32 @@ function pointInPoly(x,y,pts){
   return inside;
 }
 
+// Returns all objects whose screen bounding box intersects the marquee rect
+function getObjectsInMarquee(sx1,sy1,sx2,sy2){
+  const rx1=Math.min(sx1,sx2),ry1=Math.min(sy1,sy2);
+  const rx2=Math.max(sx1,sx2),ry2=Math.max(sy1,sy2);
+  return MAP.objects.filter(obj=>{
+    if(obj.hidden||obj.locked)return false;
+    let ox1,oy1,ox2,oy2;
+    const p=w2s(obj.x,obj.y);
+    if(obj.type==='circle'||obj.type==='light'){
+      const r=(obj.r||32)*MAP.cam.zoom;
+      ox1=p.x-r;oy1=p.y-r;ox2=p.x+r;oy2=p.y+r;
+    } else if(obj.type==='arrow'){
+      const p2=w2s(obj.x2!==undefined?obj.x2:obj.x+64,obj.y2!==undefined?obj.y2:obj.y);
+      ox1=Math.min(p.x,p2.x)-4;oy1=Math.min(p.y,p2.y)-4;ox2=Math.max(p.x,p2.x)+4;oy2=Math.max(p.y,p2.y)+4;
+    } else if(obj.type==='draw'&&obj.points){
+      const spts=obj.points.map(pt=>w2s(pt.x,pt.y));
+      ox1=Math.min(...spts.map(p=>p.x));oy1=Math.min(...spts.map(p=>p.y));
+      ox2=Math.max(...spts.map(p=>p.x));oy2=Math.max(...spts.map(p=>p.y));
+    } else {
+      const q=w2s(obj.x+(obj.w||0),obj.y+(obj.h||0));
+      ox1=Math.min(p.x,q.x);oy1=Math.min(p.y,q.y);ox2=Math.max(p.x,q.x);oy2=Math.max(p.y,q.y);
+    }
+    return ox1<=rx2&&ox2>=rx1&&oy1<=ry2&&oy2>=ry1;
+  });
+}
+
 function getResizeHandle(obj, sx, sy) {
   if (obj.type==='circle'||obj.type==='text'||obj.type==='poly'||obj.type==='light'||obj.type==='arrow'||obj.type==='draw'||obj.type==='person'||obj.type==='enemy') return null;
   const s = w2s(obj.x, obj.y);
@@ -4042,15 +4095,37 @@ function renderMap() {
     } else {
       const p=w2s(obj.x,obj.y),q=w2s(obj.x+obj.w,obj.y+obj.h);
       ctx.strokeRect(p.x-2,p.y-2,q.x-p.x+4,q.y-p.y+4);
-      // Resize handles
-      ctx.setLineDash([]);
-      ctx.fillStyle='#c9a227';
-      const handles=[{x:p.x,y:p.y},{x:q.x,y:p.y},{x:p.x,y:q.y},{x:q.x,y:q.y},
-        {x:(p.x+q.x)/2,y:p.y},{x:(p.x+q.x)/2,y:q.y},{x:p.x,y:(p.y+q.y)/2},{x:q.x,y:(p.y+q.y)/2}];
-      handles.forEach(h=>{ctx.fillRect(h.x-4,h.y-4,8,8);});
+      // Resize handles: only for single selection
+      if(MAP.selectedIds.size===1){
+        ctx.setLineDash([]);
+        ctx.fillStyle='#c9a227';
+        const handles=[{x:p.x,y:p.y},{x:q.x,y:p.y},{x:p.x,y:q.y},{x:q.x,y:q.y},
+          {x:(p.x+q.x)/2,y:p.y},{x:(p.x+q.x)/2,y:q.y},{x:p.x,y:(p.y+q.y)/2},{x:q.x,y:(p.y+q.y)/2}];
+        handles.forEach(h=>{ctx.fillRect(h.x-4,h.y-4,8,8);});
+      }
     }
     ctx.restore();
   });
+
+  // Multi-select: draw combined bounding box
+  if(MAP.selectedIds.size>1){
+    const selObjs=MAP.objects.filter(o=>MAP.selectedIds.has(o.id)&&!o.hidden);
+    if(selObjs.length){
+      let bx1=Infinity,by1=Infinity,bx2=-Infinity,by2=-Infinity;
+      selObjs.forEach(obj=>{
+        const p=w2s(obj.x,obj.y);
+        let ox1=p.x,oy1=p.y,ox2=p.x,oy2=p.y;
+        if(obj.type==='circle'||obj.type==='light'){const r=(obj.r||32)*MAP.cam.zoom;ox1=p.x-r;oy1=p.y-r;ox2=p.x+r;oy2=p.y+r;}
+        else if(obj.type==='arrow'){const p2=w2s(obj.x2||obj.x+64,obj.y2||obj.y);ox1=Math.min(p.x,p2.x);oy1=Math.min(p.y,p2.y);ox2=Math.max(p.x,p2.x);oy2=Math.max(p.y,p2.y);}
+        else{const q=w2s(obj.x+(obj.w||0),obj.y+(obj.h||0));ox2=q.x;oy2=q.y;}
+        bx1=Math.min(bx1,ox1);by1=Math.min(by1,oy1);bx2=Math.max(bx2,ox2);by2=Math.max(by2,oy2);
+      });
+      ctx.save();
+      ctx.strokeStyle='rgba(201,162,39,0.5)';ctx.lineWidth=1;ctx.setLineDash([6,4]);
+      ctx.strokeRect(bx1-6,by1-6,bx2-bx1+12,by2-by1+12);
+      ctx.restore();
+    }
+  }
 
   // Draw preview
   if (MAP.isDrawing && MAP.drawStart && MAP.drawCurrent) {
@@ -4083,6 +4158,16 @@ function renderMap() {
     pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
     ctx.stroke();
     pts.forEach(p=>{ctx.fillStyle='#4a9eff';ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fill();});
+    ctx.restore();
+  }
+
+  // Marquee (rubber-band) selection rectangle
+  if(MAP.isMarquee&&MAP.marqueeStart&&MAP.marqueeCurrent){
+    const {sx:x1,sy:y1}=MAP.marqueeStart,{sx:x2,sy:y2}=MAP.marqueeCurrent;
+    ctx.save();
+    ctx.strokeStyle='#c9a227';ctx.lineWidth=1;ctx.setLineDash([4,3]);ctx.globalAlpha=.9;
+    ctx.strokeRect(x1,y1,x2-x1,y2-y1);
+    ctx.fillStyle='rgba(201,162,39,0.07)';ctx.fillRect(x1,y1,x2-x1,y2-y1);
     ctx.restore();
   }
 
@@ -4268,7 +4353,7 @@ function renderMapLayers() {
       <span class="layer-icon-btn" onclick="toggleObjVis('${obj.id}')" title="${obj.hidden?'Show':'Hide'}">${obj.hidden?'🙈':'👁'}</span>
       <span class="layer-icon-btn" onclick="toggleObjLock('${obj.id}')" title="${obj.locked?'Unlock':'Lock'}">${obj.locked?'🔒':'🔓'}</span>
       <span class="layer-type-icon">${icon}</span>
-      <span class="layer-name">${obj.name||obj.type}</span>`;
+      <span class="layer-name" data-id="${obj.id}" ondblclick="_layerRename(this,'${obj.id}')" title="Double-click to rename">${obj.name||obj.type}</span>`;
     row.onclick=(e)=>{
       if(e.target.classList.contains('layer-icon-btn')) return;
       if(!e.shiftKey) MAP.selectedIds.clear();
@@ -4297,6 +4382,31 @@ function renderMapLayers() {
 
 function toggleObjVis(id){const obj=MAP.objects.find(o=>o.id===id);if(obj){obj.hidden=!obj.hidden;renderMap();renderMapLayers();mapSaveCurrent();}}
 function toggleObjLock(id){const obj=MAP.objects.find(o=>o.id===id);if(obj){obj.locked=!obj.locked;renderMapLayers();}}
+
+function _layerRename(span, id){
+  const obj=MAP.objects.find(o=>o.id===id);
+  if(!obj)return;
+  const oldName=obj.name||obj.type;
+  const inp=document.createElement('input');
+  inp.value=oldName;
+  inp.style.cssText='width:100%;background:var(--bg-input);border:1px solid var(--gold);border-radius:2px;padding:1px 4px;font-family:var(--fu);font-size:11px;color:var(--text-primary);outline:none';
+  span.replaceWith(inp);
+  inp.focus();inp.select();
+  const commit=()=>{
+    const name=inp.value.trim()||oldName;
+    obj.name=name;
+    const newSpan=document.createElement('span');
+    newSpan.className='layer-name';
+    newSpan.dataset.id=id;
+    newSpan.title='Double-click to rename';
+    newSpan.ondblclick=()=>_layerRename(newSpan,id);
+    newSpan.textContent=name;
+    inp.replaceWith(newSpan);
+    renderMap();renderMapProps();autoSave();mapSaveCurrent();
+  };
+  inp.onblur=commit;
+  inp.onkeydown=e=>{if(e.key==='Enter')commit();if(e.key==='Escape'){inp.value=oldName;commit();}};
+}
 
 function deleteCurrentMap(){
   if(!MAP.currentMapId){showToast('No map loaded');return;}
@@ -4455,6 +4565,28 @@ function renderMapProps() {
     body.innerHTML='<div class="empty"><div class="empty-icon">🖱️</div><div class="empty-txt">Select an Object</div></div>';
     return;
   }
+  // ── Multi-select panel ──────────────────────────────────────
+  if(MAP.selectedIds.size>1){
+    const count=MAP.selectedIds.size;
+    hdr.textContent=count+' Selected';
+    body.innerHTML=`
+      <div class="mp-section">
+        <div class="mp-section-title">Move (offset)</div>
+        <div class="mp-row"><span class="mp-label">Delta X</span><input class="mp-input" type="number" value="0" id="multi-dx" placeholder="px"></div>
+        <div class="mp-row"><span class="mp-label">Delta Y</span><input class="mp-input" type="number" value="0" id="multi-dy" placeholder="px"></div>
+        <button class="btn btn-sm" style="width:100%;margin-top:6px" onclick="applyMultiMove()">Apply Move</button>
+      </div>
+      <div class="mp-section">
+        <div class="mp-section-title">Scale</div>
+        <div class="mp-row"><span class="mp-label">Factor</span><input class="mp-input" type="number" value="1" step="0.1" min="0.1" id="multi-scale" placeholder="e.g. 1.5"></div>
+        <button class="btn btn-sm" style="width:100%;margin-top:6px" onclick="applyMultiScale()">Apply Scale</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <button class="btn btn-sm" onclick="duplicateSelected()">Duplicate</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSelected()">Delete All</button>
+      </div>`;
+    return;
+  }
   const id=[...MAP.selectedIds][0];
   const obj=MAP.objects.find(o=>o.id===id);
   if(!obj){body.innerHTML='';return;}
@@ -4507,6 +4639,64 @@ function duplicateMapObj(id){
 function deleteMapObj(id){
   mapPushHistory();MAP.objects=MAP.objects.filter(o=>o.id!==id);MAP.selectedIds.delete(id);
   renderMap();renderMapProps();autoSave();mapSaveCurrent();
+}
+
+// ── Multi-select operations ────────────────────────────────
+function applyMultiMove(){
+  const dx=+(document.getElementById('multi-dx')?.value||0);
+  const dy=+(document.getElementById('multi-dy')?.value||0);
+  if(!dx&&!dy)return;
+  mapPushHistory();
+  MAP.selectedIds.forEach(id=>{
+    const obj=MAP.objects.find(o=>o.id===id);
+    if(obj&&!obj.locked){
+      obj.x=snap(obj.x+dx); obj.y=snap(obj.y+dy);
+      if(obj.type==='arrow'&&obj.x2!==undefined){obj.x2=snap(obj.x2+dx);obj.y2=snap(obj.y2+dy);}
+    }
+  });
+  renderMap();renderMapProps();autoSave();mapSaveCurrent();
+}
+function applyMultiScale(){
+  const factor=+(document.getElementById('multi-scale')?.value||1);
+  if(factor<=0||factor===1)return;
+  mapPushHistory();
+  const objs=[...MAP.selectedIds].map(id=>MAP.objects.find(o=>o.id===id)).filter(o=>o&&!o.locked);
+  if(!objs.length)return;
+  // Scale around group center
+  const cx=objs.reduce((s,o)=>s+(o.x+(o.w||0)/2),0)/objs.length;
+  const cy=objs.reduce((s,o)=>s+(o.y+(o.h||0)/2),0)/objs.length;
+  objs.forEach(obj=>{
+    const ocx=obj.x+(obj.w||0)/2, ocy=obj.y+(obj.h||0)/2;
+    const nx=cx+(ocx-cx)*factor, ny=cy+(ocy-cy)*factor;
+    if(obj.w!==undefined){obj.w=Math.max(8,snap(obj.w*factor));obj.x=snap(nx-obj.w/2);}
+    else{obj.x=snap(nx);}
+    if(obj.h!==undefined){obj.h=Math.max(8,snap(obj.h*factor));obj.y=snap(ny-obj.h/2);}
+    else{obj.y=snap(ny);}
+    if(obj.r!==undefined){obj.r=Math.max(4,snap(obj.r*factor));obj.w=obj.r*2;obj.h=obj.r*2;}
+  });
+  renderMap();renderMapProps();autoSave();mapSaveCurrent();
+}
+function duplicateSelected(){
+  if(!MAP.selectedIds.size)return;
+  mapPushHistory();
+  const newIds=[];
+  [...MAP.selectedIds].forEach(id=>{
+    const obj=MAP.objects.find(o=>o.id===id);
+    if(!obj)return;
+    const n=JSON.parse(JSON.stringify(obj));
+    n.id='obj_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    n.x+=MAP.gridSize; n.y+=MAP.gridSize;
+    MAP.objects.push(n); newIds.push(n.id);
+  });
+  MAP.selectedIds=new Set(newIds);
+  renderMap();renderMapProps();renderMapLayers();autoSave();mapSaveCurrent();
+}
+function deleteSelected(){
+  if(!MAP.selectedIds.size)return;
+  mapPushHistory();
+  MAP.objects=MAP.objects.filter(o=>!MAP.selectedIds.has(o.id));
+  MAP.selectedIds.clear();
+  renderMap();renderMapProps();renderMapLayers();autoSave();mapSaveCurrent();
 }
 
 function newMap(){
@@ -6065,7 +6255,7 @@ document.addEventListener('keydown', e => {
   if(e.key==='Delete'||e.key==='Backspace'){
     const _aMod=document.querySelector('.sb-item.active')?.dataset?.mod;
     if(_aMod==='ldd'&&FC.selectedNode){deleteFlowNode(FC.selectedNode);return;}
-    if(MAP.selectedIds.size){mapPushHistory();MAP.selectedIds.forEach(id=>{MAP.objects=MAP.objects.filter(o=>o.id!==id);});MAP.selectedIds.clear();renderMap();renderMapProps();autoSave();mapSaveCurrent();}
+    if(MAP.selectedIds.size){mapPushHistory();MAP.selectedIds.forEach(id=>{MAP.objects=MAP.objects.filter(o=>o.id!==id);});MAP.selectedIds.clear();renderMap();renderMapProps();renderMapLayers();autoSave();mapSaveCurrent();}
   }
   if(e.key==='+') zoomMap(1.2);
   if(e.key==='-') zoomMap(0.83);
