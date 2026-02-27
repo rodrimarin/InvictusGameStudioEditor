@@ -963,19 +963,35 @@ const PS = {
       if (r) this._merge(JSON.parse(r));
     } catch(e){}
   },
-  _merge(p) {
+  // granular=true → only overwrite sections where remote timestamp is newer (collaborative mode)
+  // granular=false → full overwrite (local load, uploadMyData, first sync)
+  _merge(p, granular) {
     if (!p) return;
-    const keepLocalTs = this.data._localTs; // never overwrite local save timestamp with remote
-    this.data.tasks = p.tasks || [];
-    this.data.maps = p.maps || [];
-    this.data.calendarEvents = p.calendarEvents || [];
-    this.data.assets = p.assets || [];
-    this.data.charts = p.charts || { difficulty:[], pacing:[], flow:[] };
-    this.data.docs = p.docs || { gdd:{}, ldd:{} };
-    this.data.settings = p.settings || { lang:'en', autosave:true };
-    this.data.currentProject = p.currentProject || 'Project Alpha';
-    this.data.studying = p.studying || { topics:[], notes:[] };
-    this.data.notes = p.notes || { lists:[{id:'nl_default',name:'General',color:'#c9a227',icon:'📋',items:[]}], activeList:'nl_default' };
+    const keepLocalTs = this.data._localTs;
+    const localSTs    = this.data._sectionTs || {};
+    const remoteSTs   = p._sectionTs || {};
+    // Returns the winning value for a section
+    const _s = (key, def) => {
+      if (!granular) return p[key] !== undefined ? p[key] : def;
+      const rTs = remoteSTs[key] || 0;
+      const lTs = localSTs[key]  || 0;
+      return rTs > lTs ? (p[key] !== undefined ? p[key] : def)
+                       : (this.data[key] !== undefined ? this.data[key] : def);
+    };
+    this.data.tasks          = _s('tasks', []);
+    this.data.maps           = _s('maps', []);
+    this.data.calendarEvents = _s('calendarEvents', []);
+    this.data.assets         = _s('assets', []);
+    this.data.charts         = _s('charts', { difficulty:[], pacing:[], flow:[] });
+    this.data.docs           = _s('docs', { gdd:{}, ldd:{} });
+    this.data.settings       = _s('settings', { lang:'en', autosave:true });
+    this.data.currentProject = _s('currentProject', 'Project Alpha');
+    this.data.studying       = _s('studying', { topics:[], notes:[] });
+    this.data.notes          = _s('notes', { lists:[{id:'nl_default',name:'General',color:'#c9a227',icon:'📋',items:[]}], activeList:'nl_default' });
+    // Merge _sectionTs — keep max per section so neither side forgets its own work
+    if (!this.data._sectionTs) this.data._sectionTs = {};
+    ['tasks','maps','calendarEvents','assets','charts','docs','settings','currentProject','studying','notes']
+      .forEach(s => { this.data._sectionTs[s] = Math.max(remoteSTs[s]||0, localSTs[s]||0); });
     if (keepLocalTs) this.data._localTs = keepLocalTs;
   },
   _idbSave() {
@@ -1086,12 +1102,22 @@ function setSaveStatus(s) {
 
 let _autoSaveTimer;
 let _fbQuickTimer;
+// Maps sidebar module id → PS.data section key
+const _MOD_SECTION = { tasks:'tasks', map:'maps', notes:'notes', calendar:'calendarEvents',
+                       gdd:'docs', ldd:'docs', charts:'charts', assets:'assets', studying:'studying' };
 function autoSave() {
   if (!PS.data.settings.autosave) return;
+  // Tag which section changed based on the currently active module
+  const mod = document.querySelector('.sb-item.active')?.dataset?.mod;
+  const section = _MOD_SECTION[mod];
+  if (section) {
+    if (!PS.data._sectionTs) PS.data._sectionTs = {};
+    PS.data._sectionTs[section] = Date.now();
+  }
   // Fast Firebase push — 800ms after last change (real-time feel)
   clearTimeout(_fbQuickTimer);
   _fbQuickTimer = setTimeout(() => { collectDocData(); mapSaveCurrent(); FIREBASE.push(); }, 800);
-  // Full local save — 3s (unchanged)
+  // Full local save — 3s
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(() => {
     collectDocData(); mapSaveCurrent();
@@ -1107,7 +1133,12 @@ function saveAll() {
   collectDocData();
   mapSaveCurrent();
   setTimeout(() => {
-    PS.data._localTs = Date.now();
+    // Mark all sections as saved now so future remote merges respect our full save
+    const now = Date.now();
+    if (!PS.data._sectionTs) PS.data._sectionTs = {};
+    ['tasks','maps','calendarEvents','assets','charts','docs','settings','currentProject','studying','notes']
+      .forEach(s => { PS.data._sectionTs[s] = now; });
+    PS.data._localTs = now;
     PS.save();
     if (CLOUD.enabled) cloudPush();
     FIREBASE.push();
@@ -1133,6 +1164,8 @@ function showModule(name) {
   if (name === 'ldd') { populateLDDMapLink(); }
   if (name === 'studying') { ensureStudying(); renderStudyTopics(); renderStudyNotes(); }
   if (name === 'notes') { ensureNotes(); renderNotesLists(); renderNotesItems(); }
+  // Update presence immediately so others see which module you switched to
+  if (FIREBASE._ready) FIREBASE._writePresence();
 }
 
 function gotoLC(mod) {
@@ -1359,8 +1392,10 @@ const FIREBASE = {
         if (payload.sessionId === this.sessionId) return;          // our own echo — skip
         if (payload.ts && payload.ts <= this._lastRemoteTs) return; // already applied
         this._lastRemoteTs = payload.ts || Date.now();
-        this._addLog('⬇ SSE from ' + (payload.sessionId||'').slice(0,10));
-        PS._merge(payload.data); _fbApply();
+        const sender = payload.userName || (payload.sessionId||'?').slice(0,8);
+        this._addLog('⬇ ' + sender + ' updated');
+        PS._merge(payload.data, true); _fbApply();  // granular: only overwrite newer sections
+        showToast('⬇ ' + sender + ' updated the project');
         this._setStatus('ok', '⬇ Synced');
         setTimeout(() => this._setStatus('ok', this._lbl()), 2000);
       } catch(err) { console.warn('[Firebase] SSE put error:', err); }
@@ -1429,7 +1464,10 @@ const FIREBASE = {
         const payload = await r2.json();
         if (payload && payload.data) {
           this._lastRemoteTs = payload.ts || Date.now();
-          PS._merge(payload.data); _fbApply();
+          const sender = payload.userName || (payload.sessionId||'?').slice(0,8);
+          this._addLog('⬇ Poll: ' + sender + ' updated');
+          PS._merge(payload.data, true); _fbApply();  // granular merge
+          showToast('⬇ ' + sender + ' updated the project');
           this._setStatus('ok', '⬇ Synced');
           setTimeout(() => this._setStatus('ok', this._lbl()), 2000);
         }
@@ -1447,7 +1485,8 @@ const FIREBASE = {
   },
 
   _writePresence() {
-    const info = { name:this.userName, ts:Date.now(), sessionId:this.sessionId, ...this._userInfo };
+    const mod  = document.querySelector('.sb-item.active')?.dataset?.mod || '';
+    const info = { name:this.userName, ts:Date.now(), sessionId:this.sessionId, mod, ...this._userInfo };
     fetch(this._myPresUrl, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(info) })
       .catch(e => console.warn('[Firebase] presence error:', e));
   },
@@ -1470,7 +1509,7 @@ const FIREBASE = {
 
   // ── Write state to Firebase ───────────────────────────────
   async _doWrite() {
-    const payload = { data: PS.data, sessionId: this.sessionId, ts: Date.now() };
+    const payload = { data: PS.data, sessionId: this.sessionId, ts: Date.now(), userName: this.userName };
     this._setStatus('saving', '⬆ Saving…');
     try {
       const res = await fetch(this._stateUrl, {
@@ -1589,6 +1628,9 @@ const FIREBASE = {
 };
 
 // ── Online users bar (shown below topbar when anyone is connected) ─
+const _MOD_LABEL = { tasks:'Tasks', map:'Map', notes:'Notes', calendar:'Calendar',
+                     gdd:'GDD', ldd:'LDD', charts:'Charts', assets:'Assets',
+                     studying:'Learning', dashboard:'Dashboard' };
 function _renderOnlineBar() {
   const cutoff = Date.now() - 25000;
   const online = Object.values(_fbPresence).filter(u => u && u.ts > cutoff);
@@ -1600,11 +1642,13 @@ function _renderOnlineBar() {
   users.innerHTML = online.map(u => {
     const isSelf   = u.sessionId === FIREBASE.sessionId;
     const dotColor = isSelf ? '#4ecb71' : '#4a9eff';
-    const loc = [u.city, u.country].filter(Boolean).join(', ') || u.ip || '';
+    const loc      = [u.city, u.country].filter(Boolean).join(', ') || u.ip || '';
+    const modLabel = u.mod ? (_MOD_LABEL[u.mod] || u.mod) : '';
     return '<span class="ob-user' + (isSelf ? ' is-self' : '') + '">' +
       '<span class="ob-dot" style="background:' + dotColor + '"></span>' +
       '<span>' + (u.flag||'🌐') + '</span>' +
       '<span class="ob-name" style="color:' + dotColor + '">' + (u.name||'User') + '</span>' +
+      (modLabel ? '<span class="ob-loc" style="color:' + dotColor + ';opacity:.6"> · ' + modLabel + '</span>' : '') +
       (loc ? '<span class="ob-loc">' + loc + '</span>' : '') +
       (isSelf ? '<span class="ob-loc">(you)</span>' : '') +
       '</span>';
