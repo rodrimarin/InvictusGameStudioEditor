@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node --check \"c:\\\\Users\\\\Rodrigo\\\\Documents\\\\GitHub\\\\InvictusGameStudioEditor\\\\index.html\")"
+      "Bash(node --check \"c:\\\\Users\\\\Rodrigo\\\\Documents\\\\GitHub\\\\InvictusGameStudioEditor\\\\index.html\")",
+      "Bash(git add index.html)",
+      "Bash(git commit:*)",
+      "Bash(git push origin main)"
     ]
   }
 }
