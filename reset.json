@@ -2,7 +2,7 @@
   "projects": {
     "default": {
       "state": {
-        "data": {},
+        "data": { "_sectionTs": {} },
         "ts": 0,
         "sessionId": "reset"
       }

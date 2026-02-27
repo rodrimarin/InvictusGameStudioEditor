@@ -1431,19 +1431,22 @@ const FIREBASE = {
     const payload = await res.json();
 
     if (payload && payload.data) {
-      const firebaseTs = payload.ts || 0;
-      const localTs    = PS.data._localTs || 0;
+      const firebaseTs    = payload.ts || 0;
+      const localTs       = PS.data._localTs || 0;
+      // Old-format Firebase data (no _sectionTs) should NEVER overwrite local
+      const fbIsNewFormat = payload.data._sectionTs &&
+                            Object.keys(payload.data._sectionTs).length > 0;
 
-      if (firebaseTs > localTs && localTs > 0) {
-        // Firebase is newer AND we have a local timestamp → merge it
+      if (firebaseTs > localTs && localTs > 0 && fbIsNewFormat) {
+        // Firebase is newer, has new format, and we have a local ts → safe to merge
         this._lastRemoteTs = firebaseTs;
         PS._merge(payload.data); _fbApply();
-        this._addLog('✓ Firebase is newer — loaded remote state');
+        this._addLog('✓ Firebase newer (new format) — merged');
       } else {
-        // Local is newer, OR first run (no _localTs yet) → push our data up
-        this._addLog('⬆ Local is newer — pushing to Firebase (was: ' +
-          new Date(firebaseTs).toLocaleTimeString() + ', local: ' +
-          new Date(localTs).toLocaleTimeString() + ')');
+        // Local is newer, OR no local ts yet, OR Firebase has old-format data → push local
+        const reason = !fbIsNewFormat ? 'old-format data in Firebase' :
+                       !localTs       ? 'first run' : 'local is newer';
+        this._addLog('⬆ Pushing local → Firebase (' + reason + ')');
         await this._doWrite();
       }
     } else {
