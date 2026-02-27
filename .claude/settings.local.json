@@ -5,7 +5,8 @@
       "Bash(git add index.html)",
       "Bash(git commit:*)",
       "Bash(git push origin main)",
-      "Bash(are protected. Apply their version or keep yours.\" with [✓ Apply Updates] button:*)"
+      "Bash(are protected. Apply their version or keep yours.\" with [✓ Apply Updates] button:*)",
+      "Bash(git push)"
     ]
   }
 }
