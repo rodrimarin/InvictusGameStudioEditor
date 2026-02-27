@@ -4,7 +4,8 @@
       "Bash(node --check \"c:\\\\Users\\\\Rodrigo\\\\Documents\\\\GitHub\\\\InvictusGameStudioEditor\\\\index.html\")",
       "Bash(git add index.html)",
       "Bash(git commit:*)",
-      "Bash(git push origin main)"
+      "Bash(git push origin main)",
+      "Bash(are protected. Apply their version or keep yours.\" with [✓ Apply Updates] button:*)"
     ]
   }
 }
