@@ -505,34 +505,85 @@ input[type="range"]{accent-color:var(--gold);width:100%}
         </div>
       </div>
       <div class="mod-body">
-        <div class="g4" style="margin-bottom:16px;">
-          <div class="stat-card sc-gold"><div class="stat-val" id="s-total" style="color:var(--gold)">0</div><div class="stat-lbl">Total Tasks</div><div class="pbar"><div class="pfill" id="s-total-p" style="background:var(--gold);width:0%"></div></div></div>
-          <div class="stat-card sc-green"><div class="stat-val" id="s-done" style="color:var(--green)">0</div><div class="stat-lbl">Completed</div><div class="pbar"><div class="pfill" id="s-done-p" style="background:var(--green);width:0%"></div></div></div>
-          <div class="stat-card sc-orange"><div class="stat-val" id="s-ip" style="color:var(--orange)">0</div><div class="stat-lbl">In Progress</div><div class="pbar"><div class="pfill" id="s-ip-p" style="background:var(--orange);width:0%"></div></div></div>
-          <div class="stat-card sc-red"><div class="stat-val" id="s-bl" style="color:var(--red)">0</div><div class="stat-lbl">Blocked</div></div>
+        <!-- Stat cards row -->
+        <div class="g4" style="margin-bottom:14px;">
+          <div class="stat-card sc-gold" onclick="showModule('tasks')" style="cursor:pointer">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div><div class="stat-val" id="s-total" style="color:var(--gold)">0</div><div class="stat-lbl">Total Tasks</div></div>
+              <span style="font-size:22px;opacity:.18">📋</span>
+            </div>
+            <div class="pbar" style="margin-top:10px"><div class="pfill" id="s-total-p" style="background:var(--gold);width:0%"></div></div>
+          </div>
+          <div class="stat-card sc-green" onclick="showModule('tasks')" style="cursor:pointer">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div><div class="stat-val" id="s-done" style="color:var(--green)">0</div><div class="stat-lbl">Completed</div></div>
+              <span style="font-size:22px;opacity:.18">✅</span>
+            </div>
+            <div class="pbar" style="margin-top:10px"><div class="pfill" id="s-done-p" style="background:var(--green);width:0%"></div></div>
+          </div>
+          <div class="stat-card sc-orange" onclick="showModule('tasks')" style="cursor:pointer">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div><div class="stat-val" id="s-ip" style="color:var(--orange)">0</div><div class="stat-lbl">In Progress</div></div>
+              <span style="font-size:22px;opacity:.18">⚡</span>
+            </div>
+            <div class="pbar" style="margin-top:10px"><div class="pfill" id="s-ip-p" style="background:var(--orange);width:0%"></div></div>
+          </div>
+          <div class="stat-card sc-red" onclick="showModule('tasks')" style="cursor:pointer">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div><div class="stat-val" id="s-bl" style="color:var(--red)">0</div><div class="stat-lbl">Blocked</div></div>
+              <span style="font-size:22px;opacity:.18">🔒</span>
+            </div>
+            <div id="dash-health-bar" style="margin-top:10px;font-size:10px;font-family:var(--fm);color:var(--text-muted);min-height:6px"></div>
+          </div>
         </div>
-        <div class="g2" style="margin-bottom:16px;">
+
+        <!-- Project health alerts row -->
+        <div id="dash-alerts" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap"></div>
+
+        <!-- GDD/LDD + Team row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
+          <div class="panel" style="padding:14px 16px">
+            <div class="panel-title" style="margin-bottom:12px">📖 GDD / LDD</div>
+            <div id="dash-doc-progress"></div>
+          </div>
+          <div class="panel" style="padding:14px 16px">
+            <div class="panel-title" style="margin-bottom:12px">📊 By Discipline</div>
+            <div id="dash-disc"></div>
+          </div>
+          <div class="panel" style="padding:14px 16px">
+            <div class="panel-title" style="margin-bottom:12px">🌍 Team Online</div>
+            <div id="dash-team"></div>
+          </div>
+        </div>
+
+        <!-- Tasks + Deadlines row -->
+        <div class="g2" style="margin-bottom:14px;">
           <div class="panel">
-            <div class="panel-title">📋 Recent Tasks</div>
+            <div class="panel-title" style="display:flex;align-items:center">
+              📋 Recent Tasks
+              <button class="btn btn-sm btn-gold" style="margin-left:auto;font-size:10px" onclick="showModule('tasks')">View All →</button>
+            </div>
             <table class="ttable"><thead><tr><th>Title</th><th>Status</th><th>Priority</th><th>Discipline</th><th>Time Left</th></tr></thead>
             <tbody id="dash-tasks"></tbody></table>
           </div>
           <div class="panel">
-            <div class="panel-title">📅 Upcoming Deadlines</div>
+            <div class="panel-title" style="display:flex;align-items:center">
+              📅 Upcoming Deadlines
+              <button class="btn btn-sm" style="margin-left:auto;font-size:10px" onclick="showModule('calendar')">Calendar →</button>
+            </div>
             <div id="dash-events"></div>
           </div>
         </div>
+
+        <!-- Maps + Notes row -->
         <div class="g2">
           <div class="panel">
-            <div class="panel-title">📊 Progress by Discipline</div>
-            <div id="dash-disc"></div>
-          </div>
-          <div class="panel">
-            <div class="panel-title">🗺️ Maps Overview</div>
+            <div class="panel-title" style="display:flex;align-items:center">
+              🗺️ Maps
+              <button class="btn btn-sm" style="margin-left:auto;font-size:10px" onclick="showModule('map')">Open Editor →</button>
+            </div>
             <div id="dash-maps"></div>
           </div>
-        </div>
-        <div class="g2" style="margin-top:16px;">
           <div class="panel">
             <div class="panel-title" style="display:flex;align-items:center;gap:8px;">
               ✅ Quick Notes
@@ -542,11 +593,7 @@ input[type="range"]{accent-color:var(--gold);width:100%}
             <div style="margin-bottom:8px;">
               <input id="dash-note-input" class="fi" style="font-size:12px;" placeholder="Quick note… (Enter to add)" onkeydown="handleDashNoteKey(event,this)">
             </div>
-            <div id="dash-notes-list" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
-          </div>
-          <div class="panel">
-            <div class="panel-title">📖 GDD / LDD Progress</div>
-            <div id="dash-doc-progress"></div>
+            <div id="dash-notes-list" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
           </div>
         </div>
       </div>
@@ -2010,37 +2057,101 @@ function refreshDashboard() {
   });
   if (!up.length) el.innerHTML = '<div class="empty"><div class="empty-icon">📅</div><div class="empty-txt">No upcoming events</div></div>';
 
+  // ── Project Health alerts ────────────────────────────────
+  const alerts = document.getElementById('dash-alerts');
+  if (alerts) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const overdue   = tk.filter(t=>t.due && t.status!=='Done' && new Date(t.due)<today);
+    const critical  = tk.filter(t=>t.priority==='Critical' && t.status!=='Done');
+    const dueToday  = tk.filter(t=>t.due && t.status!=='Done' && Math.ceil((new Date(t.due)-today)/86400000)===0);
+    const chip = (icon,label,color,cb) =>
+      `<span onclick="${cb}" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:11px;font-family:var(--fu);letter-spacing:.5px;font-weight:600;border:1px solid ${color}33;background:${color}11;color:${color}">${icon} ${label}</span>`;
+    let html = '';
+    if (overdue.length)  html += chip('⚠',''+overdue.length+' OVERDUE','#e05252',"showModule('tasks')");
+    if (dueToday.length) html += chip('🔴',''+dueToday.length+' DUE TODAY','#e05252',"showModule('tasks')");
+    if (critical.length) html += chip('⚡',''+critical.length+' CRITICAL','#ff4444',"showModule('tasks')");
+    if (!html && tk.length) html = chip('✅','All on track','#4ecb71','');
+    alerts.innerHTML = html;
+  }
+
+  // ── Discipline progress ──────────────────────────────────
   const dp = document.getElementById('dash-disc');
   dp.innerHTML = '';
   ['Level Design','Game Design','Narrative','Programmer','QA'].forEach(disc => {
     const dt = tk.filter(t=>t.discipline===disc);
+    if (!dt.length) return;
     const dd = dt.filter(t=>t.status==='Done').length;
-    const dp2 = dt.length ? Math.round(dd/dt.length*100) : 0;
-    dp.innerHTML += `<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="font-size:11px;font-family:var(--fu);letter-spacing:.5px;color:var(--text-secondary)">${disc}</span><span style="font-family:var(--fm);font-size:10px;color:var(--text-secondary)">${dd}/${dt.length}</span></div><div class="pbar"><div class="pfill" style="width:${dp2}%;background:${dColor(disc)}"></div></div></div>`;
+    const dp2 = Math.round(dd/dt.length*100);
+    dp.innerHTML += `<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;font-family:var(--fu);letter-spacing:.5px;color:var(--text-secondary)">${disc}</span><span style="font-family:var(--fm);font-size:10px;color:${dColor(disc)}">${dd}/${dt.length} · ${dp2}%</span></div><div class="pbar" style="height:5px"><div class="pfill" style="width:${dp2}%;background:${dColor(disc)};border-radius:3px"></div></div></div>`;
   });
+  if (!dp.innerHTML) dp.innerHTML = '<div style="font-size:11px;color:var(--text-muted)">No tasks with discipline yet</div>';
 
+  // ── Team online ──────────────────────────────────────────
+  const teamEl = document.getElementById('dash-team');
+  if (teamEl) {
+    const cutoff = Date.now() - 25000;
+    const online = Object.values(_fbPresence||{}).filter(u=>u&&u.ts>cutoff);
+    if (online.length) {
+      teamEl.innerHTML = online.map(u=>{
+        const isSelf = u.sessionId===FIREBASE.sessionId;
+        const dotC   = isSelf?'#4ecb71':'#4a9eff';
+        const modLbl = (_MOD_LABEL||{})[u.mod]||u.mod||'';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg-card);border-radius:6px;border:1px solid ${dotC}22;margin-bottom:6px">
+          <span style="width:8px;height:8px;border-radius:50%;background:${dotC};flex-shrink:0;display:inline-block"></span>
+          <span style="font-size:16px">${u.flag||'🌐'}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:var(--fu);font-size:11px;color:${dotC};font-weight:600">${u.name||'User'}${isSelf?' <span style="opacity:.5">(you)</span>':''}</div>
+            <div style="font-size:10px;color:var(--text-muted)">${[modLbl,u.city,u.country].filter(Boolean).join(' · ')}</div>
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      teamEl.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:8px 0">Connect via Firebase to see teammates</div>';
+    }
+  }
+
+  // ── Maps ─────────────────────────────────────────────────
   const ml = document.getElementById('dash-maps');
   ml.innerHTML = '';
-  PS.data.maps.slice(0,4).forEach(m => {
+  PS.data.maps.slice(0,5).forEach(m => {
     const d = document.createElement('div');
-    d.style.cssText='display:flex;align-items:center;gap:10px;padding:6px 8px;background:var(--bg-card);border-radius:4px;border:1px solid var(--border);cursor:pointer;margin-bottom:4px;';
-    d.innerHTML=`<span style="font-size:16px">🗺️</span><span style="font-family:var(--fu);font-size:12px;font-weight:600">${m.name}</span><span style="margin-left:auto;font-family:var(--fm);font-size:10px;color:var(--text-secondary)">${(m.objects||[]).length} obj</span>`;
+    d.style.cssText='display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--bg-card);border-radius:6px;border:1px solid var(--border);cursor:pointer;margin-bottom:5px;transition:border-color .12s';
+    d.onmouseenter=()=>d.style.borderColor='var(--gold-dim)';
+    d.onmouseleave=()=>d.style.borderColor='var(--border)';
+    const objCount=(m.objects||[]).length;
+    d.innerHTML=`<span style="font-size:18px">🗺️</span>
+      <div style="flex:1;min-width:0"><div style="font-family:var(--fu);font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div><div style="font-family:var(--fm);font-size:10px;color:var(--text-muted)">${objCount} object${objCount!==1?'s':''}</div></div>
+      <span style="font-size:10px;color:var(--text-muted)">→</span>`;
     d.onclick=()=>{showModule('map');setTimeout(()=>{document.getElementById('map-sel').value=m.id;loadSelectedMap();},100)};
     ml.appendChild(d);
   });
   if (!PS.data.maps.length) ml.innerHTML = '<div class="empty"><div class="empty-icon">🗺️</div><div class="empty-txt">No maps yet</div></div>';
 
-  // Dashboard notes widget
+  // ── Notes widget ─────────────────────────────────────────
   renderDashNotes();
 
-  // GDD/LDD progress
+  // ── GDD/LDD progress (circular-style big numbers) ────────
   const docProg = document.getElementById('dash-doc-progress');
   if (docProg) {
     const gddPct = calcDocCompletion('gdd', GDD_SECS);
     const lddPct = calcDocCompletion('ldd', LDD_SECS);
-    docProg.innerHTML = `
-      <div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;font-family:var(--fu);color:var(--text-secondary)">GDD</span><span style="font-family:var(--fm);font-size:10px;color:var(--gold)">${gddPct}%</span></div><div class="pbar"><div class="pfill" style="width:${gddPct}%;background:var(--gold)"></div></div></div>
-      <div><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;font-family:var(--fu);color:var(--text-secondary)">LDD</span><span style="font-family:var(--fm);font-size:10px;color:var(--blue)">${lddPct}%</span></div><div class="pbar"><div class="pfill" style="width:${lddPct}%;background:var(--blue)"></div></div></div>`;
+    const ring = (pct, color, label, mod) => `
+      <div onclick="showModule('${mod}')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg-card);border-radius:8px;border:1px solid var(--border);margin-bottom:8px;transition:border-color .12s" onmouseover="this.style.borderColor='${color}55'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="position:relative;width:44px;height:44px;flex-shrink:0">
+          <svg viewBox="0 0 36 36" style="width:44px;height:44px;transform:rotate(-90deg)">
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="${color}22" stroke-width="2.5"/>
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="${color}" stroke-width="2.5"
+              stroke-dasharray="${pct} ${100-pct}" stroke-dashoffset="0" stroke-linecap="round"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--fm);font-size:10px;font-weight:700;color:${color}">${pct}%</div>
+        </div>
+        <div>
+          <div style="font-family:var(--fu);font-size:13px;font-weight:700;color:${color}">${label}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${pct < 25 ? 'Getting started' : pct < 60 ? 'In progress' : pct < 90 ? 'Almost there' : 'Complete!'}</div>
+        </div>
+        <span style="margin-left:auto;font-size:10px;color:var(--text-muted)">→</span>
+      </div>`;
+    docProg.innerHTML = ring(gddPct,'var(--gold)','Game Design Doc','gdd') + ring(lddPct,'var(--blue)','Level Design Doc','ldd');
   }
 }
 
@@ -2140,12 +2251,32 @@ function saveTask(id) {
     checklist: window._tc || [],
     createdAt: id ? (PS.data.tasks.find(t2=>t2.id===id)||{}).createdAt : new Date().toISOString()
   };
+  const isNew = !id;
   if (id) {
     const idx = PS.data.tasks.findIndex(t2=>t2.id===id);
     if (idx>=0) PS.data.tasks[idx]={...PS.data.tasks[idx],...t}; else PS.data.tasks.push(t);
   } else PS.data.tasks.push(t);
   closeModal(); renderTasks(); refreshDashboard(); autoSave();
   showToast('Task saved ✓');
+  // Email notification for new tasks
+  if (isNew) {
+    const email = localStorage.getItem('igs_notify_email');
+    if (email) {
+      const prio = t.priority ? `[${t.priority}] ` : '';
+      const sub  = encodeURIComponent(`📋 New Task: ${prio}${t.title}`);
+      const body = encodeURIComponent(
+        `New task added to Invictus Game Studio:\n\n` +
+        `📌 ${t.title}\n` +
+        `⚡ Priority: ${t.priority||'—'}\n` +
+        `📂 Discipline: ${t.discipline||'—'}\n` +
+        `🔖 Status: ${t.status||'—'}\n` +
+        `📅 Due: ${t.due||'—'}\n` +
+        `👤 Assigned: ${t.assignedTo||'—'}\n` +
+        (t.description ? `\n📝 ${t.description}` : '')
+      );
+      window.open(`mailto:${email}?subject=${sub}&body=${body}`);
+    }
+  }
 }
 
 function deleteTask(id) {
@@ -4879,7 +5010,27 @@ function renderStudyTopics(){
     const actions=div.querySelector('.st-actions');
     div.onmouseenter=()=>{actions.style.display='flex';};
     div.onmouseleave=()=>{actions.style.display='none';};
-    div.onclick=()=>{_studyActiveTopic=topic.id;document.getElementById('study-current-topic').textContent=topic.icon+' '+topic.name;renderStudyNotes();renderStudyTopics();};
+    div.onclick=()=>{
+      // Save current URL back to the outgoing topic
+      const urlBar=document.getElementById('study-url-bar');
+      if(_studyActiveTopic && urlBar){
+        const prev=PS.data.studying.topics.find(t=>t.id===_studyActiveTopic);
+        if(prev && urlBar.value.startsWith('http')) prev.url=urlBar.value;
+      }
+      _studyActiveTopic=topic.id;
+      document.getElementById('study-current-topic').textContent=topic.icon+' '+topic.name;
+      // Load this topic's URL into the web reader
+      if(topic.url && urlBar){
+        urlBar.value=topic.url;
+        const iframe=document.getElementById('study-iframe');
+        const blocked=document.getElementById('study-iframe-blocked');
+        if(iframe){if(blocked)blocked.style.display='none';iframe.src=topic.url;}
+        switchStudyView('web');
+      } else {
+        switchStudyView('notes');
+      }
+      renderStudyNotes();renderStudyTopics();
+    };
     nav.appendChild(div);
   });
 }
@@ -5126,6 +5277,12 @@ function studyGoUrl(){
   if(!url)return;
   if(!url.startsWith('http://') && !url.startsWith('https://')) url='https://'+url;
   urlBar.value=url;
+  // Persist URL to active topic
+  if(_studyActiveTopic){
+    ensureStudying();
+    const topic=PS.data.studying.topics.find(t=>t.id===_studyActiveTopic);
+    if(topic){ topic.url=url; autoSave(); }
+  }
   const iframe=document.getElementById('study-iframe');
   const blocked=document.getElementById('study-iframe-blocked');
   if(!iframe)return;
