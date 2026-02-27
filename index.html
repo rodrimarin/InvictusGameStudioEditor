@@ -3662,8 +3662,10 @@ function mapMD(e) {
     // Check hit — cycle through overlapping objects
     const hit = getObjectAt(w.x, w.y);
     if (hit) {
-      // If clicking same already-selected object, try to cycle to one below
-      if (!e.shiftKey && MAP.selectedIds.size===1 && MAP.selectedIds.has(hit.id)) {
+      if (!e.shiftKey && MAP.selectedIds.size > 1 && MAP.selectedIds.has(hit.id)) {
+        // Clicking inside a multi-selection → keep the whole group, just start drag
+      } else if (!e.shiftKey && MAP.selectedIds.size===1 && MAP.selectedIds.has(hit.id)) {
+        // Clicking same single object → cycle to one below
         const below = getObjectAtBelow(w.x, w.y, hit.id);
         const next = below || hit;
         MAP.selectedIds.clear(); MAP.selectedIds.add(next.id);
