@@ -3304,12 +3304,30 @@ function onDocInput(doc, secKey, fieldKey, val) {
 }
 
 // ── DOC IMAGE GALLERY ────────────────────────────────────────
+// Compress before storing — keeps Firebase payload small (~100-200KB per image)
+function _compressImg(dataURL, maxW=900, maxH=700, quality=0.82){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.width,h=img.height;
+      if(w>maxW||h>maxH){const r=Math.min(maxW/w,maxH/h);w=Math.round(w*r);h=Math.round(h*r);}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(c.toDataURL('image/jpeg',quality));
+    };
+    img.onerror=()=>resolve(dataURL);
+    img.src=dataURL;
+  });
+}
 function _docImgGalleryHTML(doc, key){
   const imgs=(PS.data.docs[doc][key]&&PS.data.docs[doc][key]._images)||[];
   let h='';
   imgs.forEach((img,i)=>{
+    // Store base64 in a temp key so onclick doesn't embed huge strings in HTML
+    const tmpId='_dimgtmp_'+doc+'_'+key+'_'+i;
+    window[tmpId]=img.data;
     h+=`<div class="doc-img-item">
-      <img src="${img.data}" title="${img.name||''}" onclick="_docImgZoom('${img.data}')">
+      <img src="${img.data}" title="${img.name||''}" onclick="_docImgZoom(window['${tmpId}'])">
       <button class="doc-img-del" onclick="docRemoveImage('${doc}','${key}',${i})" title="Remove">✕</button>
     </div>`;
   });
@@ -3326,16 +3344,21 @@ function docAddImage(doc, key, input){
   if(!PS.data.docs[doc][key]) PS.data.docs[doc][key]={};
   if(!PS.data.docs[doc][key]._images) PS.data.docs[doc][key]._images=[];
   let loaded=0;
+  const total=files.length;
   files.forEach(file=>{
     const reader=new FileReader();
     reader.onload=ev=>{
-      PS.data.docs[doc][key]._images.push({data:ev.target.result,name:file.name});
-      loaded++;
-      if(loaded===files.length){
-        autoSave();
-        const el=document.getElementById('doc-imgs-'+doc+'-'+key);
-        if(el) el.innerHTML=_docImgGalleryHTML(doc,key);
-      }
+      // Compress to ~100-200KB JPEG so Firebase stays small
+      _compressImg(ev.target.result).then(compressed=>{
+        PS.data.docs[doc][key]._images.push({data:compressed,name:file.name});
+        loaded++;
+        if(loaded===total){
+          autoSave();
+          const el=document.getElementById('doc-imgs-'+doc+'-'+key);
+          if(el) el.innerHTML=_docImgGalleryHTML(doc,key);
+          showToast(total===1?'Image added ✓':total+' images added ✓');
+        }
+      });
     };
     reader.readAsDataURL(file);
   });
