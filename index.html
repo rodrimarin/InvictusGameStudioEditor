@@ -560,6 +560,30 @@ input[type="range"]{accent-color:var(--gold);width:100%}
   #topbar{gap:4px}
   .tb-select{max-width:90px}
 }
+
+/* ════════════════════════════════════════════════════════════
+   MAP EXPAND / FOCUS MODE
+   ════════════════════════════════════════════════════════════ */
+body.map-expand #sidebar,
+body.map-expand #topbar,
+body.map-expand #lifecycle,
+body.map-expand #online-bar,
+body.map-expand #update-banner { display:none!important }
+body.map-expand #main { height:100vh!important }
+body.map-expand #module-map { border-radius:0 }
+#map-focus-btn { border-color:var(--gold-dim);color:var(--gold) }
+body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:var(--gold) }
+
+/* ════════════════════════════════════════════════════════════
+   DOC-NAV RESIZABLE HANDLE
+   ════════════════════════════════════════════════════════════ */
+.doc-nav { position:relative;min-width:120px;max-width:480px }
+.nav-resize-handle {
+  position:absolute;top:0;right:-4px;width:8px;height:100%;
+  cursor:col-resize;z-index:10;border-radius:3px;
+  transition:background .15s
+}
+.nav-resize-handle:hover,.nav-resize-handle.dragging { background:rgba(201,162,39,.35) }
 </style>
 </head>
 <body>
@@ -904,6 +928,7 @@ input[type="range"]{accent-color:var(--gold);width:100%}
           <button class="btn btn-sm" onclick="exportMapJSON()">JSON</button>
           <button class="btn btn-sm" onclick="importMapJSON()">Import</button>
           <button class="btn btn-sm" style="border-color:var(--red);color:var(--red)" onclick="deleteCurrentMap()" title="Delete current map">🗑 Delete Map</button>
+          <button class="btn btn-sm" id="map-focus-btn" onclick="toggleMapFocus()" title="Expand map to full screen (F11)">⛶ Expand</button>
         </div>
       </div>
       <div id="map-editor-wrap">
@@ -3227,6 +3252,7 @@ function initGDD() {
       content.appendChild(section);
     });
   });
+  setTimeout(()=>_initNavResize('gdd-nav'),0);
 }
 
 function onDocInput(doc, secKey, fieldKey, val) {
@@ -3413,6 +3439,7 @@ function initLDD() {
       if(sec.isFlowchart) setTimeout(()=>renderFlowchart(),50);
     });
   });
+  setTimeout(()=>_initNavResize('ldd-nav'),0);
 }
 
 function toggleLDDCheck(i, v) {
@@ -3481,6 +3508,8 @@ const MAP = {
   polyPoints: [],
   drawPoints: null, // freehand draw
   shapePreset: null, // active shape preset from shapes panel
+  assetPreset: null, // active image asset from shapes panel
+  _imgCache: {}, // cached Image objects keyed by assetId
   _prevSpaceTool: null, // for Space=pan
   // Pan state
   isPanning: false,
@@ -3518,7 +3547,8 @@ const HINTS = {
   person:'Click to place a player / NPC spawn point',
   enemy:'Click to place an enemy spawn point',
   arrow:'Click and drag to draw a directional arrow',
-  draw:'Hold and drag to draw freehand — release to finish'
+  draw:'Hold and drag to draw freehand — release to finish',
+  asset:'Select an image asset from the Shapes panel, then click to place it on the map'
 };
 
 function initMapEditor() {
@@ -3694,6 +3724,15 @@ function mapMD(e) {
     mapPushHistory();
     const id='obj_'+Date.now();
     const obj={id,type:'enemy',name:'Enemy',layer:MAP.activeLayer,x:snap(w.x),y:snap(w.y),w:24,h:28,fill:'#e05252',opacity:1};
+    MAP.objects.push(obj); MAP.selectedIds.clear(); MAP.selectedIds.add(id);
+    renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); return;
+  }
+  if (MAP.tool === 'asset' && MAP.assetPreset) {
+    mapPushHistory();
+    const id='obj_'+Date.now();
+    const ap=MAP.assetPreset;
+    const obj={id,type:'asset',name:ap.name||'Asset',layer:MAP.activeLayer,
+      assetId:ap.id, x:snap(w.x-ap.w/2), y:snap(w.y-ap.h/2), w:ap.w, h:ap.h, opacity:1};
     MAP.objects.push(obj); MAP.selectedIds.clear(); MAP.selectedIds.add(id);
     renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); return;
   }
@@ -4126,6 +4165,31 @@ function drawObj(obj,ctx) {
     const dpts=obj.points.map(pt=>w2s(pt.x,pt.y));
     ctx.beginPath();ctx.moveTo(dpts[0].x,dpts[0].y);dpts.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y));
     ctx.strokeStyle=obj.stroke||'#4ecb71';ctx.lineWidth=Math.max(1,2*MAP.cam.zoom);ctx.stroke();
+  } else if(obj.type==='asset'){
+    const q=w2s(obj.x+obj.w,obj.y+obj.h);
+    const iw=q.x-p.x, ih=q.y-p.y;
+    if(!MAP._imgCache) MAP._imgCache={};
+    if(obj.assetId && MAP._imgCache[obj.assetId]){
+      const img=MAP._imgCache[obj.assetId];
+      ctx.drawImage(img, p.x, p.y, iw, ih);
+    } else if(obj.assetId){
+      // Load image and cache
+      const assetDef=(PS.data.mapAssets||[]).find(a=>a.id===obj.assetId);
+      if(assetDef&&assetDef.src){
+        const img=new Image();
+        img.onload=()=>{MAP._imgCache[obj.assetId]=img;renderMap();};
+        img.src=assetDef.src;
+      } else {
+        // Fallback placeholder
+        ctx.fillStyle='rgba(201,162,39,.15)';ctx.fillRect(p.x,p.y,iw,ih);
+        ctx.strokeStyle='rgba(201,162,39,.4)';ctx.lineWidth=1;ctx.strokeRect(p.x,p.y,iw,ih);
+      }
+    }
+    if(obj.name&&MAP.cam.zoom>0.3){
+      ctx.font=`${Math.max(8,10*MAP.cam.zoom)}px Barlow`;
+      ctx.fillStyle='rgba(232,224,204,0.55)';
+      ctx.fillText(obj.name,p.x+3,p.y-3);
+    }
   } else {
     const q=w2s(obj.x+obj.w,obj.y+obj.h);
     const w=q.x-p.x, h=q.y-p.y;
@@ -4307,6 +4371,74 @@ function renderShapesPanel(){
     });
     body.appendChild(grid);
   });
+
+  // ── IMAGE ASSETS category ──────────────────────────────────
+  const assetCatDiv=document.createElement('div');
+  assetCatDiv.className='shape-cat';
+  assetCatDiv.textContent='Image Assets';
+  body.appendChild(assetCatDiv);
+
+  // Upload button
+  const uploadRow=document.createElement('div');
+  uploadRow.style.cssText='padding:4px 6px 8px';
+  const fileInput=document.createElement('input');
+  fileInput.type='file';fileInput.accept='image/*';fileInput.multiple=true;fileInput.style.display='none';fileInput.id='map-asset-file-input';
+  fileInput.onchange=e=>{
+    const files=[...e.target.files];
+    if(!files.length)return;
+    if(!PS.data.mapAssets) PS.data.mapAssets=[];
+    let pending=files.length;
+    files.forEach(file=>{
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        const id='asset_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+        PS.data.mapAssets.push({id,name:file.name.replace(/\.[^.]+$/,''),src:ev.target.result,w:64,h:64});
+        pending--;
+        if(pending===0){autoSave();renderShapesPanel();}
+      };
+      reader.readAsDataURL(file);
+    });
+    fileInput.value='';
+  };
+  const uploadBtn=document.createElement('button');
+  uploadBtn.className='btn btn-sm';
+  uploadBtn.style.cssText='width:100%;font-size:10px';
+  uploadBtn.textContent='+ Upload Image(s)';
+  uploadBtn.onclick=()=>fileInput.click();
+  uploadRow.appendChild(fileInput);
+  uploadRow.appendChild(uploadBtn);
+  body.appendChild(uploadRow);
+
+  // Render saved assets
+  const assets=PS.data.mapAssets||[];
+  if(assets.length){
+    const assetGrid=document.createElement('div');assetGrid.className='shape-grid';
+    assets.forEach(asset=>{
+      const btn=document.createElement('button');btn.className='shape-btn';btn.title=asset.name;
+      btn.innerHTML=`<img src="${asset.src}" style="width:28px;height:28px;object-fit:contain;border-radius:3px"><span>${asset.name.slice(0,8)}</span>`;
+      btn.onclick=()=>{
+        body.querySelectorAll('.shape-btn').forEach(b=>b.classList.remove('active-shape'));
+        btn.classList.add('active-shape');
+        setTool('asset');
+        MAP.assetPreset={id:asset.id,name:asset.name,src:asset.src,w:asset.w||64,h:asset.h||64};
+      };
+      // Right-click to delete
+      btn.oncontextmenu=e=>{
+        e.preventDefault();
+        if(!confirm('Delete asset "'+asset.name+'"?')) return;
+        PS.data.mapAssets=(PS.data.mapAssets||[]).filter(a=>a.id!==asset.id);
+        delete MAP._imgCache[asset.id];
+        autoSave();renderShapesPanel();
+      };
+      assetGrid.appendChild(btn);
+    });
+    body.appendChild(assetGrid);
+  } else {
+    const empty=document.createElement('div');
+    empty.style.cssText='font-size:10px;color:var(--text-muted);padding:4px 8px 10px;font-family:var(--fb)';
+    empty.textContent='Upload PNG/JPG images to place on the map';
+    body.appendChild(empty);
+  }
 }
 
 function setActiveLayer(l){MAP.activeLayer=l;document.getElementById('sb-layer').textContent=l;renderMapLayers();}
@@ -4636,6 +4768,92 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--text)
 @media print{body{font-size:11px}.chapter{page-break-before:always}.cover{page-break-after:always}.sec-group{page-break-inside:avoid}.field-wrap{page-break-inside:avoid}.map-card{page-break-inside:avoid}@page{margin:18mm 18mm 20mm}}`;
 }
 
+function _pdfCSSPro(){
+  return `*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#c9a227;--text:#111;--muted:#666;--border:#d8d2be;--bg:#f7f5ef;--accent:#1a1814}
+body{font-family:'Georgia','Times New Roman',serif;color:var(--text);background:#fff;font-size:12px;line-height:1.8;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+/* COVER */
+.cover{background:var(--accent);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 60px;text-align:center;page-break-after:always;position:relative}
+.cover-rule{width:60px;height:2px;background:var(--gold);margin:0 auto 36px}
+.cover-title{font-family:Georgia,serif;font-size:52px;font-weight:bold;color:var(--gold);letter-spacing:4px;line-height:1.1;margin-bottom:12px;text-transform:uppercase}
+.cover-subtitle{font-size:11px;color:#888;letter-spacing:6px;text-transform:uppercase;margin-bottom:48px}
+.cover-rule2{width:40px;height:1px;background:rgba(201,162,39,.4);margin:0 auto 40px}
+.cover-stats{display:flex;gap:52px;justify-content:center;flex-wrap:wrap}
+.cstat{text-align:center}
+.cstat-val{font-family:Georgia,serif;font-size:40px;font-weight:bold;color:var(--gold);line-height:1}
+.cstat-lbl{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:#666;margin-top:6px}
+.cprog{width:72px;height:2px;background:#2a2620;border-radius:1px;margin:10px auto 0}
+.cprog-f{height:100%;background:var(--gold);border-radius:1px}
+.cover-footer{position:absolute;bottom:32px;width:100%;text-align:center;font-size:9px;color:#555;letter-spacing:2px;text-transform:uppercase}
+/* LAYOUT */
+.wrap{max-width:840px;margin:0 auto;padding:0 64px 96px}
+/* CHAPTER HEADER */
+.chapter{padding-top:64px;page-break-before:always}
+.ch-hdr{padding-bottom:16px;border-bottom:2px solid var(--gold);margin-bottom:40px}
+.ch-eyebrow{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+.ch-title{font-family:Georgia,serif;font-size:30px;font-weight:bold;color:var(--text);letter-spacing:.5px}
+.ch-badge{display:inline-block;margin-top:8px;background:var(--gold);color:#000;font-size:9px;font-weight:700;padding:3px 10px;letter-spacing:.5px;font-family:Arial,sans-serif}
+/* SECTION */
+.sec-group{margin-bottom:40px}
+.sec-grp-title{font-family:Georgia,serif;font-size:18px;font-weight:700;color:var(--text);margin-bottom:18px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.sec-item{margin-bottom:24px}
+.sec-item-hdr{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;font-family:Arial,sans-serif}
+/* FIELD */
+.field-wrap{background:var(--bg);border-left:3px solid var(--gold);padding:12px 16px;margin-bottom:10px}
+.field-lbl{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;margin-bottom:6px;font-family:Arial,sans-serif}
+.field-val{font-size:12px;color:var(--text);white-space:pre-wrap;line-height:1.85;font-family:Georgia,serif}
+.field-empty{font-size:11px;color:#ccc;font-style:italic;font-family:Georgia,serif}
+.sec-hr{border:none;border-top:1px solid var(--border);margin:28px 0}
+/* BEAT TABLE */
+.bt-wrap{overflow-x:auto;margin-top:14px}
+.bt{width:100%;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif}
+.bt th{background:#1a1814;color:var(--gold);padding:9px 12px;text-align:left;font-weight:700;font-size:9px;letter-spacing:1px;text-transform:uppercase}
+.bt td{border:1px solid var(--border);padding:8px 12px;vertical-align:top;line-height:1.6}
+.bt tr:nth-child(even) td{background:var(--bg)}
+.bt .rn{text-align:center;color:var(--gold);font-weight:700;background:var(--bg);width:32px}
+/* CHART */
+.chart-section{margin-bottom:36px;page-break-inside:avoid}
+.chart-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px;font-family:Arial,sans-serif}
+.chart-img{display:block;width:100%;border:1px solid var(--border);border-radius:0}
+/* STANDALONE DOCUMENT HEADER */
+.doc-header{padding:48px 0 32px;border-bottom:2px solid var(--gold);margin-bottom:40px}
+.doc-header-label{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:10px;font-family:Arial,sans-serif}
+.doc-header-title{font-family:Georgia,serif;font-size:36px;font-weight:bold;color:var(--text);margin-bottom:8px}
+.doc-header-meta{font-size:11px;color:var(--muted);letter-spacing:.3px;font-family:Arial,sans-serif}
+.doc-pct{display:inline-block;margin-top:14px;background:var(--gold);color:#000;font-size:10px;font-weight:700;padding:4px 14px;letter-spacing:.5px;font-family:Arial,sans-serif}
+/* MAPS */
+.map-card{border:1px solid var(--border);padding:18px 22px;margin-bottom:14px;page-break-inside:avoid;background:var(--bg)}
+.map-card-name{font-size:15px;font-weight:700;margin-bottom:4px;font-family:Georgia,serif}
+.map-card-meta{font-size:10px;color:var(--muted);font-family:Arial,sans-serif}
+.map-preview{max-width:100%;border:1px solid var(--border);margin-top:20px;display:block}
+/* NOTES & TASKS */
+.list-title{font-size:12px;font-weight:700;color:var(--text);border-left:3px solid var(--gold);padding:5px 14px;background:var(--bg);margin:20px 0 8px;font-family:Arial,sans-serif}
+.list-count{font-size:9px;color:var(--muted);margin-left:8px}
+.task-row{display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;font-family:Arial,sans-serif}
+.task-cb{flex-shrink:0;font-size:14px;margin-top:1px}
+.task-done{text-decoration:line-through;color:#bbb}
+/* PRINT */
+@media print{body{font-size:11px}.chapter{page-break-before:always}.cover{page-break-after:always}.sec-group{page-break-inside:avoid}.field-wrap{page-break-inside:avoid}.chart-section{page-break-inside:avoid}@page{margin:20mm 20mm 22mm}}`;
+}
+
+// Async helper: captures all 3 chart canvases as base64 dataURLs
+// Returns {difficulty, pacing, flow}
+async function _captureCharts(){
+  if(!_curveCanvas) return null;
+  const origChart=_curveChart;
+  const charts={};
+  const types=['difficulty','pacing','flow'];
+  for(const t of types){
+    switchChart(t);
+    // Wait for render
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    charts[t]=_curveCanvas.toDataURL('image/png');
+  }
+  // Restore original
+  switchChart(origChart);
+  return charts;
+}
+
 function _pdfOpen(title){
   const win=window.open('','_blank');
   if(!win){showToast('Allow popups to export PDF');return null;}
@@ -4648,13 +4866,18 @@ function exportGDDPDF(){
   const projectName=PS.data.currentProject||'Game Project';
   const dateStr=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   const pct=calcDocCompletion('gdd',GDD_SECS);
-  let html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>GDD — ${esc(projectName)}</title><style>${_pdfCSS()}</style></head><body><div class="wrap">`;
-  html+=`<div class="doc-header"><span class="doc-header-icon">📋</span><div><div class="doc-header-title">Game Design Document</div><div class="doc-header-meta">${esc(projectName)} &nbsp;·&nbsp; ${dateStr}</div></div><span class="doc-pct">${pct}% Complete</span></div>`;
+  let html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>GDD — ${esc(projectName)}</title><style>${_pdfCSSPro()}</style></head><body><div class="wrap">`;
+  html+=`<div class="doc-header">
+    <div class="doc-header-label">Game Design Document</div>
+    <div class="doc-header-title">${esc(projectName)}</div>
+    <div class="doc-header-meta">${dateStr}</div>
+    <div class="doc-pct">${pct}% Complete</div>
+  </div>`;
   GDD_SECS.forEach(grp=>{
     html+=`<div class="sec-group"><div class="sec-grp-title">${esc(grp.grp)}</div>`;
     grp.items.forEach(sec=>{
       if(!sec.fields)return;
-      html+=`<div class="sec-item"><div class="sec-item-hdr">${esc(sec.icon)} ${esc(sec.label)}</div>`;
+      html+=`<div class="sec-item"><div class="sec-item-hdr">${esc(sec.label)}</div>`;
       sec.fields.forEach(f=>{
         const val=(PS.data.docs.gdd[sec.key]&&PS.data.docs.gdd[sec.key][f.k])||'';
         html+=`<div class="field-wrap"><div class="field-lbl">${esc(f.l)}</div>`;
@@ -4673,19 +4896,32 @@ function exportGDDPDF(){
 
 function exportLDDJSON(){collectDocData();dlText(JSON.stringify(PS.data.docs.ldd,null,2),'LDD.json','application/json');}
 
-function exportLDDPDF(){
+async function exportLDDPDF(){
   collectDocData();
+  showToast('Preparing LDD PDF…');
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const projectName=PS.data.currentProject||'Game Project';
   const dateStr=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   const pct=calcDocCompletion('ldd',LDD_SECS);
-  let html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>LDD — ${esc(projectName)}</title><style>${_pdfCSS()}</style></head><body><div class="wrap">`;
-  html+=`<div class="doc-header"><span class="doc-header-icon">📐</span><div><div class="doc-header-title">Level Design Document</div><div class="doc-header-meta">${esc(projectName)} &nbsp;·&nbsp; ${dateStr}</div></div><span class="doc-pct">${pct}% Complete</span></div>`;
+
+  // Capture chart images (only if charts module has been initialized)
+  let charts=null;
+  try{ charts=await _captureCharts(); }catch(e){}
+
+  let html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>LDD — ${esc(projectName)}</title><style>${_pdfCSSPro()}</style></head><body><div class="wrap">`;
+  html+=`<div class="doc-header">
+    <div class="doc-header-label">Level Design Document</div>
+    <div class="doc-header-title">${esc(projectName)}</div>
+    <div class="doc-header-meta">${dateStr}</div>
+    <div class="doc-pct">${pct}% Complete</div>
+  </div>`;
+
   LDD_SECS.forEach(grp=>{
     html+=`<div class="sec-group"><div class="sec-grp-title">${esc(grp.grp)}</div>`;
     grp.items.forEach(sec=>{
+      if(sec.isTable||sec.isFlowchart||sec.checklistKey) return; // handled separately
       if(!sec.fields)return;
-      html+=`<div class="sec-item"><div class="sec-item-hdr">${esc(sec.icon)} ${esc(sec.label)}</div>`;
+      html+=`<div class="sec-item"><div class="sec-item-hdr">${esc(sec.label)}</div>`;
       sec.fields.forEach(f=>{
         const val=(PS.data.docs.ldd[sec.key]&&PS.data.docs.ldd[sec.key][f.k])||'';
         html+=`<div class="field-wrap"><div class="field-lbl">${esc(f.l)}</div>`;
@@ -4696,21 +4932,50 @@ function exportLDDPDF(){
     });
     html+=`<hr class="sec-hr"></div>`;
   });
+
   // Beat Table
   const bt=PS.data.docs.ldd.beat_table;
   if(bt&&bt.rows&&bt.rows.some(r=>r.situation||r.skills||r.elements||r.intensity||r.time_pacing)){
-    html+=`<div class="sec-group"><div class="sec-grp-title">Beat Table</div><div class="bt-wrap"><table class="bt"><thead><tr><th style="width:32px">#</th><th>Situation / Scene</th><th>Player Skills</th><th>Design Elements</th><th>Intensity</th><th>Time / Pacing</th></tr></thead><tbody>`;
-    bt.rows.forEach((row,i)=>{html+=`<tr><td class="rn">${i+1}</td><td>${esc(row.situation||'')}</td><td>${esc(row.skills||'')}</td><td>${esc(row.elements||'')}</td><td>${esc(row.intensity||'')}</td><td>${esc(row.time_pacing||'')}</td></tr>`;});
+    html+=`<div class="sec-group"><div class="sec-grp-title">Beat Sequence Table</div><div class="bt-wrap"><table class="bt"><thead><tr><th style="width:32px">#</th><th>Situation / Scene</th><th>Player Skills</th><th>Design Elements</th><th>Intensity</th><th>Time / Pacing</th></tr></thead><tbody>`;
+    bt.rows.forEach((row,i)=>{
+      if(!row.situation&&!row.skills&&!row.elements&&!row.intensity&&!row.time_pacing)return;
+      html+=`<tr><td class="rn">${i+1}</td><td>${esc(row.situation||'')}</td><td>${esc(row.skills||'')}</td><td>${esc(row.elements||'')}</td><td>${esc(row.intensity||'')}</td><td>${esc(row.time_pacing||'')}</td></tr>`;
+    });
     html+=`</tbody></table></div></div>`;
   }
+
+  // Design Curves (Difficulty, Pacing, Flow)
+  if(charts){
+    const hasData=t=>(PS.data.charts&&PS.data.charts[t]&&PS.data.charts[t].length>0);
+    const chartDefs=[
+      {key:'difficulty',label:'Difficulty Curve',desc:'How challenge scales across the level. A well-designed difficulty curve introduces peaks and valleys to maintain engagement.'},
+      {key:'pacing',label:'Pacing Curve',desc:'The rhythm of intensity, exploration, and rest. Mirrors the emotional journey of the player.'},
+      {key:'flow',label:'Flow State Curve',desc:'How well the level keeps the player in the optimal engagement zone — challenged but not frustrated.'},
+    ];
+    const anyChart=chartDefs.some(c=>hasData(c.key));
+    if(anyChart){
+      html+=`<div class="sec-group"><div class="sec-grp-title">Design Curves</div>`;
+      chartDefs.forEach(c=>{
+        if(!hasData(c.key))return;
+        html+=`<div class="chart-section">
+          <div class="chart-title">${c.label}</div>
+          <p style="font-size:11px;color:#777;margin-bottom:10px;font-family:Arial,sans-serif">${c.desc}</p>
+          <img class="chart-img" src="${charts[c.key]}" alt="${c.label}">
+        </div>`;
+      });
+      html+=`</div>`;
+    }
+  }
+
   html+=`</div></body></html>`;
   const win=_pdfOpen('LDD');if(!win)return;
   win.document.write(html);win.document.close();
-  setTimeout(()=>win.print(),500);showToast('Opening LDD PDF…');
+  setTimeout(()=>win.print(),600);showToast('Opening LDD PDF…');
 }
 
-function exportFullPDF(){
+async function exportFullPDF(){
   collectDocData(); mapSaveCurrent();
+  showToast('Preparing Full PDF…');
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const projectName=PS.data.currentProject||'My Game Project';
   const dateStr=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
@@ -4724,32 +4989,35 @@ function exportFullPDF(){
   const allNoteItems=noteLists.flatMap(l=>l.items||[]);
   const doneNotes=allNoteItems.filter(i=>i.done).length;
 
+  let charts=null;
+  try{ charts=await _captureCharts(); }catch(e){}
+
   // ── Cover page ──────────────────────────────────────────────
-  let html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${esc(projectName)}</title><style>${_pdfCSS()}</style></head><body>`;
+  let html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>${esc(projectName)}</title><style>${_pdfCSSPro()}</style></head><body>`;
   html+=`<div class="cover">
-    <div class="cover-icon">🎮</div>
+    <div class="cover-rule"></div>
     <div class="cover-title">${esc(projectName)}</div>
     <div class="cover-subtitle">Full Project Document</div>
-    <div class="cover-line"></div>
+    <div class="cover-rule2"></div>
     <div class="cover-stats">
-      <div class="cstat"><div class="cstat-val">${gddPct}<span style="font-size:20px">%</span></div><div class="cstat-lbl">GDD Complete</div><div class="cprog"><div class="cprog-f" style="width:${gddPct}%"></div></div></div>
-      <div class="cstat"><div class="cstat-val">${lddPct}<span style="font-size:20px">%</span></div><div class="cstat-lbl">LDD Complete</div><div class="cprog"><div class="cprog-f" style="width:${lddPct}%"></div></div></div>
+      <div class="cstat"><div class="cstat-val">${gddPct}<span style="font-size:22px">%</span></div><div class="cstat-lbl">GDD Complete</div><div class="cprog"><div class="cprog-f" style="width:${gddPct}%"></div></div></div>
+      <div class="cstat"><div class="cstat-val">${lddPct}<span style="font-size:22px">%</span></div><div class="cstat-lbl">LDD Complete</div><div class="cprog"><div class="cprog-f" style="width:${lddPct}%"></div></div></div>
       <div class="cstat"><div class="cstat-val">${maps.length}</div><div class="cstat-lbl">Maps</div></div>
-      <div class="cstat"><div class="cstat-val">${doneTasks}<span style="font-size:20px">/${tasks.length}</span></div><div class="cstat-lbl">Tasks Done</div></div>
-      <div class="cstat"><div class="cstat-val">${doneNotes}<span style="font-size:20px">/${allNoteItems.length}</span></div><div class="cstat-lbl">Notes Done</div></div>
+      <div class="cstat"><div class="cstat-val">${doneTasks}<span style="font-size:22px">/${tasks.length}</span></div><div class="cstat-lbl">Tasks Done</div></div>
+      <div class="cstat"><div class="cstat-val">${doneNotes}<span style="font-size:22px">/${allNoteItems.length}</span></div><div class="cstat-lbl">Notes Done</div></div>
     </div>
-    <div class="cover-footer">Generated ${dateStr} &nbsp;·&nbsp; Invictus Game Studio</div>
+    <div class="cover-footer">Generated ${dateStr} &nbsp;&#183;&nbsp; Invictus Game Studio</div>
   </div>`;
 
   html+=`<div class="wrap">`;
 
   // ── GDD chapter ─────────────────────────────────────────────
-  html+=`<div class="chapter"><div class="ch-hdr"><span class="ch-icon">📋</span><span class="ch-title">Game Design Document</span><span class="ch-badge">${gddPct}% Complete</span></div>`;
+  html+=`<div class="chapter"><div class="ch-hdr"><div class="ch-eyebrow">Chapter 1</div><div class="ch-title">Game Design Document</div><div class="ch-badge">${gddPct}% Complete</div></div>`;
   GDD_SECS.forEach(grp=>{
     html+=`<div class="sec-group"><div class="sec-grp-title">${esc(grp.grp)}</div>`;
     grp.items.forEach(sec=>{
       if(!sec.fields)return;
-      html+=`<div class="sec-item"><div class="sec-item-hdr">${esc(sec.icon)} ${esc(sec.label)}</div>`;
+      html+=`<div class="sec-item"><div class="sec-item-hdr">${esc(sec.label)}</div>`;
       sec.fields.forEach(f=>{
         const val=(PS.data.docs.gdd[sec.key]&&PS.data.docs.gdd[sec.key][f.k])||'';
         html+=`<div class="field-wrap"><div class="field-lbl">${esc(f.l)}</div>`;
@@ -4763,12 +5031,13 @@ function exportFullPDF(){
   html+=`</div>`;
 
   // ── LDD chapter ─────────────────────────────────────────────
-  html+=`<div class="chapter"><div class="ch-hdr"><span class="ch-icon">📐</span><span class="ch-title">Level Design Document</span><span class="ch-badge">${lddPct}% Complete</span></div>`;
+  html+=`<div class="chapter"><div class="ch-hdr"><div class="ch-eyebrow">Chapter 2</div><div class="ch-title">Level Design Document</div><div class="ch-badge">${lddPct}% Complete</div></div>`;
   LDD_SECS.forEach(grp=>{
     html+=`<div class="sec-group"><div class="sec-grp-title">${esc(grp.grp)}</div>`;
     grp.items.forEach(sec=>{
+      if(sec.isTable||sec.isFlowchart||sec.checklistKey) return;
       if(!sec.fields)return;
-      html+=`<div class="sec-item"><div class="sec-item-hdr">${esc(sec.icon)} ${esc(sec.label)}</div>`;
+      html+=`<div class="sec-item"><div class="sec-item-hdr">${esc(sec.label)}</div>`;
       sec.fields.forEach(f=>{
         const val=(PS.data.docs.ldd[sec.key]&&PS.data.docs.ldd[sec.key][f.k])||'';
         html+=`<div class="field-wrap"><div class="field-lbl">${esc(f.l)}</div>`;
@@ -4782,17 +5051,37 @@ function exportFullPDF(){
   // Beat Table
   const bt=PS.data.docs.ldd.beat_table;
   if(bt&&bt.rows&&bt.rows.some(r=>r.situation||r.skills||r.elements||r.intensity||r.time_pacing)){
-    html+=`<div class="sec-group"><div class="sec-grp-title">Beat Table</div><div class="bt-wrap"><table class="bt"><thead><tr><th style="width:32px">#</th><th>Situation / Scene</th><th>Player Skills</th><th>Design Elements</th><th>Intensity</th><th>Time / Pacing</th></tr></thead><tbody>`;
-    bt.rows.forEach((row,i)=>{html+=`<tr><td class="rn">${i+1}</td><td>${esc(row.situation||'')}</td><td>${esc(row.skills||'')}</td><td>${esc(row.elements||'')}</td><td>${esc(row.intensity||'')}</td><td>${esc(row.time_pacing||'')}</td></tr>`;});
+    html+=`<div class="sec-group"><div class="sec-grp-title">Beat Sequence Table</div><div class="bt-wrap"><table class="bt"><thead><tr><th style="width:32px">#</th><th>Situation / Scene</th><th>Player Skills</th><th>Design Elements</th><th>Intensity</th><th>Time / Pacing</th></tr></thead><tbody>`;
+    bt.rows.forEach((row,i)=>{
+      if(!row.situation&&!row.skills&&!row.elements&&!row.intensity&&!row.time_pacing)return;
+      html+=`<tr><td class="rn">${i+1}</td><td>${esc(row.situation||'')}</td><td>${esc(row.skills||'')}</td><td>${esc(row.elements||'')}</td><td>${esc(row.intensity||'')}</td><td>${esc(row.time_pacing||'')}</td></tr>`;
+    });
     html+=`</tbody></table></div></div>`;
+  }
+  // Design Curves
+  if(charts){
+    const hasData=t=>(PS.data.charts&&PS.data.charts[t]&&PS.data.charts[t].length>0);
+    const chartDefs=[
+      {key:'difficulty',label:'Difficulty Curve',desc:'Challenge scaling across the level.'},
+      {key:'pacing',label:'Pacing Curve',desc:'Rhythm of intensity, exploration and rest.'},
+      {key:'flow',label:'Flow State Curve',desc:'Player engagement and flow zone over time.'},
+    ];
+    if(chartDefs.some(c=>hasData(c.key))){
+      html+=`<div class="sec-group"><div class="sec-grp-title">Design Curves</div>`;
+      chartDefs.forEach(c=>{
+        if(!hasData(c.key))return;
+        html+=`<div class="chart-section"><div class="chart-title">${c.label}</div><p style="font-size:11px;color:#777;margin-bottom:10px;font-family:Arial,sans-serif">${c.desc}</p><img class="chart-img" src="${charts[c.key]}" alt="${c.label}"></div>`;
+      });
+      html+=`</div>`;
+    }
   }
   html+=`</div>`;
 
   // ── Maps chapter ─────────────────────────────────────────────
   if(maps.length){
-    html+=`<div class="chapter"><div class="ch-hdr"><span class="ch-icon">🗺️</span><span class="ch-title">Maps</span><span class="ch-badge">${maps.length} Map${maps.length>1?'s':''}</span></div>`;
+    html+=`<div class="chapter"><div class="ch-hdr"><div class="ch-eyebrow">Chapter 3</div><div class="ch-title">Maps</div><div class="ch-badge">${maps.length} Map${maps.length>1?'s':''}</div></div>`;
     maps.forEach(m=>{
-      html+=`<div class="map-card"><div class="map-card-icon">🗺️</div><div><div class="map-card-name">${esc(m.name||'Untitled Map')}</div><div class="map-card-meta">${(m.objects||[]).length} objects &nbsp;·&nbsp; Created ${new Date(m.created||Date.now()).toLocaleDateString()}</div>${m.description?'<div style="font-size:12px;color:#888;margin-top:6px">'+esc(m.description)+'</div>':''}</div></div>`;
+      html+=`<div class="map-card"><div class="map-card-name">${esc(m.name||'Untitled Map')}</div><div class="map-card-meta">${(m.objects||[]).length} objects &nbsp;&#183;&nbsp; Created ${new Date(m.created||Date.now()).toLocaleDateString()}</div>${m.description?'<p style="font-size:12px;color:#777;margin-top:6px">'+esc(m.description)+'</p>':''}</div>`;
     });
     if(mapImg)html+=`<div style="margin-top:28px"><div class="sec-grp-title" style="margin-bottom:14px">Current Map Preview</div><img class="map-preview" src="${mapImg}" alt="Map Preview"></div>`;
     html+=`</div>`;
@@ -4802,27 +5091,27 @@ function exportFullPDF(){
   const hasNotes=allNoteItems.length>0;
   const hasTasks=tasks.length>0;
   if(hasNotes||hasTasks){
-    html+=`<div class="chapter"><div class="ch-hdr"><span class="ch-icon">✅</span><span class="ch-title">Notes &amp; Tasks</span><span class="ch-badge">${doneNotes+doneTasks}/${allNoteItems.length+tasks.length} Done</span></div>`;
+    html+=`<div class="chapter"><div class="ch-hdr"><div class="ch-eyebrow">Chapter ${maps.length?4:3}</div><div class="ch-title">Notes &amp; Tasks</div><div class="ch-badge">${doneNotes+doneTasks}/${allNoteItems.length+tasks.length} Done</div></div>`;
     if(hasNotes){
       html+=`<div class="sec-group"><div class="sec-grp-title">Notes</div>`;
       noteLists.forEach(lst=>{
         if(!lst.items||!lst.items.length)return;
         const done=lst.items.filter(i=>i.done).length;
-        html+=`<div class="list-title">${esc(lst.icon||'📋')} ${esc(lst.name)}<span class="list-count">${done}/${lst.items.length} done</span></div>`;
-        html+=`<div style="border:1px solid #e2dcc8;border-radius:6px;overflow:hidden;margin-bottom:16px">`;
-        lst.items.forEach(item=>{html+=`<div class="task-row"><span class="task-cb">${item.done?'☑':'☐'}</span><span class="${item.done?'task-done':''}">${esc(item.text||'')}</span></div>`;});
+        html+=`<div class="list-title">${esc(lst.name)}<span class="list-count">${done}/${lst.items.length} done</span></div>`;
+        html+=`<div style="border:1px solid #d8d2be;overflow:hidden;margin-bottom:16px">`;
+        lst.items.forEach(item=>{html+=`<div class="task-row"><span class="task-cb">${item.done?'[x]':'[ ]'}</span><span class="${item.done?'task-done':''}">${esc(item.text||'')}</span></div>`;});
         html+=`</div>`;
       });
       html+=`</div>`;
     }
     if(hasTasks){
-      html+=`<div class="sec-group"><div class="sec-grp-title">Tasks</div><div style="border:1px solid #e2dcc8;border-radius:6px;overflow:hidden">`;
+      html+=`<div class="sec-group"><div class="sec-grp-title">Tasks</div><div style="border:1px solid #d8d2be;overflow:hidden">`;
       tasks.forEach(t=>{
         const done=t.status==='Done';
-        html+=`<div class="task-row"><span class="task-cb">${done?'☑':'☐'}</span><div style="flex:1"><div class="${done?'task-done':''}" style="font-weight:600">${esc(t.title||'')}</div>`;
+        html+=`<div class="task-row"><span class="task-cb">${done?'[x]':'[ ]'}</span><div style="flex:1"><div class="${done?'task-done':''}" style="font-weight:600">${esc(t.title||'')}</div>`;
         if(t.description)html+=`<div style="font-size:11px;color:#888;margin-top:2px">${esc(t.description)}</div>`;
-        const meta=[];if(t.priority)meta.push(t.priority+' priority');if(t.discipline)meta.push(t.discipline);if(t.due)meta.push('Due: '+t.due);if(t.assignedTo)meta.push('→ '+t.assignedTo);
-        if(meta.length)html+=`<div style="font-size:10px;color:#aaa;margin-top:3px">${meta.map(esc).join(' &nbsp;·&nbsp; ')}</div>`;
+        const meta=[];if(t.priority)meta.push(t.priority+' priority');if(t.discipline)meta.push(t.discipline);if(t.due)meta.push('Due: '+t.due);if(t.assignedTo)meta.push(t.assignedTo);
+        if(meta.length)html+=`<div style="font-size:10px;color:#aaa;margin-top:3px">${meta.map(esc).join(' &nbsp;&#183;&nbsp; ')}</div>`;
         html+=`</div><span style="font-size:10px;color:#aaa;flex-shrink:0;margin-top:2px;padding-left:10px">${esc(t.status||'')}</span></div>`;
       });
       html+=`</div></div>`;
@@ -5763,7 +6052,7 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  if(e.key==='Escape'){closeModal();if(MAP.polyPoints){MAP.polyPoints=[];MAP.isDrawing=false;renderMap();}FC.connectFrom=null;FC.selectedNode=null;renderFlowNodes();}
+  if(e.key==='Escape'){closeModal();if(document.body.classList.contains('map-expand'))toggleMapFocus();if(MAP.polyPoints){MAP.polyPoints=[];MAP.isDrawing=false;renderMap();}FC.connectFrom=null;FC.selectedNode=null;renderFlowNodes();}
   const tag=document.activeElement.tagName;
   if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||document.activeElement.contentEditable==='true') return;
   const toolKeys={v:'select',w:'select',h:'pan',m:'pan',r:'rect',b:'wall',p:'poly',c:'circle',t:'text',e:'erase',g:'grid',f:'fit',s:'stair',l:'light',y:'person',x:'enemy',a:'arrow',d:'draw'};
@@ -6042,6 +6331,50 @@ function toggleMobSidebar(){
 function closeMobSidebar(){
   document.getElementById('sidebar')?.classList.remove('mob-open');
   document.getElementById('mob-overlay')?.classList.remove('active');
+}
+
+// ────────────────────────────────────────────────────────────
+// MAP FOCUS / EXPAND MODE
+// ────────────────────────────────────────────────────────────
+function toggleMapFocus(){
+  const expanded=document.body.classList.toggle('map-expand');
+  const btn=document.getElementById('map-focus-btn');
+  if(btn) btn.textContent=expanded?'⛶ Exit':'⛶ Expand';
+  // Resize canvas after layout change
+  setTimeout(()=>{if(MAP.canvas)resizeMapCanvas();},50);
+}
+
+// ────────────────────────────────────────────────────────────
+// NAV PANEL RESIZE (GDD / LDD)
+// ────────────────────────────────────────────────────────────
+function _initNavResize(navId){
+  const nav=document.getElementById(navId);
+  if(!nav) return;
+  // Remove existing handle if any
+  const old=nav.querySelector('.nav-resize-handle');
+  if(old) old.remove();
+  const handle=document.createElement('div');
+  handle.className='nav-resize-handle';
+  nav.appendChild(handle);
+  let startX,startW;
+  handle.addEventListener('mousedown',e=>{
+    e.preventDefault();
+    startX=e.clientX;
+    startW=nav.offsetWidth;
+    handle.classList.add('dragging');
+    const onMove=ev=>{
+      const dx=ev.clientX-startX;
+      const newW=Math.max(120,Math.min(480,startW+dx));
+      nav.style.width=newW+'px';
+    };
+    const onUp=()=>{
+      handle.classList.remove('dragging');
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+    };
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
 }
 
 function init() {
