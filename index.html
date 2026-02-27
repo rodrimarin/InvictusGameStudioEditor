@@ -588,16 +588,30 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
 /* ════════════════════════════════════════════════════════════
    DOC IMAGE GALLERY
    ════════════════════════════════════════════════════════════ */
-.doc-img-gallery{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;padding:6px 0 2px}
-.doc-img-item{position:relative;display:inline-block;border-radius:5px;overflow:hidden;border:1px solid var(--border);transition:border-color .15s}
-.doc-img-item:hover{border-color:var(--gold)}
-.doc-img-item img{display:block;width:140px;height:94px;object-fit:cover;cursor:zoom-in}
-.doc-img-item img:hover{opacity:.92}
-.doc-img-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.75);border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:18px;text-align:center;padding:0;opacity:0;transition:opacity .15s}
-.doc-img-item:hover .doc-img-del{opacity:1}
-.doc-img-add{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:100px;height:68px;border:1px dashed var(--border);border-radius:5px;cursor:pointer;font-size:10px;color:var(--text-muted);font-family:var(--fu);letter-spacing:.5px;gap:4px;transition:all .15s;text-align:center;padding:6px;user-select:none}
+/* ── TWO-COLUMN SECTION LAYOUT (fields left, images right) ── */
+.doc-section-split{display:flex;gap:14px;align-items:flex-start}
+.doc-fields-col{flex:1;min-width:0}
+.doc-imgs-col{width:240px;flex-shrink:0;position:sticky;top:0}
+.doc-imgs-col-hdr{font-family:var(--fu);font-size:9px;letter-spacing:1.5px;color:var(--gold-dim);text-transform:uppercase;padding:2px 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px}
+/* Horizontal scroll gallery */
+.doc-img-gallery{display:flex;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;gap:8px;padding:0 0 8px;scrollbar-width:thin;scrollbar-color:var(--gold-dim) transparent;min-height:118px;align-items:flex-start}
+.doc-img-gallery::-webkit-scrollbar{height:4px}
+.doc-img-gallery::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:2px}
+/* Image card: thumb + caption */
+.doc-img-card{flex-shrink:0;width:140px;display:flex;flex-direction:column;gap:4px}
+.doc-img-thumb{position:relative;border-radius:4px;overflow:hidden;border:1px solid var(--border);transition:border-color .15s}
+.doc-img-thumb:hover{border-color:var(--gold)}
+.doc-img-thumb img{display:block;width:140px;height:88px;object-fit:cover;cursor:zoom-in}
+.doc-img-caption{width:100%;background:var(--bg-input);border:1px solid transparent;border-radius:3px;padding:3px 6px;font-size:10px;color:var(--text-secondary);font-family:var(--fb);outline:none;box-sizing:border-box}
+.doc-img-caption:focus{border-color:var(--gold-dim);color:var(--text-primary)}
+.doc-img-caption::placeholder{color:var(--text-muted)}
+.doc-img-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.78);border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;line-height:18px;text-align:center;padding:0;opacity:0;transition:opacity .15s}
+.doc-img-thumb:hover .doc-img-del{opacity:1}
+.doc-img-add{flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;width:80px;height:88px;border:1px dashed var(--border);border-radius:4px;cursor:pointer;font-size:10px;color:var(--text-muted);font-family:var(--fu);letter-spacing:.5px;gap:4px;transition:all .15s;text-align:center;padding:6px;user-select:none;margin-bottom:24px}
 .doc-img-add:hover{border-color:var(--gold);color:var(--gold);background:rgba(201,162,39,.05)}
 .doc-img-add input{display:none}
+/* Mobile: stack columns vertically */
+@media(max-width:900px){.doc-section-split{flex-direction:column}.doc-imgs-col{width:100%;position:static}}
 
 /* ════════════════════════════════════════════════════════════
    LAYER CONTEXT MENU
@@ -3274,6 +3288,7 @@ function initGDD() {
       let html=`<div class="doc-sec-title">${sec.icon} ${sec.label}</div>`;
       if(sec.hint) html+=`<div class="doc-info-box">${sec.hint}</div>`;
 
+      html+=`<div class="doc-section-split"><div class="doc-fields-col">`;
       sec.fields.forEach(field=>{
         const val=(PS.data.docs.gdd[sec.key]&&PS.data.docs.gdd[sec.key][field.k])||'';
         const q=DOC_QUESTIONS.gdd[field.k]||'';
@@ -3285,8 +3300,10 @@ function initGDD() {
             oninput="onDocInput('gdd','${sec.key}','${field.k}',this.value)">${val}</textarea>
         </div>`;
       });
-      // Image reference gallery
-      html+=`<div class="doc-img-gallery" id="doc-imgs-gdd-${sec.key}">${_docImgGalleryHTML('gdd',sec.key)}</div>`;
+      html+=`</div><div class="doc-imgs-col">
+        <div class="doc-imgs-col-hdr">Visual References</div>
+        <div class="doc-img-gallery" id="doc-imgs-gdd-${sec.key}">${_docImgGalleryHTML('gdd',sec.key)}</div>
+      </div></div>`;
       html+='<div class="doc-divider"></div>';
       section.innerHTML=html;
       content.appendChild(section);
@@ -3323,16 +3340,21 @@ function _docImgGalleryHTML(doc, key){
   const imgs=(PS.data.docs[doc][key]&&PS.data.docs[doc][key]._images)||[];
   let h='';
   imgs.forEach((img,i)=>{
-    // Store base64 in a temp key so onclick doesn't embed huge strings in HTML
     const tmpId='_dimgtmp_'+doc+'_'+key+'_'+i;
     window[tmpId]=img.data;
-    h+=`<div class="doc-img-item">
-      <img src="${img.data}" title="${img.name||''}" onclick="_docImgZoom(window['${tmpId}'])">
-      <button class="doc-img-del" onclick="docRemoveImage('${doc}','${key}',${i})" title="Remove">✕</button>
+    const cap=(img.caption||'').replace(/"/g,'&quot;');
+    h+=`<div class="doc-img-card">
+      <div class="doc-img-thumb">
+        <img src="${img.data}" onclick="_docImgZoom(window['${tmpId}'])" title="Click to expand">
+        <button class="doc-img-del" onclick="docRemoveImage('${doc}','${key}',${i})" title="Remove">✕</button>
+      </div>
+      <input class="doc-img-caption" type="text" placeholder="Add title..." value="${cap}"
+        onchange="docUpdateCaption('${doc}','${key}',${i},this.value)"
+        oninput="docUpdateCaption('${doc}','${key}',${i},this.value)">
     </div>`;
   });
   h+=`<label class="doc-img-add" title="Add reference image (PNG, JPG, GIF, WebP)">
-    <span style="font-size:18px;line-height:1">+</span>
+    <span style="font-size:22px;line-height:1">+</span>
     <span>Add Image</span>
     <input type="file" accept="image/*" multiple onchange="docAddImage('${doc}','${key}',this)">
   </label>`;
@@ -3369,6 +3391,11 @@ function docRemoveImage(doc, key, idx){
   autoSave();
   const el=document.getElementById('doc-imgs-'+doc+'-'+key);
   if(el) el.innerHTML=_docImgGalleryHTML(doc,key);
+}
+function docUpdateCaption(doc, key, idx, caption){
+  const imgs=PS.data.docs[doc]&&PS.data.docs[doc][key]&&PS.data.docs[doc][key]._images;
+  if(imgs&&imgs[idx]) imgs[idx].caption=caption;
+  autoSave();
 }
 function _docImgZoom(src){
   // Open fullscreen lightbox overlay
@@ -3547,6 +3574,7 @@ function initLDD() {
         if(!PS.data.docs.ldd[sec.key]) PS.data.docs.ldd[sec.key]={};
         if(!PS.data.docs.ldd[sec.key][sec.checklistKey]) PS.data.docs.ldd[sec.key][sec.checklistKey]=sec.defaultItems.map(t=>({text:t,done:false}));
       } else {
+        html+=`<div class="doc-section-split"><div class="doc-fields-col">`;
         sec.fields.forEach(field=>{
           const val=(PS.data.docs.ldd[sec.key]&&PS.data.docs.ldd[sec.key][field.k])||'';
           const q=DOC_QUESTIONS.ldd[field.k]||'';
@@ -3557,8 +3585,10 @@ function initLDD() {
               oninput="onDocInput('ldd','${sec.key}','${field.k}',this.value)">${val}</textarea>
           </div>`;
         });
-        // Image reference gallery
-        html+=`<div class="doc-img-gallery" id="doc-imgs-ldd-${sec.key}">${_docImgGalleryHTML('ldd',sec.key)}</div>`;
+        html+=`</div><div class="doc-imgs-col">
+          <div class="doc-imgs-col-hdr">Visual References</div>
+          <div class="doc-img-gallery" id="doc-imgs-ldd-${sec.key}">${_docImgGalleryHTML('ldd',sec.key)}</div>
+        </div></div>`;
       }
       html+='<div class="doc-divider"></div>';
       section.innerHTML=html;
