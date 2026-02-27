@@ -584,10 +584,33 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
   transition:background .15s
 }
 .nav-resize-handle:hover,.nav-resize-handle.dragging { background:rgba(201,162,39,.35) }
+
+/* ════════════════════════════════════════════════════════════
+   LAYER CONTEXT MENU
+   ════════════════════════════════════════════════════════════ */
+#layer-ctx-menu {
+  position:fixed;z-index:9999;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:6px;padding:4px 0;min-width:160px;
+  box-shadow:0 6px 20px rgba(0,0,0,.55);
+  display:none;
+}
+#layer-ctx-menu.open { display:block }
+#layer-ctx-menu button {
+  display:block;width:100%;text-align:left;
+  background:none;border:none;
+  padding:6px 14px;font-family:var(--fu);font-size:12px;
+  color:var(--text-primary);cursor:pointer;line-height:1.4;
+}
+#layer-ctx-menu button:hover { background:rgba(201,162,39,.13);color:var(--gold) }
+#layer-ctx-menu hr { border:none;border-top:1px solid var(--border);margin:3px 0 }
+#layer-ctx-menu button.danger { color:var(--red) }
+#layer-ctx-menu button.danger:hover { background:rgba(220,50,50,.12) }
 </style>
 </head>
 <body>
 <div id="mob-overlay" onclick="closeMobSidebar()"></div>
+<div id="layer-ctx-menu"></div>
 <!-- TOPBAR -->
 <div id="topbar">
   <button id="mob-menu-btn" onclick="toggleMobSidebar()" title="Menu">☰</button>
@@ -986,7 +1009,7 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
           </div>
           <!-- CANVAS -->
           <div id="map-canvas-area">
-            <canvas id="map-canvas"></canvas>
+            <canvas id="map-canvas" tabindex="0" style="outline:none"></canvas>
             <div id="map-no-map">
               <div class="icon">🗺️</div>
               <div class="hint">Create or select a map to begin</div>
@@ -1005,6 +1028,7 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
               <div id="map-layers-hdr">
                 <span style="font-family:var(--fu);font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;flex:1;text-transform:uppercase">Layers</span>
                 <span style="font-family:var(--fm);font-size:9px;color:var(--text-muted)" id="layers-count"></span>
+                <button class="btn btn-sm" style="padding:2px 6px;font-size:10px;margin-left:4px" onclick="groupSelected()" title="Group selected objects (2+)">📁 Group</button>
               </div>
               <div id="map-layers-list"></div>
             </div>
@@ -3515,6 +3539,10 @@ const MAP = {
   isMarquee: false,
   marqueeStart: null,  // {sx,sy} screen coords
   marqueeCurrent: null, // {sx,sy} screen coords
+  // Group-bbox resize (multi-select)
+  isGroupResizing: false,
+  groupResizeHandle: null, // 'nw','ne','sw','se','n','s','e','w'
+  groupResizeStart: null,  // {sx,sy, bbox:{x1,y1,x2,y2}, snaps:[{id,x,y,w,h,r,x2,y2}]}
   // Pan state
   isPanning: false,
   panStartMouse: null,
@@ -3531,6 +3559,9 @@ const MAP = {
   history: [],
   future: [],
   currentMapId: null,
+  // Groups (folders) for layers panel
+  // [{id,name,childIds:[],collapsed:false,hidden:false,locked:false}]
+  groups: [],
   // Canvas refs
   canvas: null,
   ctx: null,
@@ -3615,6 +3646,8 @@ function snap(v) { return MAP.snapToGrid ? Math.round(v / MAP.gridSize) * MAP.gr
 
 function mapMD(e) {
   e.preventDefault();
+  MAP.canvas.focus({preventScroll:true}); // keep keyboard shortcuts working
+  _closeCtxMenu();
   const rect = MAP.canvas.getBoundingClientRect();
   const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
   const w = s2w(sx, sy);
@@ -3645,7 +3678,24 @@ function mapMD(e) {
       }
       return;
     }
-    // Check resize handle first
+    // Check group-bbox resize handles (multi-select)
+    if (MAP.selectedIds.size > 1) {
+      const gh = _getGroupHandle(sx, sy);
+      if (gh) {
+        const bb = _getGroupBBox();
+        MAP.isGroupResizing = true;
+        MAP.groupResizeHandle = gh;
+        MAP.groupResizeStart = {
+          sx, sy,
+          bbox: {...bb},
+          snaps: MAP.objects
+            .filter(o=>MAP.selectedIds.has(o.id)&&!o.locked)
+            .map(o=>({id:o.id,x:o.x,y:o.y,w:o.w,h:o.h,r:o.r,x2:o.x2,y2:o.y2}))
+        };
+        return;
+      }
+    }
+    // Check resize handle first (single select)
     if (MAP.selectedIds.size === 1) {
       const obj = MAP.objects.find(o=>MAP.selectedIds.has(o.id));
       if (obj) {
@@ -3792,6 +3842,36 @@ function mapMM(e) {
     renderMap(); renderMapProps(); return;
   }
 
+  if (MAP.isGroupResizing && MAP.groupResizeStart) {
+    mapPushHistoryOnce();
+    const gs = MAP.groupResizeStart;
+    const bb = gs.bbox;
+    const bbW = bb.x2 - bb.x1 || 1, bbH = bb.y2 - bb.y1 || 1;
+    const h = MAP.groupResizeHandle;
+    // Compute new bbox corners in world space
+    const dsx = (sx - gs.sx) / MAP.cam.zoom;
+    const dsy = (sy - gs.sy) / MAP.cam.zoom;
+    let nx1=bb.x1,ny1=bb.y1,nx2=bb.x2,ny2=bb.y2;
+    if(h.includes('e')) nx2=Math.max(bb.x1+8,snap(bb.x2+dsx));
+    if(h.includes('s')) ny2=Math.max(bb.y1+8,snap(bb.y2+dsy));
+    if(h.includes('w')) nx1=Math.min(bb.x2-8,snap(bb.x1+dsx));
+    if(h.includes('n')) ny1=Math.min(bb.y2-8,snap(bb.y1+dsy));
+    const scaleX=(nx2-nx1)/bbW, scaleY=(ny2-ny1)/bbH;
+    gs.snaps.forEach(sn=>{
+      const obj=MAP.objects.find(o=>o.id===sn.id);
+      if(!obj)return;
+      const relX=(sn.x-bb.x1), relY=(sn.y-bb.y1);
+      obj.x=snap(nx1+relX*scaleX);
+      obj.y=snap(ny1+relY*scaleY);
+      if(sn.w!==undefined) obj.w=Math.max(4,snap(sn.w*scaleX));
+      if(sn.h!==undefined) obj.h=Math.max(4,snap(sn.h*scaleY));
+      if(sn.r!==undefined){obj.r=Math.max(2,snap(sn.r*Math.max(scaleX,scaleY)));obj.w=obj.r*2;obj.h=obj.r*2;}
+      if(sn.x2!==undefined){const rx2=(sn.x2-bb.x1);obj.x2=snap(nx1+rx2*scaleX);}
+      if(sn.y2!==undefined){const ry2=(sn.y2-bb.y1);obj.y2=snap(ny1+ry2*scaleY);}
+    });
+    renderMap(); renderMapProps(); return;
+  }
+
   if (MAP.isResizing && MAP.resizeObjStart && MAP.dragStart) {
     mapPushHistoryOnce();
     const obj = MAP.objects.find(o=>MAP.selectedIds.has(o.id));
@@ -3823,9 +3903,14 @@ function mapMM(e) {
   }
 
   // Cursor feedback
-  if (MAP.tool === 'select' && MAP.selectedIds.size === 1) {
-    const obj = MAP.objects.find(o=>MAP.selectedIds.has(o.id));
-    if (obj) { const h=getResizeHandle(obj,sx,sy); MAP.canvas.style.cursor=h?resizeCursor(h):'default'; return; }
+  if (MAP.tool === 'select') {
+    if (MAP.selectedIds.size > 1) {
+      const gh=_getGroupHandle(sx,sy);
+      if(gh){MAP.canvas.style.cursor=resizeCursor(gh);return;}
+    } else if (MAP.selectedIds.size === 1) {
+      const obj = MAP.objects.find(o=>MAP.selectedIds.has(o.id));
+      if (obj) { const h=getResizeHandle(obj,sx,sy); MAP.canvas.style.cursor=h?resizeCursor(h):'default'; return; }
+    }
   }
   const cursors={select:'default',pan:'grab',rect:'crosshair',wall:'crosshair',poly:'crosshair',circle:'crosshair',text:'text',erase:'not-allowed'};
   MAP.canvas.style.cursor = cursors[MAP.tool]||'default';
@@ -3849,6 +3934,13 @@ function mapMU(e) {
 
   if (MAP.isDragging) {
     MAP.isDragging = false;
+    MAP._histOnce = false;
+    autoSave(); mapSaveCurrent(); return;
+  }
+  if (MAP.isGroupResizing) {
+    MAP.isGroupResizing = false;
+    MAP.groupResizeHandle = null;
+    MAP.groupResizeStart = null;
     MAP._histOnce = false;
     autoSave(); mapSaveCurrent(); return;
   }
@@ -3982,6 +4074,34 @@ function pointInPoly(x,y,pts){
   return inside;
 }
 
+// Compute world bounding box of all currently selected objects
+function _getGroupBBox(){
+  const objs=MAP.objects.filter(o=>MAP.selectedIds.has(o.id)&&!o.hidden);
+  if(!objs.length) return null;
+  let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
+  objs.forEach(o=>{
+    let ox1=o.x,oy1=o.y,ox2,oy2;
+    if(o.type==='circle'||o.type==='light'){ox2=o.x+o.r*2;oy2=o.y+o.r*2;ox1=o.x-o.r;oy1=o.y-o.r;}
+    else if(o.type==='arrow'){ox2=Math.max(o.x,o.x2||o.x+64);oy2=Math.max(o.y,o.y2||o.y);ox1=Math.min(o.x,o.x2||o.x+64);oy1=Math.min(o.y,o.y2||o.y);}
+    else{ox2=o.x+(o.w||0);oy2=o.y+(o.h||0);}
+    x1=Math.min(x1,ox1);y1=Math.min(y1,oy1);x2=Math.max(x2,ox2);y2=Math.max(y2,oy2);
+  });
+  return {x1,y1,x2,y2};
+}
+// Check if screen point (sx,sy) is near a group-bbox handle; returns handle name or null
+function _getGroupHandle(sx,sy){
+  const bb=_getGroupBBox();if(!bb)return null;
+  const p1=w2s(bb.x1,bb.y1),p2=w2s(bb.x2,bb.y2);
+  const mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2;
+  const pts=[
+    {h:'nw',x:p1.x,y:p1.y},{h:'n',x:mx,y:p1.y},{h:'ne',x:p2.x,y:p1.y},
+    {h:'w',x:p1.x,y:my},                          {h:'e',x:p2.x,y:my},
+    {h:'sw',x:p1.x,y:p2.y},{h:'s',x:mx,y:p2.y},{h:'se',x:p2.x,y:p2.y},
+  ];
+  for(const p of pts){if(Math.hypot(sx-p.x,sy-p.y)<=8)return p.h;}
+  return null;
+}
+
 // Returns all objects whose screen bounding box intersects the marquee rect
 function getObjectsInMarquee(sx1,sy1,sx2,sy2){
   const rx1=Math.min(sx1,sx2),ry1=Math.min(sy1,sy2);
@@ -4109,22 +4229,21 @@ function renderMap() {
     ctx.restore();
   });
 
-  // Multi-select: draw combined bounding box
+  // Multi-select: draw combined bounding box + resize handles
   if(MAP.selectedIds.size>1){
-    const selObjs=MAP.objects.filter(o=>MAP.selectedIds.has(o.id)&&!o.hidden);
-    if(selObjs.length){
-      let bx1=Infinity,by1=Infinity,bx2=-Infinity,by2=-Infinity;
-      selObjs.forEach(obj=>{
-        const p=w2s(obj.x,obj.y);
-        let ox1=p.x,oy1=p.y,ox2=p.x,oy2=p.y;
-        if(obj.type==='circle'||obj.type==='light'){const r=(obj.r||32)*MAP.cam.zoom;ox1=p.x-r;oy1=p.y-r;ox2=p.x+r;oy2=p.y+r;}
-        else if(obj.type==='arrow'){const p2=w2s(obj.x2||obj.x+64,obj.y2||obj.y);ox1=Math.min(p.x,p2.x);oy1=Math.min(p.y,p2.y);ox2=Math.max(p.x,p2.x);oy2=Math.max(p.y,p2.y);}
-        else{const q=w2s(obj.x+(obj.w||0),obj.y+(obj.h||0));ox2=q.x;oy2=q.y;}
-        bx1=Math.min(bx1,ox1);by1=Math.min(by1,oy1);bx2=Math.max(bx2,ox2);by2=Math.max(by2,oy2);
-      });
+    const bb=_getGroupBBox();
+    if(bb){
+      const p1=w2s(bb.x1,bb.y1),p2=w2s(bb.x2,bb.y2);
       ctx.save();
-      ctx.strokeStyle='rgba(201,162,39,0.5)';ctx.lineWidth=1;ctx.setLineDash([6,4]);
-      ctx.strokeRect(bx1-6,by1-6,bx2-bx1+12,by2-by1+12);
+      ctx.strokeStyle='rgba(201,162,39,0.55)';ctx.lineWidth=1;ctx.setLineDash([6,4]);
+      ctx.strokeRect(p1.x-6,p1.y-6,p2.x-p1.x+12,p2.y-p1.y+12);
+      // Resize handles
+      ctx.setLineDash([]);ctx.fillStyle='#c9a227';
+      const mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2;
+      const hpts=[{x:p1.x-6,y:p1.y-6},{x:mx,y:p1.y-6},{x:p2.x+6,y:p1.y-6},
+                  {x:p1.x-6,y:my},                     {x:p2.x+6,y:my},
+                  {x:p1.x-6,y:p2.y+6},{x:mx,y:p2.y+6},{x:p2.x+6,y:p2.y+6}];
+      hpts.forEach(h=>ctx.fillRect(h.x-4,h.y-4,8,8));
       ctx.restore();
     }
   }
@@ -4336,14 +4455,69 @@ function renderMapLayers() {
   if(!list) return;
   list.innerHTML='';
   if(countEl) countEl.textContent=MAP.objects.length+' obj';
-  if(!MAP.objects.length){
+  if(!MAP.objects.length&&!MAP.groups.length){
     list.innerHTML='<div style="text-align:center;padding:20px 8px;font-family:var(--fu);font-size:9px;color:var(--text-muted);letter-spacing:.5px">No objects</div>';
     return;
   }
-  const TYPE_ICONS={rect:'▭',wall:'▮',circle:'◯',text:'T',poly:'⬡',stair:'⊟',light:'◉',person:'☺',enemy:'☠',arrow:'➤',draw:'✏'};
-  // Show in reverse order (top of list = front/top object)
-  [...MAP.objects].reverse().forEach((obj,ri)=>{
-    const realIdx=MAP.objects.length-1-ri;
+  const TYPE_ICONS={rect:'▭',wall:'▮',circle:'◯',text:'T',poly:'⬡',stair:'⊟',light:'◉',person:'☺',enemy:'☠',arrow:'➤',draw:'✏',asset:'🖼'};
+
+  // Which object IDs are inside any group?
+  const groupedIds=new Set(MAP.groups.flatMap(g=>g.childIds));
+
+  // ── GROUPS (folders) first ────────────────────────────────
+  MAP.groups.forEach(grp=>{
+    // Folder header row
+    const frow=document.createElement('div');
+    frow.className='layer-row layer-folder'+(grp.hidden?' hidden-obj':'');
+    frow.style.cssText='background:rgba(201,162,39,.07);border-left:2px solid var(--gold-dim)';
+    frow.innerHTML=`
+      <span style="color:var(--gold);font-size:11px;cursor:pointer;padding:0 3px" onclick="toggleGroupCollapse('${grp.id}')">${grp.collapsed?'▶':'▼'}</span>
+      <span class="layer-icon-btn" onclick="toggleGroupVis('${grp.id}')" title="${grp.hidden?'Show':'Hide'}">${grp.hidden?'🙈':'👁'}</span>
+      <span class="layer-icon-btn" onclick="toggleGroupLock('${grp.id}')" title="${grp.locked?'Unlock':'Lock'}">${grp.locked?'🔒':'🔓'}</span>
+      <span style="color:var(--gold);font-size:12px;flex-shrink:0">📁</span>
+      <span class="layer-name" ondblclick="_groupRename(this,'${grp.id}')" title="Double-click to rename" style="color:var(--gold)">${grp.name}</span>
+      <span style="font-size:9px;color:var(--text-muted);margin-left:auto;padding-right:4px">${grp.childIds.length}</span>`;
+    frow.oncontextmenu=e=>{e.preventDefault();_layerContextMenu(e,null,grp.id);};
+    frow.onclick=(ev)=>{
+      if(ev.target.classList.contains('layer-icon-btn')) return;
+      // Select all children
+      if(!ev.shiftKey) MAP.selectedIds.clear();
+      grp.childIds.forEach(id=>MAP.selectedIds.add(id));
+      renderMap();renderMapProps();renderMapLayers();
+    };
+    list.appendChild(frow);
+
+    if(!grp.collapsed){
+      grp.childIds.forEach(childId=>{
+        const obj=MAP.objects.find(o=>o.id===childId);
+        if(!obj)return;
+        const isSelected=MAP.selectedIds.has(obj.id);
+        const crow=document.createElement('div');
+        crow.className='layer-row'+(isSelected?' active':'')+(obj.hidden?' hidden-obj':'');
+        crow.style.paddingLeft='18px';
+        crow.dataset.id=obj.id;
+        const icon=TYPE_ICONS[obj.type]||'□';
+        crow.innerHTML=`
+          <span style="color:var(--text-muted);font-size:10px;cursor:grab;flex-shrink:0;padding:0 2px">⠿</span>
+          <span class="layer-icon-btn" onclick="toggleObjVis('${obj.id}')">${obj.hidden?'🙈':'👁'}</span>
+          <span class="layer-icon-btn" onclick="toggleObjLock('${obj.id}')">${obj.locked?'🔒':'🔓'}</span>
+          <span class="layer-type-icon">${icon}</span>
+          <span class="layer-name" ondblclick="_layerRename(this,'${obj.id}')">${obj.name||obj.type}</span>`;
+        crow.onclick=(ev)=>{
+          if(ev.target.classList.contains('layer-icon-btn')) return;
+          if(!ev.shiftKey) MAP.selectedIds.clear();
+          MAP.selectedIds.add(obj.id);
+          renderMap();renderMapProps();renderMapLayers();
+        };
+        crow.oncontextmenu=e=>{e.preventDefault();_layerContextMenu(e,obj.id,null);};
+        list.appendChild(crow);
+      });
+    }
+  });
+
+  // ── UNGROUPED OBJECTS (reverse order = top of list is front) ─
+  [...MAP.objects].reverse().forEach(obj=>{
+    if(groupedIds.has(obj.id))return; // skip grouped objects
     const isSelected=MAP.selectedIds.has(obj.id);
     const row=document.createElement('div');
     row.className='layer-row'+(isSelected?' active':'')+(obj.hidden?' hidden-obj':'');
@@ -4362,6 +4536,7 @@ function renderMapLayers() {
       MAP.selectedIds.add(obj.id);
       renderMap();renderMapProps();renderMapLayers();
     };
+    row.oncontextmenu=e=>{e.preventDefault();_layerContextMenu(e,obj.id,null);};
     // Drag-to-reorder
     row.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',obj.id);row.style.opacity='.4';});
     row.addEventListener('dragend',()=>{row.style.opacity='';});
@@ -4410,12 +4585,140 @@ function _layerRename(span, id){
   inp.onkeydown=e=>{if(e.key==='Enter')commit();if(e.key==='Escape'){inp.value=oldName;commit();}};
 }
 
+// ── GROUP / FOLDER MANAGEMENT ────────────────────────────────
+function toggleGroupCollapse(id){
+  const g=MAP.groups.find(g=>g.id===id);
+  if(g){g.collapsed=!g.collapsed;renderMapLayers();}
+}
+function toggleGroupVis(id){
+  const g=MAP.groups.find(g=>g.id===id);
+  if(!g)return;
+  g.hidden=!g.hidden;
+  g.childIds.forEach(cid=>{const o=MAP.objects.find(o=>o.id===cid);if(o)o.hidden=g.hidden;});
+  renderMap();renderMapLayers();mapSaveCurrent();
+}
+function toggleGroupLock(id){
+  const g=MAP.groups.find(g=>g.id===id);
+  if(!g)return;
+  g.locked=!g.locked;
+  g.childIds.forEach(cid=>{const o=MAP.objects.find(o=>o.id===cid);if(o)o.locked=g.locked;});
+  renderMapLayers();mapSaveCurrent();
+}
+function _groupRename(span,id){
+  const g=MAP.groups.find(g=>g.id===id);
+  if(!g)return;
+  const old=g.name;
+  const inp=document.createElement('input');
+  inp.value=old;
+  inp.style.cssText='width:100%;background:var(--bg-input);border:1px solid var(--gold);border-radius:2px;padding:1px 4px;font-family:var(--fu);font-size:11px;color:var(--text-primary);outline:none';
+  span.replaceWith(inp);inp.focus();inp.select();
+  const commit=()=>{
+    g.name=inp.value.trim()||old;
+    renderMapLayers();mapSaveCurrent();
+  };
+  inp.onblur=commit;
+  inp.onkeydown=e=>{if(e.key==='Enter')commit();if(e.key==='Escape'){g.name=old;commit();}};
+}
+
+function _groupRenameById(id){
+  const g=MAP.groups.find(g=>g.id===id);
+  if(!g)return;
+  const name=prompt('Rename group:',g.name);
+  if(name&&name.trim()){g.name=name.trim();renderMapLayers();mapSaveCurrent();}
+}
+function groupSelected(){
+  if(MAP.selectedIds.size<2){showToast('Select 2+ objects to group');return;}
+  const name=prompt('Group name:','Group '+(MAP.groups.length+1));
+  if(!name)return;
+  const id='grp_'+Date.now();
+  MAP.groups.push({id,name,childIds:[...MAP.selectedIds],collapsed:false,hidden:false,locked:false});
+  renderMapLayers();mapSaveCurrent();autoSave();
+  showToast('Group "'+name+'" created');
+}
+function ungroupSelected(grpId){
+  MAP.groups=MAP.groups.filter(g=>g.id!==grpId);
+  renderMapLayers();mapSaveCurrent();autoSave();
+  showToast('Group dissolved');
+}
+function addToGroup(objId,grpId){
+  const g=MAP.groups.find(g=>g.id===grpId);
+  if(g&&!g.childIds.includes(objId)) g.childIds.push(objId);
+  renderMapLayers();mapSaveCurrent();
+}
+function removeFromGroup(objId,grpId){
+  const g=MAP.groups.find(g=>g.id===grpId);
+  if(g) g.childIds=g.childIds.filter(id=>id!==objId);
+  if(g&&g.childIds.length===0) MAP.groups=MAP.groups.filter(x=>x.id!==grpId);
+  renderMapLayers();mapSaveCurrent();
+}
+
+// Right-click context menu for layers panel
+function _layerContextMenu(e,objId,grpId){
+  e.preventDefault();
+  const menu=document.getElementById('layer-ctx-menu');
+  if(!menu)return;
+  // Determine which group (if any) the object belongs to
+  const parentGrp=objId ? MAP.groups.find(g=>g.childIds.includes(objId)) : null;
+  let html='';
+  if(grpId){
+    // Clicked on a group folder row
+    const g=MAP.groups.find(g=>g.id===grpId);
+    html+=`<button onclick="_closeCtxMenu();_groupRenameById('${grpId}')">✏ Rename Group</button>`;
+    html+=`<button onclick="_closeCtxMenu();ungroupSelected('${grpId}')">📤 Ungroup</button>`;
+    if(g){
+      html+=`<button onclick="_closeCtxMenu();toggleGroupVis('${grpId}')">${g.hidden?'👁 Show All':'🙈 Hide All'}</button>`;
+      html+=`<button onclick="_closeCtxMenu();toggleGroupLock('${grpId}')">${g.locked?'🔓 Unlock All':'🔒 Lock All'}</button>`;
+    }
+    html+=`<hr>`;
+    if(MAP.selectedIds.size>=2){
+      html+=`<button onclick="_closeCtxMenu();groupSelected()">📁 Group Selection</button>`;
+    }
+    html+=`<button class="danger" onclick="_closeCtxMenu();if(confirm('Delete group and all its objects?')){MAP.groups.find(g=>g.id===\\'${grpId}\\')?.childIds.forEach(id=>{MAP.objects=MAP.objects.filter(o=>o.id!==id);});MAP.groups=MAP.groups.filter(g=>g.id!==\\'${grpId}\\');renderMap();renderMapLayers();mapSaveCurrent();autoSave();}">🗑 Delete Group + Objects</button>`;
+  } else if(objId){
+    // Clicked on an object row
+    const obj=MAP.objects.find(o=>o.id===objId);
+    html+=`<button onclick="_closeCtxMenu();MAP.selectedIds.clear();MAP.selectedIds.add('${objId}');renderMap();renderMapProps();renderMapLayers()">☑ Select</button>`;
+    html+=`<button onclick="_closeCtxMenu();duplicateMapObj('${objId}')">⎘ Duplicate</button>`;
+    html+=`<hr>`;
+    if(MAP.selectedIds.size>=2){
+      html+=`<button onclick="_closeCtxMenu();groupSelected()">📁 Group Selection</button>`;
+    }
+    if(parentGrp){
+      html+=`<button onclick="_closeCtxMenu();removeFromGroup('${objId}','${parentGrp.id}')">📤 Remove from "${parentGrp.name}"</button>`;
+    } else if(MAP.groups.length>0){
+      MAP.groups.forEach(g=>{
+        html+=`<button onclick="_closeCtxMenu();addToGroup('${objId}','${g.id}')">📁 Add to "${g.name}"</button>`;
+      });
+    }
+    html+=`<hr>`;
+    html+=`<button class="danger" onclick="_closeCtxMenu();deleteMapObj('${objId}')">🗑 Delete Object</button>`;
+  } else {
+    // Fallback: generic
+    if(MAP.selectedIds.size>=2){
+      html+=`<button onclick="_closeCtxMenu();groupSelected()">📁 Group Selection</button>`;
+    }
+  }
+  menu.innerHTML=html;
+  // Position menu near cursor, keep in viewport
+  menu.classList.add('open');
+  const mx=Math.min(e.clientX, window.innerWidth-170);
+  const my=Math.min(e.clientY, window.innerHeight-menu.scrollHeight-8);
+  menu.style.left=mx+'px';
+  menu.style.top=my+'px';
+  // Auto-close on outside click
+  setTimeout(()=>{document.addEventListener('click',_closeCtxMenu,{once:true});},0);
+}
+function _closeCtxMenu(){
+  const menu=document.getElementById('layer-ctx-menu');
+  if(menu){menu.classList.remove('open');menu.innerHTML='';}
+}
+
 function deleteCurrentMap(){
   if(!MAP.currentMapId){showToast('No map loaded');return;}
   const map=PS.data.maps.find(m=>m.id===MAP.currentMapId);
   if(!confirm('Delete map "'+( map?.name||'this map')+'"? This cannot be undone.')) return;
   PS.data.maps=PS.data.maps.filter(m=>m.id!==MAP.currentMapId);
-  MAP.currentMapId=null; MAP.objects=[]; MAP.selectedIds.clear();
+  MAP.currentMapId=null; MAP.objects=[]; MAP.groups=[]; MAP.selectedIds.clear();
   renderMapSelect();
   const noMap=document.getElementById('map-no-map');
   if(noMap) noMap.style.display='flex';
@@ -4718,6 +5021,7 @@ function newMap(){
       MAP.currentMapId=map.id;
       MAP.objects=[];
       MAP.layers=['Ground','Walls','Props','Labels'];
+      MAP.groups=[];
       MAP.history=[];MAP.future=[];MAP.selectedIds.clear();
       const noMap=document.getElementById('map-no-map');
       if(noMap)noMap.style.display='none';
@@ -4748,6 +5052,7 @@ function loadSelectedMap(){
   MAP.currentMapId=id;
   MAP.objects=map.objects?JSON.parse(JSON.stringify(map.objects)):[];
   MAP.layers=map.layers||['Ground','Walls','Props','Labels'];
+  MAP.groups=map.groups?JSON.parse(JSON.stringify(map.groups)):[];
   MAP.history=[];MAP.future=[];MAP.selectedIds.clear();
   const noMap=document.getElementById('map-no-map');
   if(noMap)noMap.style.display='none';
@@ -4757,7 +5062,11 @@ function loadSelectedMap(){
 function mapSaveCurrent(){
   if(!MAP.currentMapId)return;
   const map=PS.data.maps.find(m=>m.id===MAP.currentMapId);
-  if(map){map.objects=JSON.parse(JSON.stringify(MAP.objects));map.layers=[...MAP.layers];}
+  if(map){
+    map.objects=JSON.parse(JSON.stringify(MAP.objects));
+    map.layers=[...MAP.layers];
+    map.groups=JSON.parse(JSON.stringify(MAP.groups||[]));
+  }
 }
 
 function exportMapPNG(){
@@ -6211,9 +6520,13 @@ document.addEventListener('keydown',e=>{
     const tag=document.activeElement.tagName;
     if(tag==='INPUT'||tag==='TEXTAREA'||document.activeElement.contentEditable==='true') return;
     const mod=document.querySelector('.sb-item.active')?.dataset?.mod;
-    if(mod==='map'&&MAP.tool!=='pan'){
+    if(mod==='map'){
       e.preventDefault();
-      if(!MAP._prevSpaceTool){MAP._prevSpaceTool=MAP.tool;setTool('pan');}
+      // Always save prev tool — if already pan, save 'select' as the return target
+      if(!MAP._prevSpaceTool){
+        MAP._prevSpaceTool = (MAP.tool==='pan') ? 'select' : MAP.tool;
+        setTool('pan');
+      }
     }
   }
 });
