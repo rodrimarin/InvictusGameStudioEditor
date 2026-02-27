@@ -1328,13 +1328,13 @@ const FIREBASE = {
       const firebaseTs = payload.ts || 0;
       const localTs    = PS.data._localTs || 0;
 
-      if (firebaseTs > localTs) {
-        // Firebase is newer → merge it
+      if (firebaseTs > localTs && localTs > 0) {
+        // Firebase is newer AND we have a local timestamp → merge it
         this._lastRemoteTs = firebaseTs;
         PS._merge(payload.data); _fbApply();
         this._addLog('✓ Firebase is newer — loaded remote state');
       } else {
-        // Local is newer (or same age) → push our data up to Firebase
+        // Local is newer, OR first run (no _localTs yet) → push our data up
         this._addLog('⬆ Local is newer — pushing to Firebase (was: ' +
           new Date(firebaseTs).toLocaleTimeString() + ', local: ' +
           new Date(localTs).toLocaleTimeString() + ')');
@@ -1494,6 +1494,23 @@ const FIREBASE = {
   },
 
   // ── Force sync (manual button) ────────────────────────────
+  // ── Upload local data → Firebase (replaces whatever is there) ─
+  async uploadMyData() {
+    this._addLog('⬆ Uploading local data to Firebase…');
+    showToast('⬆ Uploading your data to Firebase…');
+    try {
+      collectDocData(); mapSaveCurrent();
+      PS.data._localTs = Date.now();
+      PS.save();
+      await this._doWrite();
+      showToast('✓ Your data is now in Firebase!');
+      this._addLog('✓ Upload complete — ts=' + PS.data._localTs);
+    } catch(e) {
+      showToast('⚠ Upload failed: ' + e.message);
+      this._addLog('✗ Upload failed: ' + e.message);
+    }
+  },
+
   async forceSync() {
     this._addLog('⬇ Force sync…');
     showToast('🔄 Syncing from Firebase…');
@@ -1751,8 +1768,9 @@ function openFirebaseModal() {
       <div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:10px">${othersHtml}</div>
       <div style="font-size:10px;font-family:var(--fu);letter-spacing:1px;color:var(--text-muted);margin-bottom:4px">EVENT LOG</div>
       <div id="fb-live-log" style="font-family:var(--fm);font-size:10px;color:var(--text-secondary);line-height:1.7;background:var(--bg-input);border-radius:4px;padding:6px 8px;max-height:110px;overflow-y:auto">${logHtml}</div>
-      <div style="display:flex;gap:6px;margin-top:8px">
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
         <button class="btn btn-sm" style="font-size:11px" onclick="FIREBASE.forceSync()">🔄 Force Sync Now</button>
+        <button class="btn btn-sm btn-gold" style="font-size:11px" onclick="FIREBASE.uploadMyData()">⬆ Upload My Data to Firebase</button>
         <button class="btn btn-sm" style="font-size:11px" onclick="FIREBASE._log=[];document.getElementById('fb-live-log').innerHTML='<div style=\'color:var(--text-muted)\'>Cleared</div>'">Clear Log</button>
       </div>
     </div>
