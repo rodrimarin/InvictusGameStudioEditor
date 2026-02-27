@@ -3430,9 +3430,20 @@ function initLDD() {
             </div>
           </div>
           <div id="flowchart-canvas" style="width:100%;height:480px;background:#080808;border:1px solid var(--border);border-radius:6px;position:relative;overflow:hidden;cursor:default;">
-            <svg id="flow-svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></svg>
-            <div id="flow-nodes" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>
-            <div style="position:absolute;bottom:8px;left:10px;font-family:var(--fm);font-size:9px;color:var(--text-muted);pointer-events:none;">Drag to move · Click "link" on a node then click another to connect · Click connections to edit · Right-click to delete · Ctrl+Z undo</div>
+            <div id="flow-viewport" style="position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:0 0;">
+              <svg id="flow-svg" style="position:absolute;top:0;left:0;width:10000px;height:10000px;pointer-events:none;overflow:visible;"></svg>
+              <div id="flow-nodes" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>
+            </div>
+            <!-- Zoom controls -->
+            <div style="position:absolute;top:8px;right:8px;display:flex;gap:3px;z-index:10;">
+              <button class="btn btn-xs" onclick="fcZoom(1.2)" title="Zoom in (+)">+</button>
+              <button class="btn btn-xs" onclick="fcZoom(1/1.2)" title="Zoom out (-)">−</button>
+              <button class="btn btn-xs" onclick="fcFitAll()" title="Fit all nodes to screen">Fit</button>
+              <button class="btn btn-xs" onclick="fcResetCam()" title="Reset zoom to 100%">1:1</button>
+            </div>
+            <!-- Zoom indicator -->
+            <div id="fc-zoom-lbl" style="position:absolute;bottom:8px;right:10px;font-family:var(--fm);font-size:9px;color:var(--text-muted);pointer-events:none;">100%</div>
+            <div style="position:absolute;bottom:8px;left:10px;font-family:var(--fm);font-size:9px;color:var(--text-muted);pointer-events:none;">Drag to move · Scroll to zoom · Middle-drag to pan · Right-click to delete</div>
           </div>
         </div>`;
       } else if(sec.checklistKey) {
@@ -5691,7 +5702,9 @@ const FC = {
   selectedNode: null, connectFrom: null,
   dragging: null, dragOff: {x:0,y:0},
   history: [], future: [],
-  _canvasInited: false
+  _canvasInited: false,
+  cam: {x:0, y:0, zoom:1},
+  panning: false, panStart: null
 };
 
 const NODE_TYPES = {
@@ -5715,40 +5728,110 @@ function renderFlowchart() {
   const container=document.getElementById('flow-nodes');
   const svg=document.getElementById('flow-svg');
   if(!container||!svg) return;
+  FC._canvasInited=false; // force re-init since DOM was rebuilt
   const data=PS.data.docs.ldd.flowchart;
   if(data){FC.nodes=data.nodes?JSON.parse(JSON.stringify(data.nodes)):[];FC.connections=data.connections?JSON.parse(JSON.stringify(data.connections)):[];}
   initFlowCanvas();
+  _applyFcCam(); // restore camera state
   renderFlowNodes();
   renderFlowConnections();
 }
 
+function _applyFcCam(){
+  const vp=document.getElementById('flow-viewport');
+  if(vp) vp.style.transform=`translate(${FC.cam.x}px,${FC.cam.y}px) scale(${FC.cam.zoom})`;
+  const lbl=document.getElementById('fc-zoom-lbl');
+  if(lbl) lbl.textContent=Math.round(FC.cam.zoom*100)+'%';
+}
+function _fcScreenToWorld(sx,sy){
+  return {x:(sx-FC.cam.x)/FC.cam.zoom, y:(sy-FC.cam.y)/FC.cam.zoom};
+}
+function fcZoom(factor,cx,cy){
+  const canvas=document.getElementById('flowchart-canvas');
+  if(!canvas)return;
+  if(cx===undefined){cx=canvas.clientWidth/2;cy=canvas.clientHeight/2;}
+  const newZoom=Math.max(0.08,Math.min(3,FC.cam.zoom*factor));
+  FC.cam.x=cx-(cx-FC.cam.x)*(newZoom/FC.cam.zoom);
+  FC.cam.y=cy-(cy-FC.cam.y)*(newZoom/FC.cam.zoom);
+  FC.cam.zoom=newZoom;
+  _applyFcCam();
+}
+function fcFitAll(){
+  const canvas=document.getElementById('flowchart-canvas');
+  if(!canvas||!FC.nodes.length)return;
+  const pad=40;
+  let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
+  FC.nodes.forEach(n=>{x1=Math.min(x1,n.x);y1=Math.min(y1,n.y);x2=Math.max(x2,n.x+154);y2=Math.max(y2,n.y+120);});
+  const W=canvas.clientWidth-pad*2, H=canvas.clientHeight-pad*2;
+  const zoom=Math.min(W/Math.max(1,x2-x1),H/Math.max(1,y2-y1),2);
+  FC.cam.zoom=zoom;FC.cam.x=pad-x1*zoom;FC.cam.y=pad-y1*zoom;
+  _applyFcCam();
+}
+function fcResetCam(){
+  FC.cam={x:0,y:0,zoom:1};_applyFcCam();
+}
+
 function initFlowCanvas(){
   if(FC._canvasInited) return;
-  FC._canvasInited=false; // reset so it can reinit on new pages
   const canvas=document.getElementById('flowchart-canvas');
   if(!canvas) return;
   FC._canvasInited=true;
+
+  // ── WHEEL ZOOM ──────────────────────────────────────────────
+  canvas.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const cr=canvas.getBoundingClientRect();
+    fcZoom(e.deltaY<0?1.15:1/1.15, e.clientX-cr.left, e.clientY-cr.top);
+  },{passive:false});
+
+  // ── MIDDLE-MOUSE PAN ─────────────────────────────────────────
+  canvas.addEventListener('mousedown',e=>{
+    if(e.button===1){
+      e.preventDefault();
+      FC.panning=true;
+      FC.panStart={sx:e.clientX,sy:e.clientY,cx:FC.cam.x,cy:FC.cam.y};
+    }
+  });
+
+  // ── MOUSE MOVE (drag node + pan) ─────────────────────────────
   canvas.addEventListener('mousemove',e=>{
+    if(FC.panning&&FC.panStart){
+      FC.cam.x=FC.panStart.cx+(e.clientX-FC.panStart.sx);
+      FC.cam.y=FC.panStart.cy+(e.clientY-FC.panStart.sy);
+      _applyFcCam(); return;
+    }
     if(!FC.dragging) return;
     const cr=canvas.getBoundingClientRect();
+    const w=_fcScreenToWorld(e.clientX-cr.left, e.clientY-cr.top);
     const node=FC.nodes.find(n=>n.id===FC.dragging);
     if(node){
-      node.x=Math.max(0,Math.min(canvas.clientWidth-140,e.clientX-cr.left-FC.dragOff.x));
-      node.y=Math.max(0,Math.min(canvas.clientHeight-100,e.clientY-cr.top-FC.dragOff.y));
+      node.x=Math.max(0,w.x-FC.dragOff.x);
+      node.y=Math.max(0,w.y-FC.dragOff.y);
       const el=document.getElementById('fnode-'+node.id);
       if(el){el.style.left=node.x+'px';el.style.top=node.y+'px';}
       renderFlowConnections();
     }
   });
-  canvas.addEventListener('mouseup',()=>{if(FC.dragging){FC.dragging=null;saveFlowchart();}});
-  canvas.addEventListener('click',e=>{
-    if(e.target===canvas||e.target.id==='flow-svg'){FC.connectFrom=null;FC.selectedNode=null;renderFlowNodes();}
+
+  canvas.addEventListener('mouseup',e=>{
+    if(FC.panning){FC.panning=false;FC.panStart=null;return;}
+    if(FC.dragging){FC.dragging=null;saveFlowchart();}
   });
+  canvas.addEventListener('mouseleave',()=>{FC.panning=false;FC.panStart=null;});
+
+  // ── CLICK on empty canvas ────────────────────────────────────
+  canvas.addEventListener('click',e=>{
+    if(e.target===canvas||e.target.id==='flow-viewport'||e.target.id==='flow-nodes'){
+      FC.connectFrom=null;FC.selectedNode=null;renderFlowNodes();
+    }
+  });
+
+  // ── RIGHT-CLICK DELETE ───────────────────────────────────────
   canvas.addEventListener('contextmenu',e=>{
     e.preventDefault();
     const cr=canvas.getBoundingClientRect();
-    const mx=e.clientX-cr.left, my=e.clientY-cr.top;
-    const hit=FC.nodes.find(n=>mx>=n.x&&mx<=n.x+154&&my>=n.y&&my<=n.y+120);
+    const w=_fcScreenToWorld(e.clientX-cr.left, e.clientY-cr.top);
+    const hit=FC.nodes.find(n=>w.x>=n.x&&w.x<=n.x+154&&w.y>=n.y&&w.y<=n.y+120);
     if(hit){deleteFlowNode(hit.id);}
   });
 }
@@ -5796,7 +5879,8 @@ function renderFlowNodes() {
       const canvas=document.getElementById('flowchart-canvas');
       const cr=canvas.getBoundingClientRect();
       FC.dragging=node.id;
-      FC.dragOff={x:e.clientX-cr.left-node.x,y:e.clientY-cr.top-node.y};
+      const w=_fcScreenToWorld(e.clientX-cr.left, e.clientY-cr.top);
+      FC.dragOff={x:w.x-node.x, y:w.y-node.y};
       FC.selectedNode=node.id;
       renderFlowNodes();
       e.preventDefault();e.stopPropagation();
@@ -5902,16 +5986,19 @@ function addFlowNode(type) {
   if(!canvas){showToast('Switch to LDD → Level Flowchart first');return;}
   fcPushHistory();
   const nt=NODE_TYPES[type]||NODE_TYPES.area;
-  const cols=Math.floor(canvas.clientWidth/170)||3;
   const idx=FC.nodes.length;
+  // Place in center of current viewport, with small offset per node
+  const cx=(canvas.clientWidth/2 - FC.cam.x)/FC.cam.zoom - 77;
+  const cy=(canvas.clientHeight/2 - FC.cam.y)/FC.cam.zoom - 60;
+  const ox=(idx%5)*20 - 40, oy=Math.floor(idx/5)*20 - 20;
   const node={
     id:'fn_'+Date.now(),
     type,
     icon:nt.icon,
     label:nt.label+' '+(idx+1),
     desc:'',
-    x:30+(idx%cols)*165,
-    y:20+Math.floor(idx/cols)*110
+    x:Math.max(10,cx+ox),
+    y:Math.max(10,cy+oy)
   };
   FC.nodes.push(node);
   if(!PS.data.docs.ldd.flowchart)PS.data.docs.ldd.flowchart={nodes:[],connections:[]};
