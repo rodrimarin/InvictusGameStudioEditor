@@ -386,12 +386,187 @@ input[type="range"]{accent-color:var(--gold);width:100%}
 /* ── FIELD SAVED INDICATOR ── */
 .save-flash{animation:saveFlash .5s ease}
 @keyframes saveFlash{0%{background:rgba(78,203,113,.08)}100%{background:transparent}}
+
+/* ════════════════════════════════════════════════════════════
+   MOBILE OVERLAY & HAMBURGER
+   ════════════════════════════════════════════════════════════ */
+#mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:199}
+#mob-overlay.active{display:block}
+#mob-menu-btn{display:none;background:none;border:none;color:var(--gold);font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;flex-shrink:0;border-radius:4px}
+#mob-menu-btn:hover{background:rgba(201,162,39,.1)}
+
+/* ════════════════════════════════════════════════════════════
+   RESPONSIVE — TV / XL (≥ 1800px)
+   ════════════════════════════════════════════════════════════ */
+@media(min-width:1800px){
+  :root{--sidebar-w:240px;--topbar-h:52px}
+  body{font-size:14px}
+  .mod-title{font-size:22px}
+  .mod-body{padding:20px 28px}
+  .btn{font-size:13px;padding:6px 18px}
+}
+
+/* ════════════════════════════════════════════════════════════
+   RESPONSIVE — Tablet (768px – 1199px)
+   ════════════════════════════════════════════════════════════ */
+@media(max-width:1199px){
+  .g4{grid-template-columns:1fr 1fr}
+  #modal{min-width:min(440px,calc(100vw - 40px))}
+  .mod-hdr{flex-wrap:wrap;gap:8px}
+}
+
+/* ════════════════════════════════════════════════════════════
+   RESPONSIVE — Mobile (< 768px)
+   ════════════════════════════════════════════════════════════ */
+@media(max-width:767px){
+  /* Sidebar becomes slide-in overlay */
+  #sidebar{
+    position:fixed;
+    top:0;left:0;bottom:0;
+    z-index:200;
+    transform:translateX(-100%);
+    transition:transform .25s ease;
+    width:220px;
+    box-shadow:4px 0 20px rgba(0,0,0,.6)
+  }
+  #sidebar.mob-open{transform:translateX(0)}
+
+  /* Hamburger visible, topbar clutter hidden */
+  #mob-menu-btn{display:flex!important;align-items:center}
+  .tb-div{display:none!important}
+  #tb-search{display:none!important}
+  .lang-btn{display:none!important}
+  #save-ind{display:none!important}
+  #collab-ind{display:none!important}
+  .tb-select{max-width:110px;font-size:11px}
+  #cloud-btn{padding:4px 7px;font-size:10px}
+  #cloud-lbl{display:none!important}
+
+  /* Lifecycle bar: hide */
+  #lifecycle{display:none!important}
+
+  /* Topbar height adjustment */
+  #topbar{padding:0 8px;gap:6px}
+  .tb-logo span{display:none}
+
+  /* Update banner & online bar: smaller */
+  #update-banner{font-size:10px;height:auto;min-height:28px;flex-wrap:wrap;padding:4px 10px}
+  #online-bar{font-size:10px;padding:3px 10px}
+
+  /* Module header */
+  .mod-hdr{padding:8px 12px;flex-wrap:wrap;gap:6px}
+  .mod-title{font-size:13px;letter-spacing:1px}
+  .mod-sub{display:none}
+  .mod-body{padding:10px 10px}
+
+  /* Grids: 2 col then 1 col at very small */
+  .g4{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr}
+  .g2{grid-template-columns:1fr}
+
+  /* Modal: near-fullscreen */
+  #modal{
+    min-width:auto!important;
+    width:calc(100vw - 16px)!important;
+    max-width:none!important;
+    padding:14px!important;
+    max-height:90vh!important;
+    margin:0!important;
+    border-radius:8px
+  }
+
+  /* Touch-friendly buttons */
+  .btn{min-height:36px;font-size:12px}
+  .btn-save{min-height:36px}
+
+  /* Inputs: 16px prevents iOS auto-zoom */
+  .fi,.fs,.fta{font-size:16px!important}
+
+  /* GDD / LDD document layout */
+  .doc-layout{flex-direction:column}
+  .doc-nav{
+    width:100%!important;
+    border-right:none!important;
+    border-bottom:1px solid var(--border);
+    max-height:160px;
+    padding:6px
+  }
+  .doc-content{padding:12px}
+
+  /* Studying topics sidebar */
+  #study-nav-panel{
+    width:100%!important;
+    border-right:none!important;
+    border-bottom:1px solid var(--border);
+    flex-direction:row!important;
+    max-height:160px;
+    overflow:hidden;
+    flex-shrink:0!important
+  }
+  #study-nav-panel > div:first-child{display:none}/* hide "Topics" header on mobile */
+  #study-topics-nav{padding:4px;overflow-x:auto;overflow-y:hidden;display:flex!important;flex-direction:row;gap:4px;white-space:nowrap;align-items:center}
+  #study-nav-panel > div:last-child{display:none}/* hide add buttons on mobile (accessible via mod-hdr) */
+
+  /* Notes lists sidebar */
+  #notes-nav-panel{
+    width:100%!important;
+    border-right:none!important;
+    border-bottom:1px solid var(--border);
+    flex-direction:row!important;
+    max-height:100px;
+    flex-shrink:0!important
+  }
+  #notes-nav-panel > div:first-child{display:none}
+  #notes-lists-nav{padding:4px;overflow-x:auto;overflow-y:hidden;display:flex!important;flex-direction:row;gap:4px;white-space:nowrap;align-items:center}
+  #notes-nav-panel > div:last-child{display:none}
+
+  /* Studying / Notes: stack panels vertically */
+  #study-body,#notes-body{flex-direction:column!important}
+
+  /* Map: hide side panels — canvas takes full width */
+  #map-left-panel{display:none!important}
+  #map-right-panel{display:none!important}
+  #map-toolbar-top{gap:2px;padding:0 6px;overflow-x:auto;flex-wrap:nowrap}
+  .mt{width:28px;height:28px;font-size:12px}
+
+  /* Flowchart */
+  #flowchart-canvas{height:55vh!important;min-height:300px}
+
+  /* Kanban: already has overflow-x:auto — OK */
+
+  /* Fixed-width selects in filter bars: allow to shrink */
+  #f-status,#f-disc{width:auto!important;flex:1;min-width:90px}
+
+  /* Beat table: horizontal scroll */
+  #beat-table{min-width:0!important}
+  #ldd-beat-wrap,table{overflow-x:auto}
+
+  /* Calendar month label */
+  #cal-month-label{min-width:0!important}
+
+  /* Dashboard circular rings: scale down */
+  .dash-ring svg{width:56px!important;height:56px!important}
+
+  /* Asset grid: 2 col min */
+  .asset-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
+}
+
+/* ════════════════════════════════════════════════════════════
+   RESPONSIVE — Small mobile (< 480px)
+   ════════════════════════════════════════════════════════════ */
+@media(max-width:479px){
+  .g4,.g3,.g2{grid-template-columns:1fr}
+  .mod-title{font-size:12px}
+  #topbar{gap:4px}
+  .tb-select{max-width:90px}
+}
 </style>
 </head>
 <body>
-
+<div id="mob-overlay" onclick="closeMobSidebar()"></div>
 <!-- TOPBAR -->
 <div id="topbar">
+  <button id="mob-menu-btn" onclick="toggleMobSidebar()" title="Menu">☰</button>
   <div class="tb-logo">
     <svg viewBox="0 0 30 30" fill="none">
       <polygon points="15,2 27,8 27,22 15,28 3,22 3,8" stroke="#c9a227" stroke-width="1.5" fill="rgba(201,162,39,.06)"/>
@@ -897,9 +1072,9 @@ input[type="range"]{accent-color:var(--gold);width:100%}
           <button class="btn btn-sm" onclick="openStudyTopicModal()">+ Topic</button>
         </div>
       </div>
-      <div style="display:flex;flex:1;overflow:hidden;">
+      <div id="study-body" style="display:flex;flex:1;overflow:hidden;">
         <!-- LEFT: Topic nav -->
-        <div style="width:200px;background:var(--bg-panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
+        <div id="study-nav-panel" style="width:200px;background:var(--bg-panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
           <div style="padding:10px;border-bottom:1px solid var(--border);">
             <div class="panel-title" style="margin:0">Topics</div>
           </div>
@@ -952,9 +1127,9 @@ input[type="range"]{accent-color:var(--gold);width:100%}
           <button class="btn btn-gold btn-sm" onclick="openNotesListModal()">+ New List</button>
         </div>
       </div>
-      <div style="display:flex;flex:1;overflow:hidden;">
+      <div id="notes-body" style="display:flex;flex:1;overflow:hidden;">
         <!-- LEFT: Lists nav -->
-        <div style="width:200px;background:var(--bg-panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
+        <div id="notes-nav-panel" style="width:200px;background:var(--bg-panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
           <div style="padding:10px;border-bottom:1px solid var(--border);">
             <div class="panel-title" style="margin:0">Lists</div>
           </div>
@@ -1224,6 +1399,7 @@ function saveAll() {
 // MODULE NAVIGATION
 // ════════════════════════════════════════════════════════════
 function showModule(name) {
+  closeMobSidebar();
   document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(s => s.classList.toggle('active', s.dataset.mod === name));
   const mod = document.getElementById('module-' + name);
@@ -5838,6 +6014,18 @@ Always mix roles to create interesting dynamics.
     if(!PS.data.studying.notes.find(x=>x.id===n.id)) PS.data.studying.notes.push(n);
   });
   autoSave();
+}
+
+// ════════════════════════════════════════════════════════════
+// MOBILE SIDEBAR TOGGLE
+// ════════════════════════════════════════════════════════════
+function toggleMobSidebar(){
+  document.getElementById('sidebar').classList.toggle('mob-open');
+  document.getElementById('mob-overlay').classList.toggle('active');
+}
+function closeMobSidebar(){
+  document.getElementById('sidebar')?.classList.remove('mob-open');
+  document.getElementById('mob-overlay')?.classList.remove('active');
 }
 
 function init() {
