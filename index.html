@@ -1815,7 +1815,11 @@ const FIREBASE = {
     showToast('⬆ Uploading your data to Firebase…');
     try {
       collectDocData(); mapSaveCurrent();
-      PS.data._localTs = Date.now();
+      const now = Date.now();
+      // Stamp ALL sections so the receiving tab's granular merge always applies our data
+      if (!PS.data._sectionTs) PS.data._sectionTs = {};
+      _ALL_SECTIONS.forEach(s => { PS.data._sectionTs[s] = now; });
+      PS.data._localTs = now;
       PS.save();
       await this._doWrite();
       showToast('✓ Your data is now in Firebase!');
@@ -5679,7 +5683,13 @@ function studyGoUrl(){
   if(_studyActiveTopic){
     ensureStudying();
     const topic=PS.data.studying.topics.find(t=>t.id===_studyActiveTopic);
-    if(topic){ topic.url=url; autoSave(); }
+    if(topic){
+      topic.url=url;
+      if(!PS.data._sectionTs)PS.data._sectionTs={};
+      PS.data._sectionTs['studying']=Date.now();
+      if(typeof _localDirty!=='undefined')_localDirty.add('studying');
+      autoSave();
+    }
   }
   const iframe=document.getElementById('study-iframe');
   const blocked=document.getElementById('study-iframe-blocked');
@@ -5696,7 +5706,13 @@ function studySaveUrl(){
   if(!url.startsWith('http'))return;
   ensureStudying();
   const topic=PS.data.studying.topics.find(t=>t.id===_studyActiveTopic);
-  if(topic && topic.url!==url){topic.url=url;autoSave();}
+  if(topic && topic.url!==url){
+    topic.url=url;
+    if(!PS.data._sectionTs)PS.data._sectionTs={};
+    PS.data._sectionTs['studying']=Date.now();
+    if(typeof _localDirty!=='undefined')_localDirty.add('studying');
+    autoSave();
+  }
 }
 
 // ════════════════════════════════════════════════════════════
