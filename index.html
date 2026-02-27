@@ -586,6 +586,20 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
 .nav-resize-handle:hover,.nav-resize-handle.dragging { background:rgba(201,162,39,.35) }
 
 /* ════════════════════════════════════════════════════════════
+   DOC IMAGE GALLERY
+   ════════════════════════════════════════════════════════════ */
+.doc-img-gallery{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;padding:6px 0 2px}
+.doc-img-item{position:relative;display:inline-block;border-radius:5px;overflow:hidden;border:1px solid var(--border);transition:border-color .15s}
+.doc-img-item:hover{border-color:var(--gold)}
+.doc-img-item img{display:block;width:140px;height:94px;object-fit:cover;cursor:zoom-in}
+.doc-img-item img:hover{opacity:.92}
+.doc-img-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.75);border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:18px;text-align:center;padding:0;opacity:0;transition:opacity .15s}
+.doc-img-item:hover .doc-img-del{opacity:1}
+.doc-img-add{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:100px;height:68px;border:1px dashed var(--border);border-radius:5px;cursor:pointer;font-size:10px;color:var(--text-muted);font-family:var(--fu);letter-spacing:.5px;gap:4px;transition:all .15s;text-align:center;padding:6px;user-select:none}
+.doc-img-add:hover{border-color:var(--gold);color:var(--gold);background:rgba(201,162,39,.05)}
+.doc-img-add input{display:none}
+
+/* ════════════════════════════════════════════════════════════
    LAYER CONTEXT MENU
    ════════════════════════════════════════════════════════════ */
 #layer-ctx-menu {
@@ -3266,11 +3280,13 @@ function initGDD() {
         html+=`<div class="doc-field-wrap">
           <div class="doc-field-label">${field.l}</div>
           ${q?`<div class="doc-guide-q">💬 ${q}</div>`:''}
-          <textarea class="doc-ta" rows="${field.rows}" id="gdd-${sec.key}-${field.k}" 
+          <textarea class="doc-ta" rows="${field.rows}" id="gdd-${sec.key}-${field.k}"
             placeholder="${field.ph||''}"
             oninput="onDocInput('gdd','${sec.key}','${field.k}',this.value)">${val}</textarea>
         </div>`;
       });
+      // Image reference gallery
+      html+=`<div class="doc-img-gallery" id="doc-imgs-gdd-${sec.key}">${_docImgGalleryHTML('gdd',sec.key)}</div>`;
       html+='<div class="doc-divider"></div>';
       section.innerHTML=html;
       content.appendChild(section);
@@ -3285,6 +3301,60 @@ function onDocInput(doc, secKey, fieldKey, val) {
   flashSaved();
   autoSave();
   updateDocProgress(doc, doc==='gdd'?GDD_SECS:LDD_SECS);
+}
+
+// ── DOC IMAGE GALLERY ────────────────────────────────────────
+function _docImgGalleryHTML(doc, key){
+  const imgs=(PS.data.docs[doc][key]&&PS.data.docs[doc][key]._images)||[];
+  let h='';
+  imgs.forEach((img,i)=>{
+    h+=`<div class="doc-img-item">
+      <img src="${img.data}" title="${img.name||''}" onclick="_docImgZoom('${img.data}')">
+      <button class="doc-img-del" onclick="docRemoveImage('${doc}','${key}',${i})" title="Remove">✕</button>
+    </div>`;
+  });
+  h+=`<label class="doc-img-add" title="Add reference image (PNG, JPG, GIF, WebP)">
+    <span style="font-size:18px;line-height:1">+</span>
+    <span>Add Image</span>
+    <input type="file" accept="image/*" multiple onchange="docAddImage('${doc}','${key}',this)">
+  </label>`;
+  return h;
+}
+function docAddImage(doc, key, input){
+  const files=[...input.files];
+  if(!files.length)return;
+  if(!PS.data.docs[doc][key]) PS.data.docs[doc][key]={};
+  if(!PS.data.docs[doc][key]._images) PS.data.docs[doc][key]._images=[];
+  let loaded=0;
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      PS.data.docs[doc][key]._images.push({data:ev.target.result,name:file.name});
+      loaded++;
+      if(loaded===files.length){
+        autoSave();
+        const el=document.getElementById('doc-imgs-'+doc+'-'+key);
+        if(el) el.innerHTML=_docImgGalleryHTML(doc,key);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function docRemoveImage(doc, key, idx){
+  if(PS.data.docs[doc]&&PS.data.docs[doc][key]&&PS.data.docs[doc][key]._images)
+    PS.data.docs[doc][key]._images.splice(idx,1);
+  autoSave();
+  const el=document.getElementById('doc-imgs-'+doc+'-'+key);
+  if(el) el.innerHTML=_docImgGalleryHTML(doc,key);
+}
+function _docImgZoom(src){
+  // Open fullscreen lightbox overlay
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  ov.onclick=()=>ov.remove();
+  const img=document.createElement('img');
+  img.src=src;img.style.cssText='max-width:90vw;max-height:90vh;border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,.6)';
+  ov.appendChild(img);document.body.appendChild(ov);
 }
 
 function switchDocSec(doc, key) {
@@ -3464,6 +3534,8 @@ function initLDD() {
               oninput="onDocInput('ldd','${sec.key}','${field.k}',this.value)">${val}</textarea>
           </div>`;
         });
+        // Image reference gallery
+        html+=`<div class="doc-img-gallery" id="doc-imgs-ldd-${sec.key}">${_docImgGalleryHTML('ldd',sec.key)}</div>`;
       }
       html+='<div class="doc-divider"></div>';
       section.innerHTML=html;
@@ -3672,6 +3744,16 @@ function mapMD(e) {
   }
 
   if (MAP.tool === 'select') {
+    // Ctrl+click = additive / deselect (Windows-style multi-select)
+    if (e.ctrlKey && !e.altKey) {
+      const hit = getObjectAt(w.x, w.y);
+      if (hit) {
+        if (MAP.selectedIds.has(hit.id)) MAP.selectedIds.delete(hit.id);
+        else MAP.selectedIds.add(hit.id);
+        renderMap(); renderMapProps(); renderMapLayers();
+      }
+      return;
+    }
     // Alt+click = duplicate and drag copy
     if (e.altKey) {
       const hit = getObjectAt(w.x, w.y);
@@ -3770,7 +3852,7 @@ function mapMD(e) {
     const txt = prompt('Enter text label:') || '';
     if (!txt) return;
     mapPushHistory();
-    const obj={id:'obj_'+Date.now(),type:'text',name:txt,text:txt,layer:MAP.activeLayer,x:snap(w.x),y:snap(w.y),w:120,h:20,fill:'#c9a227',stroke:'transparent',opacity:1};
+    const obj={id:'obj_'+Date.now(),type:'text',name:txt,text:txt,fontSize:14,layer:MAP.activeLayer,x:snap(w.x),y:snap(w.y),w:120,h:20,fill:'#c9a227',stroke:'transparent',opacity:1};
     MAP.objects.push(obj);
     MAP.selectedIds.clear(); MAP.selectedIds.add(obj.id);
     renderMap(); renderMapProps(); autoSave(); mapSaveCurrent();
@@ -3958,6 +4040,7 @@ function mapMU(e) {
   if (MAP.isResizing) {
     MAP.isResizing = false;
     MAP._histOnce = false;
+    if(MAP.tool!=='select') setTool('select'); // auto-switch to select after resize
     autoSave(); mapSaveCurrent(); return;
   }
   // Handle freehand draw finish
@@ -4052,12 +4135,21 @@ function _objHitTest(obj,wx,wy){
   if(obj.type==='draw') return obj.points&&_ptNearPath(wx,wy,obj.points,8);
   return wx>=obj.x&&wx<=obj.x+(obj.w||0)&&wy>=obj.y&&wy<=obj.y+(obj.h||0);
 }
+function _objArea(obj){
+  if(obj.type==='circle'||obj.type==='light') return Math.PI*(obj.r||32)**2;
+  if(obj.type==='arrow'||obj.type==='draw') return 500; // lines always preferred
+  return (obj.w||64)*(obj.h||64);
+}
 function getObjectAt(wx, wy) {
+  // Collect all hits then return smallest-area (easier to select small objects over large)
+  const hits=[];
   for(let i=MAP.objects.length-1;i>=0;i--){
     const obj=MAP.objects[i];
-    if(_objHitTest(obj,wx,wy)) return obj;
+    if(_objHitTest(obj,wx,wy)) hits.push(obj);
   }
-  return null;
+  if(!hits.length) return null;
+  hits.sort((a,b)=>_objArea(a)-_objArea(b));
+  return hits[0];
 }
 function getObjectAtBelow(wx,wy,excludeId){
   let found=false;
@@ -4319,9 +4411,15 @@ function drawObj(obj,ctx) {
     ctx.fillStyle=obj.fill||'#1e2e18';ctx.fill();
     ctx.strokeStyle=obj.stroke||'#4a7a3a';ctx.lineWidth=1;ctx.stroke();
   } else if(obj.type==='text'){
-    const fs=Math.max(9,14*MAP.cam.zoom);
-    ctx.font=`${fs}px Rajdhani`;ctx.fillStyle=obj.fill||'#c9a227';
+    const fs=Math.max(4,(obj.fontSize||14)*MAP.cam.zoom);
+    ctx.font=`bold ${fs}px Rajdhani,sans-serif`;
+    ctx.textBaseline='top';
+    ctx.fillStyle=obj.fill||'#c9a227';
     ctx.fillText(obj.text||'Text',p.x,p.y);
+    // Update w/h based on measured text for accurate hit testing
+    const mw=ctx.measureText(obj.text||'Text').width/MAP.cam.zoom;
+    obj.w=Math.max(20,mw);obj.h=Math.max(10,(obj.fontSize||14)*1.4);
+    ctx.textBaseline='alphabetic';
   } else if(obj.type==='poly'){
     const pts=obj.points.map(pt=>w2s(pt.x,pt.y));
     ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
@@ -4919,8 +5017,11 @@ function renderMapProps() {
       <div class="mp-section-title">Transform</div>
       ${numInput('X','x',obj.x)}
       ${numInput('Y','y',obj.y)}
-      ${obj.type==='circle'?numInput('Radius','r',obj.r):`${numInput('Width','w',obj.w)}${numInput('Height','h',obj.h)}`}
+      ${obj.type==='circle'?numInput('Radius','r',obj.r):obj.type==='text'?`${numInput('Font Size','fontSize',obj.fontSize||14)}`:`${numInput('Width','w',obj.w)}${numInput('Height','h',obj.h)}`}
     </div>
+    ${obj.type==='text'?`<div class="mp-section"><div class="mp-section-title">Text Content</div>
+      <div class="mp-row"><input class="mp-input" value="${(obj.text||'').replace(/"/g,'&quot;')}" oninput="updateMapObj('${id}','text',this.value);updateMapObj('${id}','name',this.value)"></div>
+    </div>`:''}
     <div class="mp-section">
       <div class="mp-section-title">Visual</div>
       <div class="mp-row"><span class="mp-label">Fill</span><input type="color" class="mp-color" value="${obj.fill||'#1e2e18'}" oninput="updateMapObj('${id}','fill',this.value)"></div>
@@ -4941,7 +5042,12 @@ function renderMapProps() {
 
 function updateMapObj(id,key,val){
   const obj=MAP.objects.find(o=>o.id===id);
-  if(obj){obj[key]=val;if(key==='r')obj.w=val*2,obj.h=val*2;renderMap();autoSave();mapSaveCurrent();}
+  if(obj){
+    obj[key]=val;
+    if(key==='r') {obj.w=val*2;obj.h=val*2;}
+    if(key==='fontSize') obj[key]=Math.max(4,+val);
+    renderMap();autoSave();mapSaveCurrent();
+  }
 }
 function duplicateMapObj(id){
   const obj=MAP.objects.find(o=>o.id===id);
@@ -5372,6 +5478,13 @@ function _pdfOpen(title){
   return win;
 }
 
+function _pdfImgsHTML(doc, key){
+  const imgs=(PS.data.docs[doc][key]&&PS.data.docs[doc][key]._images)||[];
+  if(!imgs.length) return '';
+  return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">`+
+    imgs.map(img=>`<img src="${img.data}" style="height:110px;max-width:200px;object-fit:cover;border-radius:3px;border:1px solid #d8d2be" title="${img.name||''}">`).join('')+
+  `</div>`;
+}
 function exportGDDPDF(){
   collectDocData();
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -5380,8 +5493,8 @@ function exportGDDPDF(){
   const pct=calcDocCompletion('gdd',GDD_SECS);
   let html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>GDD — ${esc(projectName)}</title><style>${_pdfCSSPro()}</style></head><body><div class="wrap">`;
   html+=`<div class="doc-header">
-    <div class="doc-header-label">Game Design Document</div>
-    <div class="doc-header-title">${esc(projectName)}</div>
+    <div class="doc-header-title">GAME DESIGN DOCUMENT</div>
+    <div class="doc-header-label" style="font-size:16px;letter-spacing:1px;color:var(--text);margin-bottom:8px;font-family:Georgia,serif">${esc(projectName)}</div>
     <div class="doc-header-meta">${dateStr}</div>
     <div class="doc-pct">${pct}% Complete</div>
   </div>`;
@@ -5396,6 +5509,7 @@ function exportGDDPDF(){
         html+=val.trim()?`<div class="field-val">${esc(val)}</div>`:`<div class="field-empty">Not specified</div>`;
         html+=`</div>`;
       });
+      html+=_pdfImgsHTML('gdd',sec.key);
       html+=`</div>`;
     });
     html+=`<hr class="sec-hr"></div>`;
@@ -5422,8 +5536,8 @@ async function exportLDDPDF(){
 
   let html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>LDD — ${esc(projectName)}</title><style>${_pdfCSSPro()}</style></head><body><div class="wrap">`;
   html+=`<div class="doc-header">
-    <div class="doc-header-label">Level Design Document</div>
-    <div class="doc-header-title">${esc(projectName)}</div>
+    <div class="doc-header-title">LEVEL DESIGN DOCUMENT</div>
+    <div class="doc-header-label" style="font-size:16px;letter-spacing:1px;color:var(--text);margin-bottom:8px;font-family:Georgia,serif">${esc(projectName)}</div>
     <div class="doc-header-meta">${dateStr}</div>
     <div class="doc-pct">${pct}% Complete</div>
   </div>`;
@@ -5440,6 +5554,7 @@ async function exportLDDPDF(){
         html+=val.trim()?`<div class="field-val">${esc(val)}</div>`:`<div class="field-empty">Not specified</div>`;
         html+=`</div>`;
       });
+      html+=_pdfImgsHTML('ldd',sec.key);
       html+=`</div>`;
     });
     html+=`<hr class="sec-hr"></div>`;
@@ -5536,6 +5651,7 @@ async function exportFullPDF(){
         html+=val.trim()?`<div class="field-val">${esc(val)}</div>`:`<div class="field-empty">Not specified</div>`;
         html+=`</div>`;
       });
+      html+=_pdfImgsHTML('gdd',sec.key);
       html+=`</div>`;
     });
     html+=`<hr class="sec-hr"></div>`;
@@ -5556,6 +5672,7 @@ async function exportFullPDF(){
         html+=val.trim()?`<div class="field-val">${esc(val)}</div>`:`<div class="field-empty">Not specified</div>`;
         html+=`</div>`;
       });
+      html+=_pdfImgsHTML('ldd',sec.key);
       html+=`</div>`;
     });
     html+=`<hr class="sec-hr"></div>`;
