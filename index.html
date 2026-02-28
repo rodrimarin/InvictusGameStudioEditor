@@ -651,13 +651,13 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
 .ia-color-swatch:hover{transform:scale(1.15)}
 #ia-size{accent-color:var(--gold);width:70px}
 /* Scrollable area — scene sits inside and can be panned */
-#ia-canvas-wrap{flex:1;overflow:auto;background:repeating-conic-gradient(#1c1c1c 0% 25%,#141414 0% 50%) 0 0/20px 20px;min-height:0;cursor:crosshair}
-/* Scene: inline-block so it sizes to canvas; margin gives space around it */
+#ia-canvas-wrap{flex:1;overflow:auto;background:repeating-conic-gradient(#1c1c1c 0% 25%,#141414 0% 50%) 0 0/20px 20px;min-height:0;cursor:crosshair;user-select:none}
+/* Scene: explicit size set by JS; position:relative so children are absolute */
 #ia-scene{display:inline-block;position:relative;line-height:0;margin:20px;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 8px 40px rgba(0,0,0,.6)}
-/* Image overlays canvas bottom-left */
-#ia-bg{position:absolute;top:0;left:0;display:none;user-select:none;pointer-events:none;max-width:none}
-/* Canvas: explicit pixel size set by JS — ratio always 1:1 */
-#ia-canvas{display:block;touch-action:none}
+/* Image sits behind canvas */
+#ia-bg{position:absolute;top:0;left:0;display:none;user-select:none;pointer-events:none;max-width:none;z-index:1}
+/* Canvas: absolute, on top, sized by JS */
+#ia-canvas{position:absolute;top:0;left:0;z-index:3;display:block;touch-action:none}
 /* Hint: centered in scene, non-interactive */
 #ia-drop-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none;user-select:none;z-index:2}
 #ia-drop-hint .ia-hint-icon{font-size:48px;opacity:.08}
@@ -7587,7 +7587,6 @@ function _initNavResize(navId){
 const IA = (() => {
   // ── State ─────────────────────────────────────────────────
   let tool      = 'pen';
-  let prevTool  = 'pen';   // saved before Space-pan
   let color     = '#FFD700';
   let size      = 3;
   let dashed    = false;
@@ -7600,42 +7599,45 @@ const IA = (() => {
   let redoStack = [];
   let curStroke = null;
   let textPend  = null;
-  let panRef    = null;    // {x,y,sl,st} mouse start + scroll start
+  let panRef    = null;   // {x,y,sl,st}
 
   const BLANK_W = 2400, BLANK_H = 1600;
 
   // ── DOM helpers ───────────────────────────────────────────
-  const $ia = id => document.getElementById(id);
-  function _c()    { return $ia('ia-canvas'); }
-  function _bg()   { return $ia('ia-bg'); }
-  function _ctx()  { const c = _c(); return c ? c.getContext('2d') : null; }
-  function _wrap() { return $ia('ia-canvas-wrap'); }
-  function _scene(){ return $ia('ia-scene'); }
+  const $ = id => document.getElementById(id);
+  const _c    = () => $('ia-canvas');
+  const _bg   = () => $('ia-bg');
+  const _ctx  = () => { const c = _c(); return c ? c.getContext('2d') : null; };
+  const _wrap = () => $('ia-canvas-wrap');
+  const _scene= () => $('ia-scene');
 
-  // ── Canvas sizing: blank mode — fixed large canvas ──────────
+  // ── Resize canvas + scene together (canvas is position:absolute) ─
+  function _resize(w, h) {
+    const cv = _c(), sc = _scene(); if (!cv || !sc) return;
+    cv.width = w; cv.height = h;
+    cv.style.width  = w + 'px'; cv.style.height = h + 'px';
+    // Scene must be sized explicitly because all children are absolute
+    sc.style.width  = w + 'px'; sc.style.height = h + 'px';
+  }
+
+  // ── Blank canvas ──────────────────────────────────────────
   function _sizeBlank() {
-    const c = _c(); if (!c) return;
-    // Explicit px size on both attribute AND style → ratio always 1:1
-    c.width  = BLANK_W; c.height = BLANK_H;
-    c.style.width  = BLANK_W + 'px'; c.style.height = BLANK_H + 'px';
-    $ia('ia-bg').style.display = 'none';
-    $ia('ia-drop-hint').classList.remove('ia-hidden');
+    _resize(BLANK_W, BLANK_H);
+    _bg().style.display = 'none';
+    $('ia-drop-hint').classList.remove('ia-hidden');
     _redraw();
     requestAnimationFrame(() => {
       const w = _wrap(); if (!w) return;
-      w.scrollLeft = (BLANK_W + 40 - w.clientWidth)  / 2;
-      w.scrollTop  = (BLANK_H + 40 - w.clientHeight) / 2;
+      w.scrollLeft = Math.max(0, (BLANK_W + 40 - w.clientWidth)  / 2);
+      w.scrollTop  = Math.max(0, (BLANK_H + 40 - w.clientHeight) / 2);
     });
   }
 
-  // ── Canvas sizing: image mode — canvas = natural img size ───
+  // ── Image mode ────────────────────────────────────────────
   function _sizeForImage(img) {
-    const c = _c(); if (!c) return;
     const iw = img.naturalWidth, ih = img.naturalHeight;
-    // Explicit px → ratio 1:1, coordinates never break
-    c.width  = iw; c.height = ih;
-    c.style.width  = iw + 'px'; c.style.height = ih + 'px';
-    img.style.width  = iw + 'px'; img.style.height = ih + 'px';
+    _resize(iw, ih);
+    img.style.width = iw + 'px'; img.style.height = ih + 'px';
     img.style.display = 'block';
     requestAnimationFrame(() => {
       const w = _wrap(); if (!w) return;
@@ -7644,41 +7646,45 @@ const IA = (() => {
     });
   }
 
-  // ── Load image from File/Blob ─────────────────────────────
   function _loadImage(file) {
     const url = URL.createObjectURL(file);
     const img = _bg();
     img.onload = () => {
       hasImage = true; strokes = []; redoStack = [];
       _sizeForImage(img);
-      $ia('ia-drop-hint').classList.add('ia-hidden');
-      $ia('ia-download-btn').style.display = '';
+      $('ia-drop-hint').classList.add('ia-hidden');
+      $('ia-download-btn').style.display = '';
       _redraw(); _updateStatus();
       URL.revokeObjectURL(url);
     };
-    img.onerror = () => { try{toast('Could not load image');}catch(e){} URL.revokeObjectURL(url); };
+    img.onerror = () => URL.revokeObjectURL(url);
     img.src = url;
   }
 
-  // ── Coordinate conversion: event → canvas pixels ──────────
-  // CSS size == canvas.width → no scaling, always 1:1
+  // ── Coordinates: event → canvas pixels ───────────────────
+  // scene.getBoundingClientRect() accounts for scroll automatically
   function _xy(e) {
-    const r  = _c().getBoundingClientRect();
+    const sr = _scene().getBoundingClientRect();
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: cx - r.left, y: cy - r.top };
+    return { x: cx - sr.left, y: cy - sr.top };
   }
 
-  // ── Active tool (Space overrides to pan) ──────────────────
+  // Is event within the scene bounds?
+  function _inScene(e) {
+    const sr = _scene().getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return cx >= sr.left && cx <= sr.right && cy >= sr.top && cy <= sr.bottom;
+  }
+
   function _at() { return spaceDown ? 'pan' : tool; }
 
-  // ── Cursor ────────────────────────────────────────────────
   function _cursor() {
     const w = _wrap(); if (!w) return;
-    const at = _at();
     if (panning) { w.style.cursor = 'grabbing'; return; }
     const map = { pan:'grab', text:'text', eraser:'cell' };
-    w.style.cursor = map[at] || 'crosshair';
+    w.style.cursor = map[_at()] || 'crosshair';
   }
 
   // ── Redraw ────────────────────────────────────────────────
@@ -7702,13 +7708,13 @@ const IA = (() => {
         if (pts.length === 1) { ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, Math.max(1, s.size/2), 0, Math.PI*2); ctx.fill(); break; }
         ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
         for (let i = 1; i < pts.length; i++) {
-          const mx=(pts[i-1].x+pts[i].x)/2, my=(pts[i-1].y+pts[i].y)/2;
+          const mx = (pts[i-1].x + pts[i].x) / 2, my = (pts[i-1].y + pts[i].y) / 2;
           ctx.quadraticCurveTo(pts[i-1].x, pts[i-1].y, mx, my);
         }
         ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y); ctx.stroke(); break;
       }
-      case 'line': ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke(); break;
-      case 'rect': ctx.beginPath(); ctx.rect(s.x1,s.y1,s.x2-s.x1,s.y2-s.y1); ctx.stroke(); break;
+      case 'line':  ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke(); break;
+      case 'rect':  ctx.beginPath(); ctx.rect(s.x1,s.y1,s.x2-s.x1,s.y2-s.y1); ctx.stroke(); break;
       case 'arrow': {
         const dx=s.x2-s.x1, dy=s.y2-s.y1, ang=Math.atan2(dy,dx), hd=Math.max(14,s.size*5);
         ctx.setLineDash([]);
@@ -7719,64 +7725,17 @@ const IA = (() => {
         ctx.closePath(); ctx.fill(); break;
       }
       case 'text': {
-        const fs=Math.max(14,s.size*5);
+        const fs = Math.max(14, s.size * 5);
         ctx.setLineDash([]);
-        ctx.font=`bold ${fs}px Rajdhani,sans-serif`;
-        ctx.lineWidth=Math.max(2,fs/7); ctx.strokeStyle='rgba(0,0,0,0.85)';
-        ctx.strokeText(s.text,s.x1,s.y1); ctx.fillStyle=s.color; ctx.fillText(s.text,s.x1,s.y1); break;
+        ctx.font = `bold ${fs}px Rajdhani,sans-serif`;
+        ctx.lineWidth = Math.max(2, fs/7); ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+        ctx.strokeText(s.text, s.x1, s.y1); ctx.fillStyle = s.color; ctx.fillText(s.text, s.x1, s.y1); break;
       }
     }
     ctx.restore();
   }
 
-  // ── Mouse / Touch ─────────────────────────────────────────
-  function _md(e) {
-    if (e.button !== undefined && e.button !== 0) return;
-    const at = _at();
-    if (at === 'pan') {
-      panning = true;
-      const w = _wrap();
-      panRef = { x: e.clientX, y: e.clientY, sl: w.scrollLeft, st: w.scrollTop };
-      _cursor(); e.preventDefault(); return;
-    }
-    if (at === 'text') { _placeText(e); return; }
-    drawing = true;
-    const p = _xy(e);
-    if (at === 'eraser')    { _erase(p); }
-    else if (at === 'pen')  { curStroke = { type:'pen', color, size, dashed, opacity, points:[{...p}] }; }
-    else                    { curStroke = { type:at, color, size, dashed, opacity, x1:p.x, y1:p.y, x2:p.x, y2:p.y }; }
-    e.preventDefault();
-  }
-
-  function _mm(e) {
-    if (panning && panRef) {
-      const w = _wrap();
-      w.scrollLeft = panRef.sl - (e.clientX - panRef.x);
-      w.scrollTop  = panRef.st - (e.clientY - panRef.y);
-      e.preventDefault(); return;
-    }
-    const p = _xy(e);
-    _setXY(p);
-    if (!drawing) return;
-    const at = _at();
-    if (at === 'eraser') { _erase(p); return; }
-    if (!curStroke) return;
-    if (at === 'pen') curStroke.points.push({...p});
-    else { curStroke.x2 = p.x; curStroke.y2 = p.y; }
-    _redraw(); e.preventDefault();
-  }
-
-  function _mu() {
-    if (panning) { panning = false; panRef = null; _cursor(); return; }
-    if (!drawing) return;
-    drawing = false;
-    if (curStroke) {
-      strokes.push(curStroke); redoStack = []; curStroke = null;
-      $ia('ia-drop-hint').classList.add('ia-hidden');
-    }
-    _redraw(); _updateStatus();
-  }
-
+  // ── Erase ─────────────────────────────────────────────────
   function _erase(p) {
     const r = Math.max(size * 6, 20), prev = strokes.length;
     strokes = strokes.filter(s => {
@@ -7786,40 +7745,93 @@ const IA = (() => {
     if (strokes.length !== prev) { _redraw(); _updateStatus(); }
   }
 
+  // ── Mouse events (all attached to wrap or document) ───────
+  function _md(e) {
+    if (e.button !== 0) return;
+    if (!_inScene(e)) return;     // ignore clicks on scroll margin
+    e.preventDefault();
+    const at = _at(), w = _wrap();
+    if (at === 'pan') {
+      panning = true;
+      panRef  = { x: e.clientX, y: e.clientY, sl: w.scrollLeft, st: w.scrollTop };
+      _cursor(); return;
+    }
+    if (at === 'text') { _placeText(e); return; }
+    drawing = true;
+    const p = _xy(e);
+    if      (at === 'eraser') { _erase(p); }
+    else if (at === 'pen')    { curStroke = { type:'pen', color, size, dashed, opacity, points:[{...p}] }; }
+    else                      { curStroke = { type:at,  color, size, dashed, opacity, x1:p.x, y1:p.y, x2:p.x, y2:p.y }; }
+  }
+
+  function _mm(e) {
+    // Pan: works anywhere on document while panning is true
+    if (panning && panRef) {
+      const w = _wrap();
+      w.scrollLeft = panRef.sl - (e.clientX - panRef.x);
+      w.scrollTop  = panRef.st - (e.clientY - panRef.y);
+      return;
+    }
+    // Draw: only process if actively drawing
+    if (!drawing || !curStroke) {
+      // Still update coordinates display if over scene
+      if (_inScene(e)) { const p = _xy(e); _setXY(p); }
+      return;
+    }
+    const p = _xy(e);
+    _setXY(p);
+    const at = _at();
+    if (at === 'eraser') { _erase(p); return; }
+    if (at === 'pen') curStroke.points.push({...p});
+    else              { curStroke.x2 = p.x; curStroke.y2 = p.y; }
+    _redraw();
+  }
+
+  function _mu() {
+    if (panning) { panning = false; panRef = null; _cursor(); return; }
+    if (!drawing) return;
+    drawing = false;
+    if (curStroke) {
+      strokes.push(curStroke); redoStack = []; curStroke = null;
+      $('ia-drop-hint').classList.add('ia-hidden');
+    }
+    _redraw(); _updateStatus();
+  }
+
+  // ── Text tool ─────────────────────────────────────────────
   function _placeText(e) {
     textPend = _xy(e);
-    const el = $ia('ia-text-input-el');
-    const cx = e.touches ? e.touches[0].clientX : e.clientX;
-    const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    el.style.left = cx + 'px'; el.style.top = (cy - 44) + 'px';
+    const el = $('ia-text-input-el');
+    el.style.left = e.clientX + 'px'; el.style.top = (e.clientY - 44) + 'px';
     el.style.display = 'block'; el.value = '';
     setTimeout(() => el.focus(), 0);
   }
 
-  function _setXY(p) { const el = $ia('ia-status-xy'); if (el) el.textContent = `x:${Math.round(p.x)} y:${Math.round(p.y)}`; }
-  function _updateStatus() { const el = $ia('ia-status-strokes'); if (el) el.textContent = strokes.length + (strokes.length!==1?' strokes':' stroke'); }
+  // ── Status ────────────────────────────────────────────────
+  function _setXY(p) { const el=$('ia-status-xy'); if(el) el.textContent=`x:${Math.round(p.x)} y:${Math.round(p.y)}`; }
+  function _updateStatus() { const el=$('ia-status-strokes'); if(el) el.textContent=strokes.length+(strokes.length!==1?' strokes':' stroke'); }
 
   // ── Public API ────────────────────────────────────────────
   function setTool(t) {
     tool = t;
     document.querySelectorAll('.ia-tool[id^="ia-t-"]').forEach(b => b.classList.remove('active'));
-    $ia('ia-t-'+t)?.classList.add('active');
-    const lbl = $ia('ia-status-tool'); if (lbl) lbl.textContent = t[0].toUpperCase()+t.slice(1);
+    $('ia-t-'+t)?.classList.add('active');
+    const lbl = $('ia-status-tool'); if(lbl) lbl.textContent = t[0].toUpperCase()+t.slice(1);
     _cursor();
   }
 
   function setColor(c, idx) {
     color = c;
     document.querySelectorAll('.ia-color-swatch').forEach(s => s.classList.remove('active'));
-    if (typeof idx === 'number') $ia('ia-sw-'+idx)?.classList.add('active');
-    const dot = $ia('ia-status-color'); if (dot) dot.style.background = c;
+    if (typeof idx === 'number') $('ia-sw-'+idx)?.classList.add('active');
+    const dot = $('ia-status-color'); if(dot) dot.style.background = c;
   }
 
-  function setSize(v)    { size = v; const l = $ia('ia-size-lbl'); if (l) l.textContent = v; }
-  function setDash(v)    { dashed = v; $ia('ia-solid-btn')?.classList.toggle('active',!v); $ia('ia-dash-btn')?.classList.toggle('active',v); }
+  function setSize(v)    { size = v; const l=$('ia-size-lbl'); if(l) l.textContent=v; }
+  function setDash(v)    { dashed=v; $('ia-solid-btn')?.classList.toggle('active',!v); $('ia-dash-btn')?.classList.toggle('active',v); }
   function setOpacity(v) { opacity = v / 100; }
-  function undo()        { if (!strokes.length) return; redoStack.push(strokes.pop()); _redraw(); _updateStatus(); }
-  function redo()        { if (!redoStack.length) return; strokes.push(redoStack.pop()); _redraw(); _updateStatus(); }
+  function undo()        { if(!strokes.length) return; redoStack.push(strokes.pop()); _redraw(); _updateStatus(); }
+  function redo()        { if(!redoStack.length) return; strokes.push(redoStack.pop()); _redraw(); _updateStatus(); }
 
   function clear() {
     if (!strokes.length) return;
@@ -7828,8 +7840,8 @@ const IA = (() => {
     _redraw(); _updateStatus();
   }
 
-  function loadFile() { $ia('ia-file-input').click(); }
-  function onFileInput(ev) { const f = ev.target.files[0]; if (f) _loadImage(f); ev.target.value = ''; }
+  function loadFile()      { $('ia-file-input').click(); }
+  function onFileInput(ev) { const f=ev.target.files[0]; if(f) _loadImage(f); ev.target.value=''; }
 
   function onDrop(ev) {
     ev.preventDefault(); ev.currentTarget.style.outline = '';
@@ -7842,7 +7854,7 @@ const IA = (() => {
       const val = ev.target.value.trim();
       if (val && textPend) {
         strokes.push({ type:'text', color, size, dashed:false, opacity, text:val, x1:textPend.x, y1:textPend.y });
-        redoStack = []; $ia('ia-drop-hint').classList.add('ia-hidden');
+        redoStack = []; $('ia-drop-hint').classList.add('ia-hidden');
         _redraw(); _updateStatus();
       }
       ev.target.style.display = 'none'; textPend = null;
@@ -7850,65 +7862,64 @@ const IA = (() => {
   }
 
   function download() {
-    const c = _c(); if (!c?.width) return;
-    const m = document.createElement('canvas'); m.width = c.width; m.height = c.height;
+    const cv = _c(); if (!cv?.width) return;
+    const m = document.createElement('canvas'); m.width = cv.width; m.height = cv.height;
     const mx = m.getContext('2d');
-    if (!hasImage) { mx.fillStyle = '#1a1a1a'; mx.fillRect(0,0,c.width,c.height); }
-    const img = _bg(); if (img.naturalWidth) mx.drawImage(img,0,0,c.width,c.height);
-    mx.drawImage(c,0,0);
+    if (!hasImage) { mx.fillStyle = '#1a1a1a'; mx.fillRect(0,0,cv.width,cv.height); }
+    const img = _bg(); if (img.naturalWidth) mx.drawImage(img,0,0,cv.width,cv.height);
+    mx.drawImage(cv,0,0);
     const lnk = document.createElement('a'); lnk.download='annotation.png'; lnk.href=m.toDataURL('image/png'); lnk.click();
   }
 
-  // Called from showModule — deferred so layout is complete
   function onShow() {
     requestAnimationFrame(() => { if (!hasImage) _sizeBlank(); else _redraw(); });
   }
 
   function init() {
-    const c = _c(); if (!c) return;
-    c.style.touchAction = 'none';   // prevent default touch scroll on canvas
-    c.style.display = 'block';
+    const w = _wrap(); if (!w) return;
 
-    // Mouse on canvas
-    c.addEventListener('mousedown', _md);
-    c.addEventListener('mousemove', _mm);
-    // Mouseup + pan-mousemove on document so they work outside canvas
-    document.addEventListener('mouseup',    _mu);
-    document.addEventListener('mousemove', e => {
-      if (!panning || !panRef) return;
-      const w = _wrap(); if (!w) return;
-      w.scrollLeft = panRef.sl - (e.clientX - panRef.x);
-      w.scrollTop  = panRef.st - (e.clientY - panRef.y);
-    });
+    // ── All mouse events on WRAP (more reliable than canvas) ──
+    w.addEventListener('mousedown', _md);
+    // mousemove + mouseup on document so they fire outside the wrap during drag
+    document.addEventListener('mousemove', _mm);
+    document.addEventListener('mouseup',   _mu);
 
-    // Touch
-    c.addEventListener('touchstart',  e => _md(e), { passive: false });
-    c.addEventListener('touchmove',   e => _mm(e), { passive: false });
-    c.addEventListener('touchend',    _mu);
-    c.addEventListener('touchcancel', _mu);
+    // ── Touch ─────────────────────────────────────────────────
+    w.addEventListener('touchstart', e => {
+      if (!_inScene(e)) return;
+      const t = e.touches[0];
+      _md({ button:0, clientX:t.clientX, clientY:t.clientY, touches:e.touches, preventDefault:()=>e.preventDefault() });
+    }, { passive: false });
+    w.addEventListener('touchmove', e => {
+      const t = e.touches[0];
+      _mm({ clientX:t.clientX, clientY:t.clientY, touches:e.touches });
+      e.preventDefault();
+    }, { passive: false });
+    w.addEventListener('touchend',    _mu);
+    w.addEventListener('touchcancel', _mu);
 
-    // Ctrl+V paste image
+    // ── Ctrl+V paste image ────────────────────────────────────
     document.addEventListener('paste', e => {
-      if (!$ia('module-annotator')?.classList.contains('active')) return;
+      if (!$('module-annotator')?.classList.contains('active')) return;
       for (const item of (e.clipboardData?.items || [])) {
-        if (item.type.startsWith('image/')) { const f = item.getAsFile(); if (f) { _loadImage(f); e.preventDefault(); } break; }
+        if (item.type.startsWith('image/')) { const f=item.getAsFile(); if(f) { _loadImage(f); e.preventDefault(); } break; }
       }
     });
 
-    // Keyboard shortcuts
+    // ── Keyboard shortcuts ────────────────────────────────────
     document.addEventListener('keydown', e => {
-      if (!$ia('module-annotator')?.classList.contains('active')) return;
+      if (!$('module-annotator')?.classList.contains('active')) return;
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (e.code === 'Space' && !spaceDown) { e.preventDefault(); spaceDown = true; prevTool = tool; _cursor(); return; }
-      if (e.ctrlKey && e.key === 'z')                    { e.preventDefault(); undo(); return; }
-      if (e.ctrlKey && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
+      if (e.code === 'Space' && !spaceDown) { e.preventDefault(); spaceDown = true; _cursor(); return; }
+      if (e.ctrlKey && e.key === 'z')                     { e.preventDefault(); undo(); return; }
+      if (e.ctrlKey && (e.key === 'y' || e.key === 'Y'))  { e.preventDefault(); redo(); return; }
       if (e.ctrlKey) return;
       const map = { p:'pen', l:'line', r:'rect', a:'arrow', t:'text', e:'eraser', h:'pan' };
       const k = map[e.key.toLowerCase()]; if (k) setTool(k);
     });
     document.addEventListener('keyup', e => {
-      if (e.code === 'Space' && spaceDown) { spaceDown = false; _cursor(); }
+      if (e.code === 'Space') { spaceDown = false; _cursor(); }
     });
   }
 
