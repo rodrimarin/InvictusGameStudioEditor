@@ -617,6 +617,12 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
 .doc-img-thumb{position:relative;border-radius:4px;overflow:hidden;border:1px solid var(--border);transition:border-color .15s}
 .doc-img-thumb:hover{border-color:var(--gold)}
 .doc-img-thumb img{display:block;width:110px;height:70px;object-fit:cover;cursor:zoom-in}
+.doc-img-thumb video{display:block;width:110px;height:70px;object-fit:cover;border-radius:3px}
+/* Audio / RAW / placeholder media cards */
+.doc-media-placeholder{width:110px;height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:3px;box-sizing:border-box}
+.doc-media-audio{background:rgba(201,162,39,.10);border:1px solid rgba(201,162,39,.25)}
+.doc-media-raw{background:rgba(255,255,255,.04);border:1px solid var(--border)}
+.doc-media-label{font-size:7px;color:var(--text-muted);font-family:var(--fu);letter-spacing:.5px;text-transform:uppercase;padding:0 4px;text-align:center;word-break:break-all;line-height:1.3;max-width:106px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .doc-img-caption{width:100%;background:var(--bg-input);border:1px solid transparent;border-radius:3px;padding:2px 5px;font-size:9px;color:var(--text-secondary);font-family:var(--fb);outline:none;box-sizing:border-box}
 .doc-img-caption:focus{border-color:var(--gold-dim);color:var(--text-primary)}
 .doc-img-caption::placeholder{color:var(--text-muted)}
@@ -3414,6 +3420,33 @@ function _compressImg(dataURL, maxW=900, maxH=700, quality=0.82){
     img.src=dataURL;
   });
 }
+// Accepted media types for GDD/LDD galleries
+const DOC_MEDIA_ACCEPT='image/png,image/jpeg,image/gif,image/tiff,image/svg+xml,.tiff,.tif,.raw,.cr2,.nef,.arw,.dng,.orf,.rw2,.pef,video/mp4,.mp4,audio/mpeg,audio/mp3,.mp3';
+
+function _docMediaThumb(item, tmpId){
+  const mt=item.mediaType||'image';
+  if(mt==='video'){
+    // Video player inline — click outside to zoom fullscreen
+    return `<video src="${item.data}" style="display:block;width:110px;height:70px;object-fit:cover;border-radius:3px;cursor:pointer"
+      preload="metadata" onclick="_docImgZoom(window['${tmpId}'],'video')" title="Click para pantalla completa"></video>`;
+  }
+  if(mt==='audio'){
+    return `<div class="doc-media-placeholder doc-media-audio" style="cursor:pointer" onclick="_docImgZoom(window['${tmpId}'],'audio')" title="Click para reproducir">
+      <div style="font-size:20px;line-height:1">🎵</div>
+      <div class="doc-media-label">${(item.name||'Audio').replace(/"/g,'&quot;')}</div>
+    </div>`;
+  }
+  if(mt==='raw'){
+    return `<div class="doc-media-placeholder doc-media-raw">
+      <div style="font-size:20px;line-height:1">📷</div>
+      <div class="doc-media-label">${(item.name||'RAW').replace(/"/g,'&quot;')}</div>
+      <div style="font-size:7px;color:#c9a22799;font-family:var(--fu);letter-spacing:.5px">RAW — sin vista previa</div>
+    </div>`;
+  }
+  // image / svg — zoomable
+  return `<img src="${item.data}" onclick="_docImgZoom(window['${tmpId}'],'image')" title="Click para ampliar">`;
+}
+
 function _docImgGalleryHTML(doc, key){
   const imgs=(PS.data.docs[doc][key]&&PS.data.docs[doc][key]._images)||[];
   let h='';
@@ -3423,42 +3456,91 @@ function _docImgGalleryHTML(doc, key){
     const cap=(img.caption||'').replace(/"/g,'&quot;');
     h+=`<div class="doc-img-card">
       <div class="doc-img-thumb">
-        <img src="${img.data}" onclick="_docImgZoom(window['${tmpId}'])" title="Click to expand">
-        <button class="doc-img-del" onclick="docRemoveImage('${doc}','${key}',${i})" title="Remove">✕</button>
+        ${_docMediaThumb(img,tmpId)}
+        <button class="doc-img-del" onclick="docRemoveImage('${doc}','${key}',${i})" title="Eliminar">✕</button>
       </div>
-      <input class="doc-img-caption" type="text" placeholder="Add title..." value="${cap}"
+      <input class="doc-img-caption" type="text" placeholder="Agregar título..." value="${cap}"
         onchange="docUpdateCaption('${doc}','${key}',${i},this.value)"
         oninput="docUpdateCaption('${doc}','${key}',${i},this.value)">
     </div>`;
   });
-  h+=`<label class="doc-img-add" title="Add reference image (PNG, JPG, GIF, WebP)">
-    <span style="font-size:22px;line-height:1">+</span>
-    <span>Add Image</span>
-    <input type="file" accept="image/*" multiple onchange="docAddImage('${doc}','${key}',this)">
+  h+=`<label class="doc-img-add" title="PNG · JPG · GIF · TIFF · SVG · RAW · MP4 · MP3">
+    <span style="font-size:18px;line-height:1">+</span>
+    <span>Agregar</span>
+    <input type="file" accept="${DOC_MEDIA_ACCEPT}" multiple onchange="docAddImage('${doc}','${key}',this)">
   </label>`;
   return h;
 }
+
 function docAddImage(doc, key, input){
   const files=[...input.files];
-  if(!files.length)return;
+  if(!files.length) return;
   if(!PS.data.docs[doc][key]) PS.data.docs[doc][key]={};
   if(!PS.data.docs[doc][key]._images) PS.data.docs[doc][key]._images=[];
   let loaded=0;
   const total=files.length;
+
+  const _done=()=>{
+    loaded++;
+    if(loaded===total){
+      autoSave();
+      const el=document.getElementById('doc-imgs-'+doc+'-'+key);
+      if(el) el.innerHTML=_docImgGalleryHTML(doc,key);
+      showToast(total===1?'Archivo agregado ✓':total+' archivos agregados ✓');
+    }
+  };
+
   files.forEach(file=>{
+    const mime=file.type||'';
+    const ext=(file.name.split('.').pop()||'').toLowerCase();
+    const isVideo=mime.startsWith('video/')||ext==='mp4';
+    const isAudio=mime.startsWith('audio/')||ext==='mp3';
+    const isSVG=mime==='image/svg+xml'||ext==='svg';
+    const isRAW=['raw','cr2','nef','arw','dng','orf','rw2','pef'].includes(ext);
+
+    // Size guard for video/audio (max 30 MB)
+    if((isVideo||isAudio)&&file.size>30*1024*1024){
+      showToast(`⚠ "${file.name}" supera los 30 MB — no se agregó`);
+      loaded++; // still count so _done fires correctly
+      if(loaded===total){ const el=document.getElementById('doc-imgs-'+doc+'-'+key); if(el) el.innerHTML=_docImgGalleryHTML(doc,key); }
+      return;
+    }
+
     const reader=new FileReader();
     reader.onload=ev=>{
-      // Compress to ~100-200KB JPEG so Firebase stays small
-      _compressImg(ev.target.result).then(compressed=>{
-        PS.data.docs[doc][key]._images.push({data:compressed,name:file.name});
-        loaded++;
-        if(loaded===total){
-          autoSave();
-          const el=document.getElementById('doc-imgs-'+doc+'-'+key);
-          if(el) el.innerHTML=_docImgGalleryHTML(doc,key);
-          showToast(total===1?'Image added ✓':total+' images added ✓');
-        }
-      });
+      const dataURL=ev.target.result;
+      if(isVideo){
+        PS.data.docs[doc][key]._images.push({data:dataURL,name:file.name,caption:'',mediaType:'video'});
+        _done();
+      } else if(isAudio){
+        PS.data.docs[doc][key]._images.push({data:dataURL,name:file.name,caption:'',mediaType:'audio'});
+        _done();
+      } else if(isSVG){
+        // SVG: store as-is (already lightweight)
+        PS.data.docs[doc][key]._images.push({data:dataURL,name:file.name,caption:'',mediaType:'svg'});
+        _done();
+      } else if(isRAW){
+        // Try browser decode; fallback to placeholder if browser can't read RAW
+        const testImg=new Image();
+        testImg.onload=()=>{
+          _compressImg(dataURL).then(compressed=>{
+            PS.data.docs[doc][key]._images.push({data:compressed,name:file.name,caption:'',mediaType:'image'});
+            _done();
+          });
+        };
+        testImg.onerror=()=>{
+          // Store data URL as placeholder (can't preview RAW in browser)
+          PS.data.docs[doc][key]._images.push({data:dataURL,name:file.name,caption:'',mediaType:'raw'});
+          _done();
+        };
+        testImg.src=dataURL;
+      } else {
+        // Regular image (PNG/JPG/GIF/TIFF) → compress to JPEG
+        _compressImg(dataURL).then(compressed=>{
+          PS.data.docs[doc][key]._images.push({data:compressed,name:file.name,caption:'',mediaType:'image'});
+          _done();
+        });
+      }
     };
     reader.readAsDataURL(file);
   });
@@ -3475,14 +3557,41 @@ function docUpdateCaption(doc, key, idx, caption){
   if(imgs&&imgs[idx]) imgs[idx].caption=caption;
   autoSave();
 }
-function _docImgZoom(src){
-  // Open fullscreen lightbox overlay
+function _docImgZoom(src, mediaType){
+  const mt=mediaType||'image';
   const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
-  ov.onclick=()=>ov.remove();
-  const img=document.createElement('img');
-  img.src=src;img.style.cssText='max-width:90vw;max-height:90vh;border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,.6)';
-  ov.appendChild(img);document.body.appendChild(ov);
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px';
+  // Close on backdrop click (not on media element)
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  // Close button
+  const cls=document.createElement('button');
+  cls.textContent='✕ Cerrar';
+  cls.style.cssText='position:absolute;top:16px;right:20px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:var(--fu)';
+  cls.onclick=()=>ov.remove();
+  ov.appendChild(cls);
+  if(mt==='video'){
+    const vid=document.createElement('video');
+    vid.src=src; vid.controls=true; vid.autoplay=true;
+    vid.style.cssText='max-width:90vw;max-height:85vh;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.7)';
+    ov.appendChild(vid);
+  } else if(mt==='audio'){
+    const wrap=document.createElement('div');
+    wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:16px';
+    const icon=document.createElement('div');
+    icon.textContent='🎵'; icon.style.fontSize='64px';
+    const aud=document.createElement('audio');
+    aud.src=src; aud.controls=true; aud.autoplay=true;
+    aud.style.cssText='width:340px;max-width:90vw';
+    wrap.appendChild(icon); wrap.appendChild(aud);
+    ov.appendChild(wrap);
+  } else {
+    // image / svg
+    const img=document.createElement('img');
+    img.src=src; img.style.cssText='max-width:90vw;max-height:85vh;border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,.6);cursor:zoom-out';
+    img.onclick=()=>ov.remove();
+    ov.appendChild(img);
+  }
+  document.body.appendChild(ov);
 }
 
 function switchDocSec(doc, key) {
