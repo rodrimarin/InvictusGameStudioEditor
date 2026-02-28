@@ -638,6 +638,34 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
 .doc-upload-label{font-size:7px;color:var(--gold-dim);font-family:var(--fu);letter-spacing:.4px;text-align:center;line-height:1.4;padding:0 4px}
 
 /* ════════════════════════════════════════════════════════════
+   IMAGE ANNOTATOR
+   ════════════════════════════════════════════════════════════ */
+#ia-wrap{display:flex;flex-direction:column;flex:1;overflow:hidden;background:var(--bg-panel)}
+#ia-toolbar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--bg-card);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.ia-tool{width:30px;height:30px;border:1px solid var(--border);border-radius:5px;background:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);transition:all .15s;flex-shrink:0}
+.ia-tool:hover{border-color:var(--gold-dim);color:var(--gold);background:rgba(201,162,39,.07)}
+.ia-tool.active{border-color:var(--gold);color:var(--gold);background:rgba(201,162,39,.14)}
+.ia-div{width:1px;height:22px;background:var(--border);margin:0 2px;flex-shrink:0}
+.ia-color-swatch{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;transition:all .12s;flex-shrink:0}
+.ia-color-swatch.active{border-color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.4)}
+.ia-color-swatch:hover{transform:scale(1.15)}
+#ia-size{accent-color:var(--gold);width:70px}
+#ia-canvas-wrap{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;background:repeating-conic-gradient(#1a1a1a 0% 25%,#141414 0% 50%) 0 0/20px 20px;position:relative;cursor:crosshair;padding:16px}
+#ia-canvas-wrap.ia-empty{cursor:default;padding:0}
+#ia-inner{position:relative;display:inline-block;line-height:0;flex-shrink:0}
+#ia-bg{display:none;user-select:none;pointer-events:none;max-width:none;max-height:none}
+#ia-canvas{position:absolute;top:0;left:0;display:none}
+#ia-drop-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-secondary);font-family:var(--fu);font-size:12px;letter-spacing:1px;text-transform:uppercase;width:100%;height:100%;cursor:pointer;transition:background .15s}
+#ia-drop-zone:hover{background:rgba(201,162,39,.03)}
+#ia-drop-zone .ia-drop-icon{font-size:42px;opacity:.25}
+#ia-drop-zone .ia-drop-lbl{opacity:.5}
+#ia-drop-zone.ia-hidden{display:none}
+#ia-status{padding:4px 12px;font-family:var(--fm);font-size:10px;color:var(--text-muted);background:var(--bg-card);border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:12px}
+.ia-lbl{font-family:var(--fu);font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text-muted)}
+/* text input overlay */
+#ia-text-input-el{display:none;position:fixed;z-index:800;background:rgba(0,0,0,.85);border:1px solid var(--gold);border-radius:4px;padding:4px 8px;font-family:var(--fb);font-size:14px;color:#fff;outline:none;min-width:120px;max-width:320px}
+
+/* ════════════════════════════════════════════════════════════
    LAYER CONTEXT MENU
    ════════════════════════════════════════════════════════════ */
 #layer-ctx-menu {
@@ -759,6 +787,10 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
     <div class="sb-item" data-mod="export" onclick="showModule('export')">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="8,1 8,11"/><polyline points="4,7 8,11 12,7"/><rect x="2" y="13" width="12" height="2"/></svg>
       <span data-i18n="export">Export</span>
+    </div>
+    <div class="sb-item" data-mod="annotator" onclick="showModule('annotator')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13 L3 10 L10 3 L13 6 L6 13 Z"/><line x1="8" y1="5" x2="11" y2="8"/><line x1="3" y1="13" x2="1" y2="15"/></svg>
+      <span>Annotator</span>
     </div>
 
     <div class="sb-sec" style="margin-top:6px;" data-i18n="study">Study</div>
@@ -1257,6 +1289,89 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
           <div id="notes-items-list" style="flex:1;overflow-y:auto;padding:12px 16px;"></div>
         </div>
       </div>
+    </div>
+
+    <!-- ===== IMAGE ANNOTATOR ===== -->
+    <div class="module" id="module-annotator">
+      <div class="mod-hdr">
+        <div class="mod-title">🖊 Image Annotator</div>
+        <div class="mod-sub">Draw &amp; analyze images</div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <button class="btn btn-sm" onclick="IA.loadFile()">📁 Open Image</button>
+          <button class="btn btn-sm" onclick="IA.download()" id="ia-download-btn" style="display:none">⬇ Download</button>
+          <button class="btn btn-sm" onclick="IA.clear()" id="ia-clear-btn" style="display:none">🗑 Clear Annotations</button>
+        </div>
+      </div>
+      <div id="ia-wrap">
+        <!-- TOOLBAR -->
+        <div id="ia-toolbar">
+          <!-- Tools -->
+          <span class="ia-lbl">Tool</span>
+          <button class="ia-tool active" id="ia-t-pen"    title="Pen (P)"      onclick="IA.setTool('pen')">✏️</button>
+          <button class="ia-tool"        id="ia-t-line"   title="Line (L)"     onclick="IA.setTool('line')">╱</button>
+          <button class="ia-tool"        id="ia-t-rect"   title="Rectangle (R)"onclick="IA.setTool('rect')">▭</button>
+          <button class="ia-tool"        id="ia-t-arrow"  title="Arrow (A)"    onclick="IA.setTool('arrow')">↗</button>
+          <button class="ia-tool"        id="ia-t-text"   title="Text (T)"     onclick="IA.setTool('text')">T</button>
+          <button class="ia-tool"        id="ia-t-eraser" title="Eraser (E)"   onclick="IA.setTool('eraser')" style="font-size:12px">⌫</button>
+          <div class="ia-div"></div>
+          <!-- Color swatches -->
+          <span class="ia-lbl">Color</span>
+          <div class="ia-color-swatch active" id="ia-sw-0" style="background:#FFD700" title="Yellow" onclick="IA.setColor('#FFD700',0)"></div>
+          <div class="ia-color-swatch"        id="ia-sw-1" style="background:#FFFFFF" title="White"  onclick="IA.setColor('#FFFFFF',1)"></div>
+          <div class="ia-color-swatch"        id="ia-sw-2" style="background:#00CFFF" title="Blue"   onclick="IA.setColor('#00CFFF',2)"></div>
+          <div class="ia-color-swatch"        id="ia-sw-3" style="background:#FF3333" title="Red"    onclick="IA.setColor('#FF3333',3)"></div>
+          <div class="ia-color-swatch"        id="ia-sw-4" style="background:#4ECB71" title="Green"  onclick="IA.setColor('#4ECB71',4)"></div>
+          <div class="ia-color-swatch"        id="ia-sw-5" style="background:#FF8C00" title="Orange" onclick="IA.setColor('#FF8C00',5)"></div>
+          <input type="color" id="ia-custom-color" value="#FFD700" title="Custom color"
+            oninput="IA.setColor(this.value,'custom')"
+            style="width:22px;height:22px;border-radius:4px;border:1px solid var(--border);padding:1px;cursor:pointer;background:none;flex-shrink:0">
+          <div class="ia-div"></div>
+          <!-- Size -->
+          <span class="ia-lbl">Size</span>
+          <input type="range" id="ia-size" min="1" max="30" value="3" oninput="IA.setSize(+this.value)">
+          <span id="ia-size-lbl" style="font-family:var(--fm);font-size:11px;color:var(--text-secondary);min-width:18px">3</span>
+          <div class="ia-div"></div>
+          <!-- Style -->
+          <span class="ia-lbl">Style</span>
+          <button class="ia-tool active" id="ia-solid-btn" title="Solid line"  onclick="IA.setDash(false)" style="font-size:10px;width:36px">───</button>
+          <button class="ia-tool"        id="ia-dash-btn"  title="Dashed line" onclick="IA.setDash(true)"  style="font-size:10px;width:36px">╌╌╌</button>
+          <!-- Opacity -->
+          <div class="ia-div"></div>
+          <span class="ia-lbl">Opacity</span>
+          <input type="range" id="ia-opacity" min="10" max="100" value="100" oninput="IA.setOpacity(+this.value)" style="accent-color:var(--gold);width:60px">
+          <div class="ia-div"></div>
+          <!-- Undo -->
+          <button class="ia-tool" onclick="IA.undo()" title="Undo (Ctrl+Z)" style="width:36px;font-size:11px">↩</button>
+        </div>
+
+        <!-- CANVAS AREA -->
+        <div id="ia-canvas-wrap" class="ia-empty"
+          ondragover="event.preventDefault();event.currentTarget.style.background='rgba(201,162,39,.06)'"
+          ondragleave="event.currentTarget.style.background=''"
+          ondrop="IA.onDrop(event)">
+          <div id="ia-drop-zone" onclick="IA.loadFile()">
+            <div class="ia-drop-icon">🖼</div>
+            <div>Drop an image here or click to open</div>
+            <div class="ia-drop-lbl">PNG · JPG · GIF · WebP · SVG</div>
+          </div>
+          <div id="ia-inner">
+            <img id="ia-bg" alt="annotated image">
+            <canvas id="ia-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- STATUS BAR -->
+        <div id="ia-status">
+          <span id="ia-status-tool" style="color:var(--gold);font-family:var(--fu);font-size:10px;letter-spacing:.5px;text-transform:uppercase">Pen</span>
+          <span id="ia-status-color" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFD700;flex-shrink:0"></span>
+          <span id="ia-status-xy">x:0 y:0</span>
+          <span id="ia-status-strokes" style="margin-left:auto">0 strokes</span>
+        </div>
+      </div>
+      <!-- hidden file input -->
+      <input type="file" id="ia-file-input" accept="image/*" style="display:none" onchange="IA.onFileInput(event)">
+      <!-- floating text input -->
+      <input type="text" id="ia-text-input-el" placeholder="Type label…" onkeydown="IA.onTextKey(event)">
     </div>
 
   </div><!-- #content -->
@@ -7464,6 +7579,344 @@ function _initNavResize(navId){
   });
 }
 
+// ════════════════════════════════════════════════════════════
+// IMAGE ANNOTATOR (IA)
+// ════════════════════════════════════════════════════════════
+const IA = (() => {
+  let tool = 'pen';
+  let color = '#FFD700';
+  let size = 3;
+  let dashed = false;
+  let opacity = 1;
+  let drawing = false;
+  let strokes = []; // [{type, color, size, dashed, opacity, points/x1/y1/x2/y2/text}]
+  let currentStroke = null;
+  let imgW = 0, imgH = 0;
+  let scale = 1;
+  let textPending = null; // {x, y} for text placement
+
+  function _canvas() { return document.getElementById('ia-canvas'); }
+  function _bg()     { return document.getElementById('ia-bg'); }
+  function _ctx()    { const c = _canvas(); return c ? c.getContext('2d') : null; }
+  function _wrap()   { return document.getElementById('ia-canvas-wrap'); }
+
+  // ── Setup canvas dimensions to match image ────────────────
+  function _resize(w, h) {
+    imgW = w; imgH = h;
+    const c = _canvas();
+    c.width  = w;
+    c.height = h;
+    _redraw();
+  }
+
+  // ── Load image from File object ───────────────────────────
+  function _loadImage(file) {
+    const url = URL.createObjectURL(file);
+    const img = _bg();
+    img.onload = () => {
+      _resize(img.naturalWidth, img.naturalHeight);
+      img.style.display = 'block';
+      _canvas().style.display = 'block';
+      document.getElementById('ia-drop-zone').classList.add('ia-hidden');
+      _wrap().classList.remove('ia-empty');
+      document.getElementById('ia-download-btn').style.display = '';
+      document.getElementById('ia-clear-btn').style.display = '';
+      strokes = [];
+      _redraw();
+      _updateStatus();
+    };
+    img.src = url;
+  }
+
+  // ── Redraw all strokes ────────────────────────────────────
+  function _redraw() {
+    const ctx = _ctx(); if (!ctx) return;
+    ctx.clearRect(0, 0, imgW, imgH);
+    strokes.forEach(s => _drawStroke(ctx, s));
+    if (currentStroke) _drawStroke(ctx, currentStroke);
+  }
+
+  function _drawStroke(ctx, s) {
+    ctx.save();
+    ctx.globalAlpha = s.opacity;
+    ctx.strokeStyle = s.color;
+    ctx.fillStyle   = s.color;
+    ctx.lineWidth   = s.size;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    if (s.dashed) ctx.setLineDash([s.size * 3, s.size * 2]);
+    else           ctx.setLineDash([]);
+
+    if (s.type === 'pen') {
+      if (!s.points || s.points.length < 2) {
+        // single dot
+        if (s.points && s.points.length === 1) {
+          ctx.beginPath();
+          ctx.arc(s.points[0].x, s.points[0].y, s.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(s.points[0].x, s.points[0].y);
+        for (let i = 1; i < s.points.length; i++) {
+          const mid = { x:(s.points[i-1].x+s.points[i].x)/2, y:(s.points[i-1].y+s.points[i].y)/2 };
+          ctx.quadraticCurveTo(s.points[i-1].x, s.points[i-1].y, mid.x, mid.y);
+        }
+        ctx.lineTo(s.points[s.points.length-1].x, s.points[s.points.length-1].y);
+        ctx.stroke();
+      }
+    } else if (s.type === 'line') {
+      ctx.beginPath();
+      ctx.moveTo(s.x1, s.y1);
+      ctx.lineTo(s.x2, s.y2);
+      ctx.stroke();
+    } else if (s.type === 'rect') {
+      ctx.beginPath();
+      ctx.rect(s.x1, s.y1, s.x2 - s.x1, s.y2 - s.y1);
+      ctx.stroke();
+    } else if (s.type === 'arrow') {
+      const dx = s.x2 - s.x1, dy = s.y2 - s.y1;
+      const angle = Math.atan2(dy, dx);
+      const len   = Math.sqrt(dx*dx + dy*dy);
+      const headLen = Math.max(12, s.size * 4);
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(s.x1, s.y1);
+      ctx.lineTo(s.x2, s.y2);
+      ctx.stroke();
+      // arrowhead
+      ctx.beginPath();
+      ctx.moveTo(s.x2, s.y2);
+      ctx.lineTo(s.x2 - headLen * Math.cos(angle - Math.PI/7), s.y2 - headLen * Math.sin(angle - Math.PI/7));
+      ctx.lineTo(s.x2 - headLen * Math.cos(angle + Math.PI/7), s.y2 - headLen * Math.sin(angle + Math.PI/7));
+      ctx.closePath();
+      ctx.fill();
+    } else if (s.type === 'text') {
+      ctx.setLineDash([]);
+      const fs = Math.max(12, s.size * 4);
+      ctx.font = `bold ${fs}px 'Rajdhani', sans-serif`;
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      ctx.lineWidth = fs / 6;
+      ctx.strokeText(s.text, s.x1, s.y1);
+      ctx.fillStyle = s.color;
+      ctx.fillText(s.text, s.x1, s.y1);
+    }
+    ctx.restore();
+  }
+
+  // ── Coordinate conversion: mouse → canvas ─────────────────
+  function _canvasXY(e) {
+    const c   = _canvas();
+    const r   = c.getBoundingClientRect();
+    // canvas CSS size vs actual size
+    const scX = imgW / r.width;
+    const scY = imgH / r.height;
+    const cx  = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy  = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (cx - r.left) * scX, y: (cy - r.top) * scY };
+  }
+
+  // ── Mouse / Touch events ───────────────────────────────────
+  function _md(e) {
+    if (!imgW) return;
+    if (tool === 'eraser') { _erase(e); return; }
+    if (tool === 'text')   { _placeText(e); return; }
+    drawing = true;
+    const p = _canvasXY(e);
+    if (tool === 'pen') {
+      currentStroke = { type:'pen', color, size, dashed, opacity, points:[p] };
+    } else {
+      currentStroke = { type:tool, color, size, dashed, opacity, x1:p.x, y1:p.y, x2:p.x, y2:p.y };
+    }
+    e.preventDefault();
+  }
+
+  function _mm(e) {
+    if (!drawing || !currentStroke) return;
+    const p = _canvasXY(e);
+    _updateXY(p);
+    if (tool === 'pen') {
+      currentStroke.points.push(p);
+    } else {
+      currentStroke.x2 = p.x; currentStroke.y2 = p.y;
+    }
+    _redraw();
+    e.preventDefault();
+  }
+
+  function _mu(e) {
+    if (!drawing) return;
+    drawing = false;
+    if (currentStroke) {
+      // Ignore zero-length shapes
+      if (tool !== 'pen' || currentStroke.points.length > 0) {
+        strokes.push(currentStroke);
+      }
+      currentStroke = null;
+    }
+    _redraw();
+    _updateStatus();
+  }
+
+  function _erase(e) {
+    const p = _canvasXY(e);
+    const r = Math.max(size * 5, 15);
+    strokes = strokes.filter(s => {
+      if (s.type === 'pen') return !s.points.some(pt => Math.hypot(pt.x-p.x, pt.y-p.y) < r);
+      const cx = ((s.x1||0) + (s.x2||0)) / 2;
+      const cy = ((s.y1||0) + (s.y2||0)) / 2;
+      return Math.hypot(cx-p.x, cy-p.y) > r;
+    });
+    _redraw();
+    _updateStatus();
+  }
+
+  function _placeText(e) {
+    const p = _canvasXY(e);
+    textPending = p;
+    const el = document.getElementById('ia-text-input-el');
+    el.style.left = e.clientX + 'px';
+    el.style.top  = (e.clientY - 30) + 'px';
+    el.style.display = 'block';
+    el.value = '';
+    el.focus();
+  }
+
+  function _updateXY(p) {
+    document.getElementById('ia-status-xy').textContent =
+      `x:${Math.round(p.x)} y:${Math.round(p.y)}`;
+  }
+
+  function _updateStatus() {
+    document.getElementById('ia-status-strokes').textContent =
+      strokes.length + ' stroke' + (strokes.length !== 1 ? 's' : '');
+  }
+
+  // ── Public API ────────────────────────────────────────────
+  function setTool(t) {
+    tool = t;
+    document.querySelectorAll('.ia-tool[id^="ia-t-"]').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('ia-t-' + t);
+    if (btn) btn.classList.add('active');
+    document.getElementById('ia-status-tool').textContent = t.charAt(0).toUpperCase() + t.slice(1);
+    _wrap().style.cursor = t === 'text' ? 'text' : t === 'eraser' ? 'cell' : 'crosshair';
+  }
+
+  function setColor(c, swIdx) {
+    color = c;
+    document.querySelectorAll('.ia-color-swatch').forEach(s => s.classList.remove('active'));
+    if (typeof swIdx === 'number') {
+      const sw = document.getElementById('ia-sw-' + swIdx);
+      if (sw) sw.classList.add('active');
+    }
+    document.getElementById('ia-status-color').style.background = c;
+  }
+
+  function setSize(v) {
+    size = v;
+    document.getElementById('ia-size-lbl').textContent = v;
+  }
+
+  function setDash(v) {
+    dashed = v;
+    document.getElementById('ia-solid-btn').classList.toggle('active', !v);
+    document.getElementById('ia-dash-btn').classList.toggle('active',  v);
+  }
+
+  function setOpacity(v) { opacity = v / 100; }
+
+  function undo() {
+    strokes.pop();
+    _redraw();
+    _updateStatus();
+  }
+
+  function clear() {
+    if (!confirm('Clear all annotations?')) return;
+    strokes = [];
+    _redraw();
+    _updateStatus();
+  }
+
+  function loadFile() {
+    document.getElementById('ia-file-input').click();
+  }
+
+  function onFileInput(ev) {
+    const f = ev.target.files[0];
+    if (f) _loadImage(f);
+    ev.target.value = '';
+  }
+
+  function onDrop(ev) {
+    ev.preventDefault();
+    ev.currentTarget.style.background = '';
+    const f = ev.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) _loadImage(f);
+  }
+
+  function onTextKey(ev) {
+    if (ev.key === 'Enter') {
+      const val = ev.target.value.trim();
+      if (val && textPending) {
+        strokes.push({ type:'text', color, size, dashed:false, opacity, text:val, x1:textPending.x, y1:textPending.y });
+        _redraw();
+        _updateStatus();
+      }
+      ev.target.style.display = 'none';
+      textPending = null;
+    } else if (ev.key === 'Escape') {
+      ev.target.style.display = 'none';
+      textPending = null;
+    }
+  }
+
+  function download() {
+    const merged = document.createElement('canvas');
+    merged.width  = imgW;
+    merged.height = imgH;
+    const mctx = merged.getContext('2d');
+    const img = _bg();
+    if (img.naturalWidth) mctx.drawImage(img, 0, 0, imgW, imgH);
+    mctx.drawImage(_canvas(), 0, 0);
+    const link = document.createElement('a');
+    link.download = 'annotation.png';
+    link.href = merged.toDataURL('image/png');
+    link.click();
+  }
+
+  function init() {
+    const c = _canvas();
+    if (!c) return;
+    c.addEventListener('mousedown',  _md);
+    c.addEventListener('mousemove',  _mm);
+    c.addEventListener('mouseup',    _mu);
+    c.addEventListener('mouseleave', _mu);
+    c.addEventListener('touchstart', _md, {passive:false});
+    c.addEventListener('touchmove',  _mm, {passive:false});
+    c.addEventListener('touchend',   _mu);
+
+    // Eraser also on mousemove while mousedown
+    let eraserDown = false;
+    c.addEventListener('mousedown', e => { if (tool === 'eraser') { eraserDown = true; _erase(e); } });
+    c.addEventListener('mousemove', e => { if (tool === 'eraser' && eraserDown) _erase(e); });
+    document.addEventListener('mouseup', () => { eraserDown = false; });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+      const tag = document.activeElement.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      const mod = document.getElementById('module-annotator');
+      if (!mod || !mod.classList.contains('active')) return;
+      if (e.ctrlKey && e.key === 'z') { undo(); return; }
+      const map = { p:'pen', l:'line', r:'rect', a:'arrow', t:'text', e:'eraser' };
+      if (map[e.key]) setTool(map[e.key]);
+    });
+  }
+
+  return { setTool, setColor, setSize, setDash, setOpacity, undo, clear, loadFile, onFileInput, onDrop, onTextKey, download, init };
+})();
+
 function init() {
   PS.load();
   PS.loadIDB(() => {
@@ -7495,6 +7948,9 @@ function init() {
     requestNotifPermission();
     setTimeout(checkDeadlineNotifications, 3000); // after data loads
     setInterval(checkDeadlineNotifications, 3600000); // re-check every hour
+
+    // Image Annotator canvas event binding
+    IA.init();
 
     // Autosave every 90s (belt-and-suspenders fallback)
     setInterval(()=>{collectDocData();mapSaveCurrent();PS.save();if(CLOUD.enabled)cloudPush();FIREBASE.push();},90000);
