@@ -640,7 +640,7 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
 /* ════════════════════════════════════════════════════════════
    IMAGE ANNOTATOR
    ════════════════════════════════════════════════════════════ */
-#ia-wrap{display:flex;flex-direction:column;flex:1;overflow:hidden;background:var(--bg-panel)}
+#ia-wrap{display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0}
 #ia-toolbar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--bg-card);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .ia-tool{width:30px;height:30px;border:1px solid var(--border);border-radius:5px;background:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);transition:all .15s;flex-shrink:0}
 .ia-tool:hover{border-color:var(--gold-dim);color:var(--gold);background:rgba(201,162,39,.07)}
@@ -650,20 +650,22 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
 .ia-color-swatch.active{border-color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.4)}
 .ia-color-swatch:hover{transform:scale(1.15)}
 #ia-size{accent-color:var(--gold);width:70px}
-#ia-canvas-wrap{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;background:repeating-conic-gradient(#1a1a1a 0% 25%,#141414 0% 50%) 0 0/20px 20px;position:relative;cursor:crosshair;padding:16px}
-#ia-canvas-wrap.ia-empty{cursor:default;padding:0}
-#ia-inner{position:relative;display:inline-block;line-height:0;flex-shrink:0}
-#ia-bg{display:none;user-select:none;pointer-events:none;max-width:none;max-height:none}
-#ia-canvas{position:absolute;top:0;left:0;display:none}
-#ia-drop-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-secondary);font-family:var(--fu);font-size:12px;letter-spacing:1px;text-transform:uppercase;width:100%;height:100%;cursor:pointer;transition:background .15s}
-#ia-drop-zone:hover{background:rgba(201,162,39,.03)}
-#ia-drop-zone .ia-drop-icon{font-size:42px;opacity:.25}
-#ia-drop-zone .ia-drop-lbl{opacity:.5}
-#ia-drop-zone.ia-hidden{display:none}
+/* Canvas wrap: relative container, canvas + image positioned absolutely inside */
+#ia-canvas-wrap{flex:1;overflow:auto;position:relative;cursor:crosshair;background:repeating-conic-gradient(#1c1c1c 0% 25%,#141414 0% 50%) 0 0/20px 20px;min-height:0}
+/* Image: absolute, JS will set top/left/width/height when loaded */
+#ia-bg{position:absolute;display:none;user-select:none;pointer-events:none;max-width:none}
+/* Canvas: always visible, fills wrap by default (JS resizes it) */
+#ia-canvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+/* Hint overlay (non-interactive, shows until first stroke or image load) */
+#ia-drop-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none;user-select:none;z-index:2}
+#ia-drop-hint .ia-hint-icon{font-size:40px;opacity:.1}
+#ia-drop-hint .ia-hint-txt{font-family:var(--fu);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:rgba(201,162,39,.25)}
+#ia-drop-hint .ia-hint-sub{font-family:var(--fm);font-size:9px;color:rgba(255,255,255,.12);letter-spacing:.5px}
+#ia-drop-hint.ia-hidden{display:none}
 #ia-status{padding:4px 12px;font-family:var(--fm);font-size:10px;color:var(--text-muted);background:var(--bg-card);border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:12px}
 .ia-lbl{font-family:var(--fu);font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text-muted)}
-/* text input overlay */
-#ia-text-input-el{display:none;position:fixed;z-index:800;background:rgba(0,0,0,.85);border:1px solid var(--gold);border-radius:4px;padding:4px 8px;font-family:var(--fb);font-size:14px;color:#fff;outline:none;min-width:120px;max-width:320px}
+/* Floating text input */
+#ia-text-input-el{display:none;position:fixed;z-index:800;background:rgba(0,0,0,.88);border:1px solid var(--gold);border-radius:4px;padding:5px 10px;font-family:var(--fb);font-size:15px;color:#fff;outline:none;min-width:140px;max-width:340px}
 
 /* ════════════════════════════════════════════════════════════
    LAYER CONTEXT MENU
@@ -1340,24 +1342,26 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
           <span class="ia-lbl">Opacity</span>
           <input type="range" id="ia-opacity" min="10" max="100" value="100" oninput="IA.setOpacity(+this.value)" style="accent-color:var(--gold);width:60px">
           <div class="ia-div"></div>
-          <!-- Undo -->
+          <!-- Undo / Redo -->
           <button class="ia-tool" onclick="IA.undo()" title="Undo (Ctrl+Z)" style="width:36px;font-size:11px">↩</button>
+          <button class="ia-tool" onclick="IA.redo()" title="Redo (Ctrl+Y)" style="width:36px;font-size:11px">↪</button>
         </div>
 
         <!-- CANVAS AREA -->
-        <div id="ia-canvas-wrap" class="ia-empty"
-          ondragover="event.preventDefault();event.currentTarget.style.background='rgba(201,162,39,.06)'"
-          ondragleave="event.currentTarget.style.background=''"
+        <div id="ia-canvas-wrap"
+          ondragover="event.preventDefault();event.currentTarget.style.outline='2px dashed rgba(201,162,39,.5)'"
+          ondragleave="event.currentTarget.style.outline=''"
           ondrop="IA.onDrop(event)">
-          <div id="ia-drop-zone" onclick="IA.loadFile()">
-            <div class="ia-drop-icon">🖼</div>
-            <div>Drop an image here or click to open</div>
-            <div class="ia-drop-lbl">PNG · JPG · GIF · WebP · SVG</div>
+          <!-- Hint overlay (non-interactive) -->
+          <div id="ia-drop-hint">
+            <div class="ia-hint-icon">🖊</div>
+            <div class="ia-hint-txt">Draw freely — or drop an image</div>
+            <div class="ia-hint-sub">PNG · JPG · GIF · WebP · SVG</div>
           </div>
-          <div id="ia-inner">
-            <img id="ia-bg" alt="annotated image">
-            <canvas id="ia-canvas"></canvas>
-          </div>
+          <!-- Background image (shown when loaded) -->
+          <img id="ia-bg" alt="">
+          <!-- Drawing canvas (always visible) -->
+          <canvas id="ia-canvas"></canvas>
         </div>
 
         <!-- STATUS BAR -->
@@ -1694,6 +1698,7 @@ function showModule(name) {
   if (name === 'ldd') { populateLDDMapLink(); }
   if (name === 'studying') { ensureStudying(); renderStudyTopics(); renderStudyNotes(); }
   if (name === 'notes') { ensureNotes(); renderNotesLists(); renderNotesItems(); }
+  if (name === 'annotator') { IA.onShow(); }
   // Update presence immediately so others see which module you switched to
   if (FIREBASE._ready) FIREBASE._writePresence();
 }
@@ -7583,60 +7588,101 @@ function _initNavResize(navId){
 // IMAGE ANNOTATOR (IA)
 // ════════════════════════════════════════════════════════════
 const IA = (() => {
-  let tool = 'pen';
-  let color = '#FFD700';
-  let size = 3;
-  let dashed = false;
-  let opacity = 1;
-  let drawing = false;
-  let strokes = []; // [{type, color, size, dashed, opacity, points/x1/y1/x2/y2/text}]
-  let currentStroke = null;
-  let imgW = 0, imgH = 0;
-  let scale = 1;
-  let textPending = null; // {x, y} for text placement
+  // ── State ─────────────────────────────────────────────────
+  let tool      = 'pen';
+  let color     = '#FFD700';
+  let size      = 3;
+  let dashed    = false;
+  let opacity   = 1;
+  let drawing   = false;
+  let hasImage  = false;
+  let strokes   = [];
+  let redoStack = [];
+  let curStroke = null;
+  let textPend  = null;
 
-  function _canvas() { return document.getElementById('ia-canvas'); }
-  function _bg()     { return document.getElementById('ia-bg'); }
-  function _ctx()    { const c = _canvas(); return c ? c.getContext('2d') : null; }
-  function _wrap()   { return document.getElementById('ia-canvas-wrap'); }
+  // ── DOM helpers ───────────────────────────────────────────
+  const $  = id => document.getElementById(id);
+  function _c()   { return $('ia-canvas'); }
+  function _bg()  { return $('ia-bg'); }
+  function _ctx() { const c = _c(); return c ? c.getContext('2d') : null; }
+  function _wrap(){ return $('ia-canvas-wrap'); }
 
-  // ── Setup canvas dimensions to match image ────────────────
-  function _resize(w, h) {
-    imgW = w; imgH = h;
-    const c = _canvas();
+  // ── Canvas sizing: no-image mode (fills wrap) ─────────────
+  function _sizeBlank() {
+    const wrap = _wrap();
+    const c    = _c();
+    if (!wrap || !c) return;
+    const w = wrap.clientWidth  || 900;
+    const h = wrap.clientHeight || 600;
     c.width  = w;
     c.height = h;
+    c.style.top    = '0'; c.style.left   = '0';
+    c.style.width  = '100%'; c.style.height = '100%';
     _redraw();
   }
 
-  // ── Load image from File object ───────────────────────────
+  // ── Canvas sizing: image mode (canvas overlays image) ─────
+  function _sizeForImage(img) {
+    const wrap = _wrap();
+    const iw   = img.naturalWidth;
+    const ih   = img.naturalHeight;
+    const ww   = wrap.clientWidth;
+    const wh   = wrap.clientHeight;
+    // Center image in wrap (with padding)
+    const left = Math.max(20, (ww - iw) / 2);
+    const top  = Math.max(20, (wh - ih) / 2);
+    img.style.position = 'absolute';
+    img.style.left = left + 'px'; img.style.top  = top  + 'px';
+    img.style.width = iw + 'px'; img.style.height = ih + 'px';
+    img.style.display = 'block';
+    // Canvas exactly on top of image
+    const c = _c();
+    c.width  = iw; c.height = ih;
+    c.style.left = left + 'px'; c.style.top  = top  + 'px';
+    c.style.width  = iw + 'px'; c.style.height = ih + 'px';
+  }
+
+  // ── Load image from File ──────────────────────────────────
   function _loadImage(file) {
     const url = URL.createObjectURL(file);
     const img = _bg();
     img.onload = () => {
-      _resize(img.naturalWidth, img.naturalHeight);
-      img.style.display = 'block';
-      _canvas().style.display = 'block';
-      document.getElementById('ia-drop-zone').classList.add('ia-hidden');
-      _wrap().classList.remove('ia-empty');
-      document.getElementById('ia-download-btn').style.display = '';
-      document.getElementById('ia-clear-btn').style.display = '';
-      strokes = [];
-      _redraw();
-      _updateStatus();
+      hasImage = true;
+      strokes = []; redoStack = [];
+      _sizeForImage(img);
+      $('ia-drop-hint').classList.add('ia-hidden');
+      $('ia-download-btn').style.display = '';
+      $('ia-clear-btn').style.display    = '';
+      _redraw(); _updateStatus();
+      URL.revokeObjectURL(url);
     };
+    img.onerror = () => { toast('Could not load image'); URL.revokeObjectURL(url); };
     img.src = url;
+  }
+
+  // ── Coordinate conversion (mouse/touch → canvas px) ───────
+  function _xy(e) {
+    const c  = _c();
+    const r  = c.getBoundingClientRect();
+    // Ratio: canvas internal pixels / CSS pixels displayed
+    const sx = c.width  / (r.width  || 1);
+    const sy = c.height / (r.height || 1);
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (cx - r.left) * sx, y: (cy - r.top) * sy };
   }
 
   // ── Redraw all strokes ────────────────────────────────────
   function _redraw() {
     const ctx = _ctx(); if (!ctx) return;
-    ctx.clearRect(0, 0, imgW, imgH);
-    strokes.forEach(s => _drawStroke(ctx, s));
-    if (currentStroke) _drawStroke(ctx, currentStroke);
+    const c   = _c();
+    ctx.clearRect(0, 0, c.width, c.height);
+    strokes.forEach(s => _paint(ctx, s));
+    if (curStroke) _paint(ctx, curStroke);
   }
 
-  function _drawStroke(ctx, s) {
+  function _paint(ctx, s) {
     ctx.save();
     ctx.globalAlpha = s.opacity;
     ctx.strokeStyle = s.color;
@@ -7644,203 +7690,191 @@ const IA = (() => {
     ctx.lineWidth   = s.size;
     ctx.lineCap     = 'round';
     ctx.lineJoin    = 'round';
-    if (s.dashed) ctx.setLineDash([s.size * 3, s.size * 2]);
-    else           ctx.setLineDash([]);
+    ctx.setLineDash(s.dashed ? [s.size * 3, s.size * 2] : []);
 
-    if (s.type === 'pen') {
-      if (!s.points || s.points.length < 2) {
-        // single dot
-        if (s.points && s.points.length === 1) {
+    switch (s.type) {
+      case 'pen': {
+        const pts = s.points;
+        if (!pts || !pts.length) break;
+        if (pts.length === 1) {
           ctx.beginPath();
-          ctx.arc(s.points[0].x, s.points[0].y, s.size / 2, 0, Math.PI * 2);
+          ctx.arc(pts[0].x, pts[0].y, Math.max(1, s.size / 2), 0, Math.PI * 2);
           ctx.fill();
+          break;
         }
-      } else {
         ctx.beginPath();
-        ctx.moveTo(s.points[0].x, s.points[0].y);
-        for (let i = 1; i < s.points.length; i++) {
-          const mid = { x:(s.points[i-1].x+s.points[i].x)/2, y:(s.points[i-1].y+s.points[i].y)/2 };
-          ctx.quadraticCurveTo(s.points[i-1].x, s.points[i-1].y, mid.x, mid.y);
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) {
+          const mx = (pts[i-1].x + pts[i].x) / 2;
+          const my = (pts[i-1].y + pts[i].y) / 2;
+          ctx.quadraticCurveTo(pts[i-1].x, pts[i-1].y, mx, my);
         }
-        ctx.lineTo(s.points[s.points.length-1].x, s.points[s.points.length-1].y);
+        ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
         ctx.stroke();
+        break;
       }
-    } else if (s.type === 'line') {
-      ctx.beginPath();
-      ctx.moveTo(s.x1, s.y1);
-      ctx.lineTo(s.x2, s.y2);
-      ctx.stroke();
-    } else if (s.type === 'rect') {
-      ctx.beginPath();
-      ctx.rect(s.x1, s.y1, s.x2 - s.x1, s.y2 - s.y1);
-      ctx.stroke();
-    } else if (s.type === 'arrow') {
-      const dx = s.x2 - s.x1, dy = s.y2 - s.y1;
-      const angle = Math.atan2(dy, dx);
-      const len   = Math.sqrt(dx*dx + dy*dy);
-      const headLen = Math.max(12, s.size * 4);
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.moveTo(s.x1, s.y1);
-      ctx.lineTo(s.x2, s.y2);
-      ctx.stroke();
-      // arrowhead
-      ctx.beginPath();
-      ctx.moveTo(s.x2, s.y2);
-      ctx.lineTo(s.x2 - headLen * Math.cos(angle - Math.PI/7), s.y2 - headLen * Math.sin(angle - Math.PI/7));
-      ctx.lineTo(s.x2 - headLen * Math.cos(angle + Math.PI/7), s.y2 - headLen * Math.sin(angle + Math.PI/7));
-      ctx.closePath();
-      ctx.fill();
-    } else if (s.type === 'text') {
-      ctx.setLineDash([]);
-      const fs = Math.max(12, s.size * 4);
-      ctx.font = `bold ${fs}px 'Rajdhani', sans-serif`;
-      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-      ctx.lineWidth = fs / 6;
-      ctx.strokeText(s.text, s.x1, s.y1);
-      ctx.fillStyle = s.color;
-      ctx.fillText(s.text, s.x1, s.y1);
+      case 'line':
+        ctx.beginPath();
+        ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2);
+        ctx.stroke();
+        break;
+      case 'rect':
+        ctx.beginPath();
+        ctx.rect(s.x1, s.y1, s.x2 - s.x1, s.y2 - s.y1);
+        ctx.stroke();
+        break;
+      case 'arrow': {
+        const dx = s.x2 - s.x1, dy = s.y2 - s.y1;
+        const ang = Math.atan2(dy, dx);
+        const hd  = Math.max(14, s.size * 5);
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(s.x2, s.y2);
+        ctx.lineTo(s.x2 - hd * Math.cos(ang - Math.PI/7),
+                   s.y2 - hd * Math.sin(ang - Math.PI/7));
+        ctx.lineTo(s.x2 - hd * Math.cos(ang + Math.PI/7),
+                   s.y2 - hd * Math.sin(ang + Math.PI/7));
+        ctx.closePath(); ctx.fill();
+        break;
+      }
+      case 'text': {
+        const fs = Math.max(14, s.size * 5);
+        ctx.setLineDash([]);
+        ctx.font = `bold ${fs}px Rajdhani,sans-serif`;
+        ctx.lineWidth   = Math.max(2, fs / 7);
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.strokeText(s.text, s.x1, s.y1);
+        ctx.fillStyle = s.color;
+        ctx.fillText(s.text, s.x1, s.y1);
+        break;
+      }
     }
     ctx.restore();
   }
 
-  // ── Coordinate conversion: mouse → canvas ─────────────────
-  function _canvasXY(e) {
-    const c   = _canvas();
-    const r   = c.getBoundingClientRect();
-    // canvas CSS size vs actual size
-    const scX = imgW / r.width;
-    const scY = imgH / r.height;
-    const cx  = e.touches ? e.touches[0].clientX : e.clientX;
-    const cy  = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: (cx - r.left) * scX, y: (cy - r.top) * scY };
-  }
-
   // ── Mouse / Touch events ───────────────────────────────────
   function _md(e) {
-    if (!imgW) return;
-    if (tool === 'eraser') { _erase(e); return; }
-    if (tool === 'text')   { _placeText(e); return; }
+    if (e.button !== undefined && e.button !== 0) return;
+    if (tool === 'text') { _placeText(e); return; }
     drawing = true;
-    const p = _canvasXY(e);
-    if (tool === 'pen') {
-      currentStroke = { type:'pen', color, size, dashed, opacity, points:[p] };
+    const p = _xy(e);
+    if (tool === 'eraser') {
+      _erase(p);
+    } else if (tool === 'pen') {
+      curStroke = { type:'pen', color, size, dashed, opacity, points:[p] };
     } else {
-      currentStroke = { type:tool, color, size, dashed, opacity, x1:p.x, y1:p.y, x2:p.x, y2:p.y };
+      curStroke = { type:tool, color, size, dashed, opacity, x1:p.x, y1:p.y, x2:p.x, y2:p.y };
     }
     e.preventDefault();
   }
 
   function _mm(e) {
-    if (!drawing || !currentStroke) return;
-    const p = _canvasXY(e);
-    _updateXY(p);
-    if (tool === 'pen') {
-      currentStroke.points.push(p);
-    } else {
-      currentStroke.x2 = p.x; currentStroke.y2 = p.y;
-    }
+    const p = _xy(e);
+    _setXY(p);
+    if (!drawing) return;
+    if (tool === 'eraser') { _erase(p); return; }
+    if (!curStroke) return;
+    if (tool === 'pen') curStroke.points.push(p);
+    else { curStroke.x2 = p.x; curStroke.y2 = p.y; }
     _redraw();
     e.preventDefault();
   }
 
-  function _mu(e) {
+  function _mu() {
     if (!drawing) return;
     drawing = false;
-    if (currentStroke) {
-      // Ignore zero-length shapes
-      if (tool !== 'pen' || currentStroke.points.length > 0) {
-        strokes.push(currentStroke);
-      }
-      currentStroke = null;
+    if (curStroke) {
+      strokes.push(curStroke);
+      redoStack = [];
+      curStroke = null;
+      $('ia-drop-hint').classList.add('ia-hidden');
     }
-    _redraw();
-    _updateStatus();
+    _redraw(); _updateStatus();
   }
 
-  function _erase(e) {
-    const p = _canvasXY(e);
-    const r = Math.max(size * 5, 15);
+  function _erase(p) {
+    const r = Math.max(size * 6, 20);
+    const before = strokes.length;
     strokes = strokes.filter(s => {
-      if (s.type === 'pen') return !s.points.some(pt => Math.hypot(pt.x-p.x, pt.y-p.y) < r);
+      if (s.type === 'pen')
+        return !s.points.some(pt => Math.hypot(pt.x - p.x, pt.y - p.y) < r);
       const cx = ((s.x1||0) + (s.x2||0)) / 2;
       const cy = ((s.y1||0) + (s.y2||0)) / 2;
-      return Math.hypot(cx-p.x, cy-p.y) > r;
+      return Math.hypot(cx - p.x, cy - p.y) > r;
     });
-    _redraw();
-    _updateStatus();
+    if (strokes.length !== before) { _redraw(); _updateStatus(); }
   }
 
   function _placeText(e) {
-    const p = _canvasXY(e);
-    textPending = p;
-    const el = document.getElementById('ia-text-input-el');
-    el.style.left = e.clientX + 'px';
-    el.style.top  = (e.clientY - 30) + 'px';
+    const p  = _xy(e);
+    textPend = p;
+    const el = $('ia-text-input-el');
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    el.style.left    = cx + 'px';
+    el.style.top     = (cy - 44) + 'px';
     el.style.display = 'block';
     el.value = '';
-    el.focus();
+    setTimeout(() => el.focus(), 0);
   }
 
-  function _updateXY(p) {
-    document.getElementById('ia-status-xy').textContent =
-      `x:${Math.round(p.x)} y:${Math.round(p.y)}`;
+  function _setXY(p) {
+    const el = $('ia-status-xy');
+    if (el) el.textContent = `x:${Math.round(p.x)} y:${Math.round(p.y)}`;
   }
 
   function _updateStatus() {
-    document.getElementById('ia-status-strokes').textContent =
-      strokes.length + ' stroke' + (strokes.length !== 1 ? 's' : '');
+    const el = $('ia-status-strokes');
+    if (el) el.textContent = strokes.length + (strokes.length !== 1 ? ' strokes' : ' stroke');
   }
 
   // ── Public API ────────────────────────────────────────────
   function setTool(t) {
     tool = t;
     document.querySelectorAll('.ia-tool[id^="ia-t-"]').forEach(b => b.classList.remove('active'));
-    const btn = document.getElementById('ia-t-' + t);
-    if (btn) btn.classList.add('active');
-    document.getElementById('ia-status-tool').textContent = t.charAt(0).toUpperCase() + t.slice(1);
-    _wrap().style.cursor = t === 'text' ? 'text' : t === 'eraser' ? 'cell' : 'crosshair';
+    $('ia-t-' + t)?.classList.add('active');
+    const lbl = $('ia-status-tool');
+    if (lbl) lbl.textContent = t[0].toUpperCase() + t.slice(1);
+    const w = _wrap();
+    if (w) w.style.cursor = t === 'text' ? 'text' : t === 'eraser' ? 'cell' : 'crosshair';
   }
 
-  function setColor(c, swIdx) {
+  function setColor(c, idx) {
     color = c;
     document.querySelectorAll('.ia-color-swatch').forEach(s => s.classList.remove('active'));
-    if (typeof swIdx === 'number') {
-      const sw = document.getElementById('ia-sw-' + swIdx);
-      if (sw) sw.classList.add('active');
-    }
-    document.getElementById('ia-status-color').style.background = c;
+    if (typeof idx === 'number') $('ia-sw-' + idx)?.classList.add('active');
+    const dot = $('ia-status-color');
+    if (dot) dot.style.background = c;
   }
 
-  function setSize(v) {
-    size = v;
-    document.getElementById('ia-size-lbl').textContent = v;
-  }
-
-  function setDash(v) {
-    dashed = v;
-    document.getElementById('ia-solid-btn').classList.toggle('active', !v);
-    document.getElementById('ia-dash-btn').classList.toggle('active',  v);
-  }
-
+  function setSize(v)    { size = v; const l = $('ia-size-lbl'); if (l) l.textContent = v; }
+  function setDash(v)    { dashed = v; $('ia-solid-btn')?.classList.toggle('active', !v); $('ia-dash-btn')?.classList.toggle('active', v); }
   function setOpacity(v) { opacity = v / 100; }
 
   function undo() {
-    strokes.pop();
-    _redraw();
-    _updateStatus();
+    if (!strokes.length) return;
+    redoStack.push(strokes.pop());
+    _redraw(); _updateStatus();
+  }
+
+  function redo() {
+    if (!redoStack.length) return;
+    strokes.push(redoStack.pop());
+    _redraw(); _updateStatus();
   }
 
   function clear() {
+    if (!strokes.length) return;
     if (!confirm('Clear all annotations?')) return;
+    redoStack = [...strokes, ...redoStack];
     strokes = [];
-    _redraw();
-    _updateStatus();
+    _redraw(); _updateStatus();
   }
 
-  function loadFile() {
-    document.getElementById('ia-file-input').click();
-  }
+  function loadFile() { $('ia-file-input').click(); }
 
   function onFileInput(ev) {
     const f = ev.target.files[0];
@@ -7850,7 +7884,7 @@ const IA = (() => {
 
   function onDrop(ev) {
     ev.preventDefault();
-    ev.currentTarget.style.background = '';
+    ev.currentTarget.style.outline = '';
     const f = ev.dataTransfer.files[0];
     if (f && f.type.startsWith('image/')) _loadImage(f);
   }
@@ -7858,63 +7892,73 @@ const IA = (() => {
   function onTextKey(ev) {
     if (ev.key === 'Enter') {
       const val = ev.target.value.trim();
-      if (val && textPending) {
-        strokes.push({ type:'text', color, size, dashed:false, opacity, text:val, x1:textPending.x, y1:textPending.y });
-        _redraw();
-        _updateStatus();
+      if (val && textPend) {
+        strokes.push({ type:'text', color, size, dashed:false, opacity, text:val, x1:textPend.x, y1:textPend.y });
+        redoStack = [];
+        $('ia-drop-hint').classList.add('ia-hidden');
+        _redraw(); _updateStatus();
       }
-      ev.target.style.display = 'none';
-      textPending = null;
+      ev.target.style.display = 'none'; textPend = null;
     } else if (ev.key === 'Escape') {
-      ev.target.style.display = 'none';
-      textPending = null;
+      ev.target.style.display = 'none'; textPend = null;
     }
   }
 
   function download() {
+    const c = _c(); if (!c.width) return;
     const merged = document.createElement('canvas');
-    merged.width  = imgW;
-    merged.height = imgH;
+    merged.width = c.width; merged.height = c.height;
     const mctx = merged.getContext('2d');
+    if (!hasImage) { mctx.fillStyle = '#1a1a1a'; mctx.fillRect(0, 0, c.width, c.height); }
     const img = _bg();
-    if (img.naturalWidth) mctx.drawImage(img, 0, 0, imgW, imgH);
-    mctx.drawImage(_canvas(), 0, 0);
-    const link = document.createElement('a');
-    link.download = 'annotation.png';
-    link.href = merged.toDataURL('image/png');
-    link.click();
+    if (img.naturalWidth) mctx.drawImage(img, 0, 0, c.width, c.height);
+    mctx.drawImage(c, 0, 0);
+    const lnk = document.createElement('a');
+    lnk.download = 'annotation.png'; lnk.href = merged.toDataURL('image/png'); lnk.click();
+  }
+
+  // Called from showModule when annotator is activated
+  function onShow() {
+    if (!hasImage) _sizeBlank();
   }
 
   function init() {
-    const c = _canvas();
-    if (!c) return;
+    const c = _c(); if (!c) return;
+    // Canvas always visible, starts filling the wrap
+    c.style.position = 'absolute';
+    c.style.touchAction = 'none';
+    _sizeBlank();
+
+    // Mouse events
     c.addEventListener('mousedown',  _md);
     c.addEventListener('mousemove',  _mm);
-    c.addEventListener('mouseup',    _mu);
-    c.addEventListener('mouseleave', _mu);
-    c.addEventListener('touchstart', _md, {passive:false});
-    c.addEventListener('touchmove',  _mm, {passive:false});
+    document.addEventListener('mouseup', _mu);
+
+    // Touch events
+    c.addEventListener('touchstart', e => _md(e), { passive: false });
+    c.addEventListener('touchmove',  e => _mm(e), { passive: false });
     c.addEventListener('touchend',   _mu);
+    c.addEventListener('touchcancel', _mu);
 
-    // Eraser also on mousemove while mousedown
-    let eraserDown = false;
-    c.addEventListener('mousedown', e => { if (tool === 'eraser') { eraserDown = true; _erase(e); } });
-    c.addEventListener('mousemove', e => { if (tool === 'eraser' && eraserDown) _erase(e); });
-    document.addEventListener('mouseup', () => { eraserDown = false; });
+    // Resize: re-fit blank canvas when window resizes
+    window.addEventListener('resize', () => { if (!hasImage) _sizeBlank(); });
 
-    // Keyboard shortcuts
+    // Keyboard shortcuts (only when annotator module is active)
     document.addEventListener('keydown', e => {
-      const tag = document.activeElement.tagName;
+      const mod = $('module-annotator');
+      if (!mod?.classList.contains('active')) return;
+      const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      const mod = document.getElementById('module-annotator');
-      if (!mod || !mod.classList.contains('active')) return;
-      if (e.ctrlKey && e.key === 'z') { undo(); return; }
+      if (e.ctrlKey && e.key === 'z')                    { e.preventDefault(); undo(); return; }
+      if (e.ctrlKey && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
+      if (e.ctrlKey) return;
       const map = { p:'pen', l:'line', r:'rect', a:'arrow', t:'text', e:'eraser' };
-      if (map[e.key]) setTool(map[e.key]);
+      const k = map[e.key.toLowerCase()];
+      if (k) setTool(k);
     });
   }
 
-  return { setTool, setColor, setSize, setDash, setOpacity, undo, clear, loadFile, onFileInput, onDrop, onTextKey, download, init };
+  return { setTool, setColor, setSize, setDash, setOpacity, undo, redo, clear, loadFile, onFileInput, onDrop, onTextKey, download, onShow, init };
 })();
 
 function init() {
