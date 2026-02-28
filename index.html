@@ -650,22 +650,27 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
 .ia-color-swatch.active{border-color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.4)}
 .ia-color-swatch:hover{transform:scale(1.15)}
 #ia-size{accent-color:var(--gold);width:70px}
-/* Canvas wrap: relative container, canvas + image positioned absolutely inside */
-#ia-canvas-wrap{flex:1;overflow:auto;position:relative;cursor:crosshair;background:repeating-conic-gradient(#1c1c1c 0% 25%,#141414 0% 50%) 0 0/20px 20px;min-height:0}
-/* Image: absolute, JS will set top/left/width/height when loaded */
-#ia-bg{position:absolute;display:none;user-select:none;pointer-events:none;max-width:none}
-/* Canvas: always visible, fills wrap by default (JS resizes it) */
-#ia-canvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
-/* Hint overlay (non-interactive, shows until first stroke or image load) */
-#ia-drop-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none;user-select:none;z-index:2}
-#ia-drop-hint .ia-hint-icon{font-size:40px;opacity:.1}
-#ia-drop-hint .ia-hint-txt{font-family:var(--fu);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:rgba(201,162,39,.25)}
-#ia-drop-hint .ia-hint-sub{font-family:var(--fm);font-size:9px;color:rgba(255,255,255,.12);letter-spacing:.5px}
+/* Scrollable area — scene sits inside and can be panned */
+#ia-canvas-wrap{flex:1;overflow:auto;background:repeating-conic-gradient(#1c1c1c 0% 25%,#141414 0% 50%) 0 0/20px 20px;min-height:0;cursor:crosshair}
+/* Scene: inline-block so it sizes to canvas; margin gives space around it */
+#ia-scene{display:inline-block;position:relative;line-height:0;margin:20px;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 8px 40px rgba(0,0,0,.6)}
+/* Image overlays canvas bottom-left */
+#ia-bg{position:absolute;top:0;left:0;display:none;user-select:none;pointer-events:none;max-width:none}
+/* Canvas: explicit pixel size set by JS — ratio always 1:1 */
+#ia-canvas{display:block;touch-action:none}
+/* Hint: centered in scene, non-interactive */
+#ia-drop-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none;user-select:none;z-index:2}
+#ia-drop-hint .ia-hint-icon{font-size:48px;opacity:.08}
+#ia-drop-hint .ia-hint-txt{font-family:var(--fu);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(201,162,39,.22)}
+#ia-drop-hint .ia-hint-sub{font-family:var(--fm);font-size:9px;color:rgba(255,255,255,.1);letter-spacing:.5px}
 #ia-drop-hint.ia-hidden{display:none}
 #ia-status{padding:4px 12px;font-family:var(--fm);font-size:10px;color:var(--text-muted);background:var(--bg-card);border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:12px}
 .ia-lbl{font-family:var(--fu);font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--text-muted)}
 /* Floating text input */
-#ia-text-input-el{display:none;position:fixed;z-index:800;background:rgba(0,0,0,.88);border:1px solid var(--gold);border-radius:4px;padding:5px 10px;font-family:var(--fb);font-size:15px;color:#fff;outline:none;min-width:140px;max-width:340px}
+#ia-text-input-el{display:none;position:fixed;z-index:800;background:rgba(0,0,0,.9);border:1px solid var(--gold);border-radius:4px;padding:5px 10px;font-family:var(--fb);font-size:15px;color:#fff;outline:none;min-width:150px;max-width:360px}
+/* Cursor override when panning */
+#ia-canvas-wrap.ia-panning,#ia-canvas-wrap.ia-panning #ia-canvas{cursor:grab!important}
+#ia-canvas-wrap.ia-grabbing,#ia-canvas-wrap.ia-grabbing #ia-canvas{cursor:grabbing!important}
 
 /* ════════════════════════════════════════════════════════════
    LAYER CONTEXT MENU
@@ -1296,86 +1301,78 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
     <!-- ===== IMAGE ANNOTATOR ===== -->
     <div class="module" id="module-annotator">
       <div class="mod-hdr">
-        <div class="mod-title">🖊 Image Annotator</div>
-        <div class="mod-sub">Draw &amp; analyze images</div>
+        <div class="mod-title">🖊 Annotator</div>
+        <div class="mod-sub">Draw · Annotate · Analyze</div>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button class="btn btn-sm" onclick="IA.loadFile()">📁 Open Image</button>
           <button class="btn btn-sm" onclick="IA.download()" id="ia-download-btn" style="display:none">⬇ Download</button>
-          <button class="btn btn-sm" onclick="IA.clear()" id="ia-clear-btn" style="display:none">🗑 Clear Annotations</button>
+          <button class="btn btn-sm" onclick="IA.clear()" id="ia-clear-btn">🗑 Clear</button>
         </div>
       </div>
       <div id="ia-wrap">
         <!-- TOOLBAR -->
         <div id="ia-toolbar">
-          <!-- Tools -->
           <span class="ia-lbl">Tool</span>
-          <button class="ia-tool active" id="ia-t-pen"    title="Pen (P)"      onclick="IA.setTool('pen')">✏️</button>
-          <button class="ia-tool"        id="ia-t-line"   title="Line (L)"     onclick="IA.setTool('line')">╱</button>
-          <button class="ia-tool"        id="ia-t-rect"   title="Rectangle (R)"onclick="IA.setTool('rect')">▭</button>
-          <button class="ia-tool"        id="ia-t-arrow"  title="Arrow (A)"    onclick="IA.setTool('arrow')">↗</button>
-          <button class="ia-tool"        id="ia-t-text"   title="Text (T)"     onclick="IA.setTool('text')">T</button>
-          <button class="ia-tool"        id="ia-t-eraser" title="Eraser (E)"   onclick="IA.setTool('eraser')" style="font-size:12px">⌫</button>
+          <button class="ia-tool active" id="ia-t-pen"    title="Pen  P"    onclick="IA.setTool('pen')">✏️</button>
+          <button class="ia-tool"        id="ia-t-line"   title="Line  L"   onclick="IA.setTool('line')">╱</button>
+          <button class="ia-tool"        id="ia-t-rect"   title="Rect  R"   onclick="IA.setTool('rect')">▭</button>
+          <button class="ia-tool"        id="ia-t-arrow"  title="Arrow  A"  onclick="IA.setTool('arrow')">↗</button>
+          <button class="ia-tool"        id="ia-t-text"   title="Text  T"   onclick="IA.setTool('text')" style="font-weight:700">T</button>
+          <button class="ia-tool"        id="ia-t-eraser" title="Eraser  E" onclick="IA.setTool('eraser')">⌫</button>
+          <button class="ia-tool"        id="ia-t-pan"    title="Pan  H · or hold Space" onclick="IA.setTool('pan')" style="font-size:16px">✋</button>
           <div class="ia-div"></div>
-          <!-- Color swatches -->
           <span class="ia-lbl">Color</span>
           <div class="ia-color-swatch active" id="ia-sw-0" style="background:#FFD700" title="Yellow" onclick="IA.setColor('#FFD700',0)"></div>
           <div class="ia-color-swatch"        id="ia-sw-1" style="background:#FFFFFF" title="White"  onclick="IA.setColor('#FFFFFF',1)"></div>
-          <div class="ia-color-swatch"        id="ia-sw-2" style="background:#00CFFF" title="Blue"   onclick="IA.setColor('#00CFFF',2)"></div>
+          <div class="ia-color-swatch"        id="ia-sw-2" style="background:#00CFFF" title="Cyan"   onclick="IA.setColor('#00CFFF',2)"></div>
           <div class="ia-color-swatch"        id="ia-sw-3" style="background:#FF3333" title="Red"    onclick="IA.setColor('#FF3333',3)"></div>
           <div class="ia-color-swatch"        id="ia-sw-4" style="background:#4ECB71" title="Green"  onclick="IA.setColor('#4ECB71',4)"></div>
           <div class="ia-color-swatch"        id="ia-sw-5" style="background:#FF8C00" title="Orange" onclick="IA.setColor('#FF8C00',5)"></div>
-          <input type="color" id="ia-custom-color" value="#FFD700" title="Custom color"
-            oninput="IA.setColor(this.value,'custom')"
-            style="width:22px;height:22px;border-radius:4px;border:1px solid var(--border);padding:1px;cursor:pointer;background:none;flex-shrink:0">
+          <input type="color" id="ia-custom-color" value="#FFD700" title="Custom color" oninput="IA.setColor(this.value,'custom')" style="width:22px;height:22px;border-radius:4px;border:1px solid var(--border);padding:1px;cursor:pointer;background:none;flex-shrink:0">
           <div class="ia-div"></div>
-          <!-- Size -->
           <span class="ia-lbl">Size</span>
-          <input type="range" id="ia-size" min="1" max="30" value="3" oninput="IA.setSize(+this.value)">
+          <input type="range" id="ia-size" min="1" max="40" value="3" oninput="IA.setSize(+this.value)" style="accent-color:var(--gold);width:70px">
           <span id="ia-size-lbl" style="font-family:var(--fm);font-size:11px;color:var(--text-secondary);min-width:18px">3</span>
           <div class="ia-div"></div>
-          <!-- Style -->
           <span class="ia-lbl">Style</span>
-          <button class="ia-tool active" id="ia-solid-btn" title="Solid line"  onclick="IA.setDash(false)" style="font-size:10px;width:36px">───</button>
-          <button class="ia-tool"        id="ia-dash-btn"  title="Dashed line" onclick="IA.setDash(true)"  style="font-size:10px;width:36px">╌╌╌</button>
-          <!-- Opacity -->
+          <button class="ia-tool active" id="ia-solid-btn" title="Solid"  onclick="IA.setDash(false)" style="font-size:10px;width:36px">───</button>
+          <button class="ia-tool"        id="ia-dash-btn"  title="Dashed" onclick="IA.setDash(true)"  style="font-size:10px;width:36px">╌╌╌</button>
           <div class="ia-div"></div>
           <span class="ia-lbl">Opacity</span>
           <input type="range" id="ia-opacity" min="10" max="100" value="100" oninput="IA.setOpacity(+this.value)" style="accent-color:var(--gold);width:60px">
           <div class="ia-div"></div>
-          <!-- Undo / Redo -->
-          <button class="ia-tool" onclick="IA.undo()" title="Undo (Ctrl+Z)" style="width:36px;font-size:11px">↩</button>
-          <button class="ia-tool" onclick="IA.redo()" title="Redo (Ctrl+Y)" style="width:36px;font-size:11px">↪</button>
+          <button class="ia-tool" onclick="IA.undo()" title="Undo  Ctrl+Z" style="width:34px;font-size:13px">↩</button>
+          <button class="ia-tool" onclick="IA.redo()" title="Redo  Ctrl+Y" style="width:34px;font-size:13px">↪</button>
         </div>
 
-        <!-- CANVAS AREA -->
+        <!-- SCROLLABLE CANVAS AREA -->
         <div id="ia-canvas-wrap"
           ondragover="event.preventDefault();event.currentTarget.style.outline='2px dashed rgba(201,162,39,.5)'"
           ondragleave="event.currentTarget.style.outline=''"
           ondrop="IA.onDrop(event)">
-          <!-- Hint overlay (non-interactive) -->
-          <div id="ia-drop-hint">
-            <div class="ia-hint-icon">🖊</div>
-            <div class="ia-hint-txt">Draw freely — or drop an image</div>
-            <div class="ia-hint-sub">PNG · JPG · GIF · WebP · SVG</div>
+          <!-- Scene: image + canvas stacked; sized by JS -->
+          <div id="ia-scene">
+            <div id="ia-drop-hint">
+              <div class="ia-hint-icon">🖊</div>
+              <div class="ia-hint-txt">Draw freely · Ctrl+V to paste image</div>
+              <div class="ia-hint-sub">Space+drag to pan · or drop / open an image file</div>
+            </div>
+            <img id="ia-bg" alt="">
+            <canvas id="ia-canvas"></canvas>
           </div>
-          <!-- Background image (shown when loaded) -->
-          <img id="ia-bg" alt="">
-          <!-- Drawing canvas (always visible) -->
-          <canvas id="ia-canvas"></canvas>
         </div>
 
         <!-- STATUS BAR -->
         <div id="ia-status">
           <span id="ia-status-tool" style="color:var(--gold);font-family:var(--fu);font-size:10px;letter-spacing:.5px;text-transform:uppercase">Pen</span>
           <span id="ia-status-color" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFD700;flex-shrink:0"></span>
-          <span id="ia-status-xy">x:0 y:0</span>
-          <span id="ia-status-strokes" style="margin-left:auto">0 strokes</span>
+          <span id="ia-status-xy" style="font-family:var(--fm)">x:0 y:0</span>
+          <span style="color:rgba(255,255,255,.15);font-size:9px">P L R A T E H · Space+drag pan · Ctrl+V paste</span>
+          <span id="ia-status-strokes" style="margin-left:auto;font-family:var(--fm)">0 strokes</span>
         </div>
       </div>
-      <!-- hidden file input -->
       <input type="file" id="ia-file-input" accept="image/*" style="display:none" onchange="IA.onFileInput(event)">
-      <!-- floating text input -->
-      <input type="text" id="ia-text-input-el" placeholder="Type label…" onkeydown="IA.onTextKey(event)">
+      <input type="text" id="ia-text-input-el" placeholder="Type label · Enter to place" onkeydown="IA.onTextKey(event)">
     </div>
 
   </div><!-- #content -->
@@ -7590,93 +7587,104 @@ function _initNavResize(navId){
 const IA = (() => {
   // ── State ─────────────────────────────────────────────────
   let tool      = 'pen';
+  let prevTool  = 'pen';   // saved before Space-pan
   let color     = '#FFD700';
   let size      = 3;
   let dashed    = false;
   let opacity   = 1;
   let drawing   = false;
+  let panning   = false;
+  let spaceDown = false;
   let hasImage  = false;
   let strokes   = [];
   let redoStack = [];
   let curStroke = null;
   let textPend  = null;
+  let panRef    = null;    // {x,y,sl,st} mouse start + scroll start
+
+  const BLANK_W = 2400, BLANK_H = 1600;
 
   // ── DOM helpers ───────────────────────────────────────────
-  const $  = id => document.getElementById(id);
-  function _c()   { return $('ia-canvas'); }
-  function _bg()  { return $('ia-bg'); }
-  function _ctx() { const c = _c(); return c ? c.getContext('2d') : null; }
-  function _wrap(){ return $('ia-canvas-wrap'); }
+  const $ia = id => document.getElementById(id);
+  function _c()    { return $ia('ia-canvas'); }
+  function _bg()   { return $ia('ia-bg'); }
+  function _ctx()  { const c = _c(); return c ? c.getContext('2d') : null; }
+  function _wrap() { return $ia('ia-canvas-wrap'); }
+  function _scene(){ return $ia('ia-scene'); }
 
-  // ── Canvas sizing: no-image mode (fills wrap) ─────────────
+  // ── Canvas sizing: blank mode — fixed large canvas ──────────
   function _sizeBlank() {
-    const wrap = _wrap();
-    const c    = _c();
-    if (!wrap || !c) return;
-    const w = wrap.clientWidth  || 900;
-    const h = wrap.clientHeight || 600;
-    c.width  = w;
-    c.height = h;
-    c.style.top    = '0'; c.style.left   = '0';
-    c.style.width  = '100%'; c.style.height = '100%';
+    const c = _c(); if (!c) return;
+    // Explicit px size on both attribute AND style → ratio always 1:1
+    c.width  = BLANK_W; c.height = BLANK_H;
+    c.style.width  = BLANK_W + 'px'; c.style.height = BLANK_H + 'px';
+    $ia('ia-bg').style.display = 'none';
+    $ia('ia-drop-hint').classList.remove('ia-hidden');
     _redraw();
+    requestAnimationFrame(() => {
+      const w = _wrap(); if (!w) return;
+      w.scrollLeft = (BLANK_W + 40 - w.clientWidth)  / 2;
+      w.scrollTop  = (BLANK_H + 40 - w.clientHeight) / 2;
+    });
   }
 
-  // ── Canvas sizing: image mode (canvas overlays image) ─────
+  // ── Canvas sizing: image mode — canvas = natural img size ───
   function _sizeForImage(img) {
-    const wrap = _wrap();
-    const iw   = img.naturalWidth;
-    const ih   = img.naturalHeight;
-    const ww   = wrap.clientWidth;
-    const wh   = wrap.clientHeight;
-    // Center image in wrap (with padding)
-    const left = Math.max(20, (ww - iw) / 2);
-    const top  = Math.max(20, (wh - ih) / 2);
-    img.style.position = 'absolute';
-    img.style.left = left + 'px'; img.style.top  = top  + 'px';
-    img.style.width = iw + 'px'; img.style.height = ih + 'px';
-    img.style.display = 'block';
-    // Canvas exactly on top of image
-    const c = _c();
+    const c = _c(); if (!c) return;
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    // Explicit px → ratio 1:1, coordinates never break
     c.width  = iw; c.height = ih;
-    c.style.left = left + 'px'; c.style.top  = top  + 'px';
     c.style.width  = iw + 'px'; c.style.height = ih + 'px';
+    img.style.width  = iw + 'px'; img.style.height = ih + 'px';
+    img.style.display = 'block';
+    requestAnimationFrame(() => {
+      const w = _wrap(); if (!w) return;
+      w.scrollLeft = Math.max(0, (iw + 40 - w.clientWidth)  / 2);
+      w.scrollTop  = Math.max(0, (ih + 40 - w.clientHeight) / 2);
+    });
   }
 
-  // ── Load image from File ──────────────────────────────────
+  // ── Load image from File/Blob ─────────────────────────────
   function _loadImage(file) {
     const url = URL.createObjectURL(file);
     const img = _bg();
     img.onload = () => {
-      hasImage = true;
-      strokes = []; redoStack = [];
+      hasImage = true; strokes = []; redoStack = [];
       _sizeForImage(img);
-      $('ia-drop-hint').classList.add('ia-hidden');
-      $('ia-download-btn').style.display = '';
-      $('ia-clear-btn').style.display    = '';
+      $ia('ia-drop-hint').classList.add('ia-hidden');
+      $ia('ia-download-btn').style.display = '';
       _redraw(); _updateStatus();
       URL.revokeObjectURL(url);
     };
-    img.onerror = () => { toast('Could not load image'); URL.revokeObjectURL(url); };
+    img.onerror = () => { try{toast('Could not load image');}catch(e){} URL.revokeObjectURL(url); };
     img.src = url;
   }
 
-  // ── Coordinate conversion (mouse/touch → canvas px) ───────
+  // ── Coordinate conversion: event → canvas pixels ──────────
+  // CSS size == canvas.width → no scaling, always 1:1
   function _xy(e) {
-    const c  = _c();
-    const r  = c.getBoundingClientRect();
-    // Ratio: canvas internal pixels / CSS pixels displayed
-    const sx = c.width  / (r.width  || 1);
-    const sy = c.height / (r.height || 1);
+    const r  = _c().getBoundingClientRect();
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: (cx - r.left) * sx, y: (cy - r.top) * sy };
+    return { x: cx - r.left, y: cy - r.top };
   }
 
-  // ── Redraw all strokes ────────────────────────────────────
+  // ── Active tool (Space overrides to pan) ──────────────────
+  function _at() { return spaceDown ? 'pan' : tool; }
+
+  // ── Cursor ────────────────────────────────────────────────
+  function _cursor() {
+    const w = _wrap(); if (!w) return;
+    const at = _at();
+    if (panning) { w.style.cursor = 'grabbing'; return; }
+    const map = { pan:'grab', text:'text', eraser:'cell' };
+    w.style.cursor = map[at] || 'crosshair';
+  }
+
+  // ── Redraw ────────────────────────────────────────────────
   function _redraw() {
     const ctx = _ctx(); if (!ctx) return;
-    const c   = _c();
+    const c = _c();
     ctx.clearRect(0, 0, c.width, c.height);
     strokes.forEach(s => _paint(ctx, s));
     if (curStroke) _paint(ctx, curStroke);
@@ -7684,207 +7692,147 @@ const IA = (() => {
 
   function _paint(ctx, s) {
     ctx.save();
-    ctx.globalAlpha = s.opacity;
-    ctx.strokeStyle = s.color;
-    ctx.fillStyle   = s.color;
-    ctx.lineWidth   = s.size;
-    ctx.lineCap     = 'round';
-    ctx.lineJoin    = 'round';
+    ctx.globalAlpha = s.opacity; ctx.strokeStyle = s.color; ctx.fillStyle = s.color;
+    ctx.lineWidth = s.size; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.setLineDash(s.dashed ? [s.size * 3, s.size * 2] : []);
-
     switch (s.type) {
       case 'pen': {
         const pts = s.points;
-        if (!pts || !pts.length) break;
-        if (pts.length === 1) {
-          ctx.beginPath();
-          ctx.arc(pts[0].x, pts[0].y, Math.max(1, s.size / 2), 0, Math.PI * 2);
-          ctx.fill();
-          break;
-        }
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x, pts[0].y);
+        if (!pts?.length) break;
+        if (pts.length === 1) { ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, Math.max(1, s.size/2), 0, Math.PI*2); ctx.fill(); break; }
+        ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
         for (let i = 1; i < pts.length; i++) {
-          const mx = (pts[i-1].x + pts[i].x) / 2;
-          const my = (pts[i-1].y + pts[i].y) / 2;
+          const mx=(pts[i-1].x+pts[i].x)/2, my=(pts[i-1].y+pts[i].y)/2;
           ctx.quadraticCurveTo(pts[i-1].x, pts[i-1].y, mx, my);
         }
-        ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
-        ctx.stroke();
-        break;
+        ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y); ctx.stroke(); break;
       }
-      case 'line':
-        ctx.beginPath();
-        ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2);
-        ctx.stroke();
-        break;
-      case 'rect':
-        ctx.beginPath();
-        ctx.rect(s.x1, s.y1, s.x2 - s.x1, s.y2 - s.y1);
-        ctx.stroke();
-        break;
+      case 'line': ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke(); break;
+      case 'rect': ctx.beginPath(); ctx.rect(s.x1,s.y1,s.x2-s.x1,s.y2-s.y1); ctx.stroke(); break;
       case 'arrow': {
-        const dx = s.x2 - s.x1, dy = s.y2 - s.y1;
-        const ang = Math.atan2(dy, dx);
-        const hd  = Math.max(14, s.size * 5);
+        const dx=s.x2-s.x1, dy=s.y2-s.y1, ang=Math.atan2(dy,dx), hd=Math.max(14,s.size*5);
         ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(s.x2, s.y2);
-        ctx.lineTo(s.x2 - hd * Math.cos(ang - Math.PI/7),
-                   s.y2 - hd * Math.sin(ang - Math.PI/7));
-        ctx.lineTo(s.x2 - hd * Math.cos(ang + Math.PI/7),
-                   s.y2 - hd * Math.sin(ang + Math.PI/7));
-        ctx.closePath(); ctx.fill();
-        break;
+        ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(s.x2,s.y2);
+        ctx.lineTo(s.x2-hd*Math.cos(ang-Math.PI/7), s.y2-hd*Math.sin(ang-Math.PI/7));
+        ctx.lineTo(s.x2-hd*Math.cos(ang+Math.PI/7), s.y2-hd*Math.sin(ang+Math.PI/7));
+        ctx.closePath(); ctx.fill(); break;
       }
       case 'text': {
-        const fs = Math.max(14, s.size * 5);
+        const fs=Math.max(14,s.size*5);
         ctx.setLineDash([]);
-        ctx.font = `bold ${fs}px Rajdhani,sans-serif`;
-        ctx.lineWidth   = Math.max(2, fs / 7);
-        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-        ctx.strokeText(s.text, s.x1, s.y1);
-        ctx.fillStyle = s.color;
-        ctx.fillText(s.text, s.x1, s.y1);
-        break;
+        ctx.font=`bold ${fs}px Rajdhani,sans-serif`;
+        ctx.lineWidth=Math.max(2,fs/7); ctx.strokeStyle='rgba(0,0,0,0.85)';
+        ctx.strokeText(s.text,s.x1,s.y1); ctx.fillStyle=s.color; ctx.fillText(s.text,s.x1,s.y1); break;
       }
     }
     ctx.restore();
   }
 
-  // ── Mouse / Touch events ───────────────────────────────────
+  // ── Mouse / Touch ─────────────────────────────────────────
   function _md(e) {
     if (e.button !== undefined && e.button !== 0) return;
-    if (tool === 'text') { _placeText(e); return; }
+    const at = _at();
+    if (at === 'pan') {
+      panning = true;
+      const w = _wrap();
+      panRef = { x: e.clientX, y: e.clientY, sl: w.scrollLeft, st: w.scrollTop };
+      _cursor(); e.preventDefault(); return;
+    }
+    if (at === 'text') { _placeText(e); return; }
     drawing = true;
     const p = _xy(e);
-    if (tool === 'eraser') {
-      _erase(p);
-    } else if (tool === 'pen') {
-      curStroke = { type:'pen', color, size, dashed, opacity, points:[p] };
-    } else {
-      curStroke = { type:tool, color, size, dashed, opacity, x1:p.x, y1:p.y, x2:p.x, y2:p.y };
-    }
+    if (at === 'eraser')    { _erase(p); }
+    else if (at === 'pen')  { curStroke = { type:'pen', color, size, dashed, opacity, points:[{...p}] }; }
+    else                    { curStroke = { type:at, color, size, dashed, opacity, x1:p.x, y1:p.y, x2:p.x, y2:p.y }; }
     e.preventDefault();
   }
 
   function _mm(e) {
+    if (panning && panRef) {
+      const w = _wrap();
+      w.scrollLeft = panRef.sl - (e.clientX - panRef.x);
+      w.scrollTop  = panRef.st - (e.clientY - panRef.y);
+      e.preventDefault(); return;
+    }
     const p = _xy(e);
     _setXY(p);
     if (!drawing) return;
-    if (tool === 'eraser') { _erase(p); return; }
+    const at = _at();
+    if (at === 'eraser') { _erase(p); return; }
     if (!curStroke) return;
-    if (tool === 'pen') curStroke.points.push(p);
+    if (at === 'pen') curStroke.points.push({...p});
     else { curStroke.x2 = p.x; curStroke.y2 = p.y; }
-    _redraw();
-    e.preventDefault();
+    _redraw(); e.preventDefault();
   }
 
   function _mu() {
+    if (panning) { panning = false; panRef = null; _cursor(); return; }
     if (!drawing) return;
     drawing = false;
     if (curStroke) {
-      strokes.push(curStroke);
-      redoStack = [];
-      curStroke = null;
-      $('ia-drop-hint').classList.add('ia-hidden');
+      strokes.push(curStroke); redoStack = []; curStroke = null;
+      $ia('ia-drop-hint').classList.add('ia-hidden');
     }
     _redraw(); _updateStatus();
   }
 
   function _erase(p) {
-    const r = Math.max(size * 6, 20);
-    const before = strokes.length;
+    const r = Math.max(size * 6, 20), prev = strokes.length;
     strokes = strokes.filter(s => {
-      if (s.type === 'pen')
-        return !s.points.some(pt => Math.hypot(pt.x - p.x, pt.y - p.y) < r);
-      const cx = ((s.x1||0) + (s.x2||0)) / 2;
-      const cy = ((s.y1||0) + (s.y2||0)) / 2;
-      return Math.hypot(cx - p.x, cy - p.y) > r;
+      if (s.type === 'pen') return !s.points.some(pt => Math.hypot(pt.x-p.x, pt.y-p.y) < r);
+      return Math.hypot(((s.x1||0)+(s.x2||0))/2-p.x, ((s.y1||0)+(s.y2||0))/2-p.y) > r;
     });
-    if (strokes.length !== before) { _redraw(); _updateStatus(); }
+    if (strokes.length !== prev) { _redraw(); _updateStatus(); }
   }
 
   function _placeText(e) {
-    const p  = _xy(e);
-    textPend = p;
-    const el = $('ia-text-input-el');
+    textPend = _xy(e);
+    const el = $ia('ia-text-input-el');
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    el.style.left    = cx + 'px';
-    el.style.top     = (cy - 44) + 'px';
-    el.style.display = 'block';
-    el.value = '';
+    el.style.left = cx + 'px'; el.style.top = (cy - 44) + 'px';
+    el.style.display = 'block'; el.value = '';
     setTimeout(() => el.focus(), 0);
   }
 
-  function _setXY(p) {
-    const el = $('ia-status-xy');
-    if (el) el.textContent = `x:${Math.round(p.x)} y:${Math.round(p.y)}`;
-  }
-
-  function _updateStatus() {
-    const el = $('ia-status-strokes');
-    if (el) el.textContent = strokes.length + (strokes.length !== 1 ? ' strokes' : ' stroke');
-  }
+  function _setXY(p) { const el = $ia('ia-status-xy'); if (el) el.textContent = `x:${Math.round(p.x)} y:${Math.round(p.y)}`; }
+  function _updateStatus() { const el = $ia('ia-status-strokes'); if (el) el.textContent = strokes.length + (strokes.length!==1?' strokes':' stroke'); }
 
   // ── Public API ────────────────────────────────────────────
   function setTool(t) {
     tool = t;
     document.querySelectorAll('.ia-tool[id^="ia-t-"]').forEach(b => b.classList.remove('active'));
-    $('ia-t-' + t)?.classList.add('active');
-    const lbl = $('ia-status-tool');
-    if (lbl) lbl.textContent = t[0].toUpperCase() + t.slice(1);
-    const w = _wrap();
-    if (w) w.style.cursor = t === 'text' ? 'text' : t === 'eraser' ? 'cell' : 'crosshair';
+    $ia('ia-t-'+t)?.classList.add('active');
+    const lbl = $ia('ia-status-tool'); if (lbl) lbl.textContent = t[0].toUpperCase()+t.slice(1);
+    _cursor();
   }
 
   function setColor(c, idx) {
     color = c;
     document.querySelectorAll('.ia-color-swatch').forEach(s => s.classList.remove('active'));
-    if (typeof idx === 'number') $('ia-sw-' + idx)?.classList.add('active');
-    const dot = $('ia-status-color');
-    if (dot) dot.style.background = c;
+    if (typeof idx === 'number') $ia('ia-sw-'+idx)?.classList.add('active');
+    const dot = $ia('ia-status-color'); if (dot) dot.style.background = c;
   }
 
-  function setSize(v)    { size = v; const l = $('ia-size-lbl'); if (l) l.textContent = v; }
-  function setDash(v)    { dashed = v; $('ia-solid-btn')?.classList.toggle('active', !v); $('ia-dash-btn')?.classList.toggle('active', v); }
+  function setSize(v)    { size = v; const l = $ia('ia-size-lbl'); if (l) l.textContent = v; }
+  function setDash(v)    { dashed = v; $ia('ia-solid-btn')?.classList.toggle('active',!v); $ia('ia-dash-btn')?.classList.toggle('active',v); }
   function setOpacity(v) { opacity = v / 100; }
-
-  function undo() {
-    if (!strokes.length) return;
-    redoStack.push(strokes.pop());
-    _redraw(); _updateStatus();
-  }
-
-  function redo() {
-    if (!redoStack.length) return;
-    strokes.push(redoStack.pop());
-    _redraw(); _updateStatus();
-  }
+  function undo()        { if (!strokes.length) return; redoStack.push(strokes.pop()); _redraw(); _updateStatus(); }
+  function redo()        { if (!redoStack.length) return; strokes.push(redoStack.pop()); _redraw(); _updateStatus(); }
 
   function clear() {
     if (!strokes.length) return;
     if (!confirm('Clear all annotations?')) return;
-    redoStack = [...strokes, ...redoStack];
-    strokes = [];
+    redoStack = [...strokes, ...redoStack]; strokes = [];
     _redraw(); _updateStatus();
   }
 
-  function loadFile() { $('ia-file-input').click(); }
-
-  function onFileInput(ev) {
-    const f = ev.target.files[0];
-    if (f) _loadImage(f);
-    ev.target.value = '';
-  }
+  function loadFile() { $ia('ia-file-input').click(); }
+  function onFileInput(ev) { const f = ev.target.files[0]; if (f) _loadImage(f); ev.target.value = ''; }
 
   function onDrop(ev) {
-    ev.preventDefault();
-    ev.currentTarget.style.outline = '';
+    ev.preventDefault(); ev.currentTarget.style.outline = '';
     const f = ev.dataTransfer.files[0];
     if (f && f.type.startsWith('image/')) _loadImage(f);
   }
@@ -7894,72 +7842,79 @@ const IA = (() => {
       const val = ev.target.value.trim();
       if (val && textPend) {
         strokes.push({ type:'text', color, size, dashed:false, opacity, text:val, x1:textPend.x, y1:textPend.y });
-        redoStack = [];
-        $('ia-drop-hint').classList.add('ia-hidden');
+        redoStack = []; $ia('ia-drop-hint').classList.add('ia-hidden');
         _redraw(); _updateStatus();
       }
       ev.target.style.display = 'none'; textPend = null;
-    } else if (ev.key === 'Escape') {
-      ev.target.style.display = 'none'; textPend = null;
-    }
+    } else if (ev.key === 'Escape') { ev.target.style.display = 'none'; textPend = null; }
   }
 
   function download() {
-    const c = _c(); if (!c.width) return;
-    const merged = document.createElement('canvas');
-    merged.width = c.width; merged.height = c.height;
-    const mctx = merged.getContext('2d');
-    if (!hasImage) { mctx.fillStyle = '#1a1a1a'; mctx.fillRect(0, 0, c.width, c.height); }
-    const img = _bg();
-    if (img.naturalWidth) mctx.drawImage(img, 0, 0, c.width, c.height);
-    mctx.drawImage(c, 0, 0);
-    const lnk = document.createElement('a');
-    lnk.download = 'annotation.png'; lnk.href = merged.toDataURL('image/png'); lnk.click();
+    const c = _c(); if (!c?.width) return;
+    const m = document.createElement('canvas'); m.width = c.width; m.height = c.height;
+    const mx = m.getContext('2d');
+    if (!hasImage) { mx.fillStyle = '#1a1a1a'; mx.fillRect(0,0,c.width,c.height); }
+    const img = _bg(); if (img.naturalWidth) mx.drawImage(img,0,0,c.width,c.height);
+    mx.drawImage(c,0,0);
+    const lnk = document.createElement('a'); lnk.download='annotation.png'; lnk.href=m.toDataURL('image/png'); lnk.click();
   }
 
-  // Called from showModule when annotator is activated
+  // Called from showModule — deferred so layout is complete
   function onShow() {
-    if (!hasImage) _sizeBlank();
+    requestAnimationFrame(() => { if (!hasImage) _sizeBlank(); else _redraw(); });
   }
 
   function init() {
     const c = _c(); if (!c) return;
-    // Canvas always visible, starts filling the wrap
-    c.style.position = 'absolute';
-    c.style.touchAction = 'none';
-    _sizeBlank();
+    c.style.touchAction = 'none';   // prevent default touch scroll on canvas
+    c.style.display = 'block';
 
-    // Mouse events
-    c.addEventListener('mousedown',  _md);
-    c.addEventListener('mousemove',  _mm);
-    document.addEventListener('mouseup', _mu);
+    // Mouse on canvas
+    c.addEventListener('mousedown', _md);
+    c.addEventListener('mousemove', _mm);
+    // Mouseup + pan-mousemove on document so they work outside canvas
+    document.addEventListener('mouseup',    _mu);
+    document.addEventListener('mousemove', e => {
+      if (!panning || !panRef) return;
+      const w = _wrap(); if (!w) return;
+      w.scrollLeft = panRef.sl - (e.clientX - panRef.x);
+      w.scrollTop  = panRef.st - (e.clientY - panRef.y);
+    });
 
-    // Touch events
-    c.addEventListener('touchstart', e => _md(e), { passive: false });
-    c.addEventListener('touchmove',  e => _mm(e), { passive: false });
-    c.addEventListener('touchend',   _mu);
+    // Touch
+    c.addEventListener('touchstart',  e => _md(e), { passive: false });
+    c.addEventListener('touchmove',   e => _mm(e), { passive: false });
+    c.addEventListener('touchend',    _mu);
     c.addEventListener('touchcancel', _mu);
 
-    // Resize: re-fit blank canvas when window resizes
-    window.addEventListener('resize', () => { if (!hasImage) _sizeBlank(); });
+    // Ctrl+V paste image
+    document.addEventListener('paste', e => {
+      if (!$ia('module-annotator')?.classList.contains('active')) return;
+      for (const item of (e.clipboardData?.items || [])) {
+        if (item.type.startsWith('image/')) { const f = item.getAsFile(); if (f) { _loadImage(f); e.preventDefault(); } break; }
+      }
+    });
 
-    // Keyboard shortcuts (only when annotator module is active)
+    // Keyboard shortcuts
     document.addEventListener('keydown', e => {
-      const mod = $('module-annotator');
-      if (!mod?.classList.contains('active')) return;
+      if (!$ia('module-annotator')?.classList.contains('active')) return;
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.code === 'Space' && !spaceDown) { e.preventDefault(); spaceDown = true; prevTool = tool; _cursor(); return; }
       if (e.ctrlKey && e.key === 'z')                    { e.preventDefault(); undo(); return; }
       if (e.ctrlKey && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
       if (e.ctrlKey) return;
-      const map = { p:'pen', l:'line', r:'rect', a:'arrow', t:'text', e:'eraser' };
-      const k = map[e.key.toLowerCase()];
-      if (k) setTool(k);
+      const map = { p:'pen', l:'line', r:'rect', a:'arrow', t:'text', e:'eraser', h:'pan' };
+      const k = map[e.key.toLowerCase()]; if (k) setTool(k);
+    });
+    document.addEventListener('keyup', e => {
+      if (e.code === 'Space' && spaceDown) { spaceDown = false; _cursor(); }
     });
   }
 
   return { setTool, setColor, setSize, setDash, setOpacity, undo, redo, clear, loadFile, onFileInput, onDrop, onTextKey, download, onShow, init };
 })();
+
 
 function init() {
   PS.load();
