@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Invictus Game Studio</title>
+<script>
+// Cache-bust: redirect to ?_v=<timestamp> so the browser always fetches fresh HTML.
+// Without this, static hosting (GitHub Pages, etc.) serves stale cached files.
+(function(){
+  if(!location.search.includes('_v=')){
+    location.replace(location.pathname+'?_v='+Date.now()+(location.hash||''));
+  }
+})();
+</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600&display=swap');
 
@@ -713,9 +722,48 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
 #layer-ctx-menu hr { border:none;border-top:1px solid var(--border);margin:3px 0 }
 #layer-ctx-menu button.danger { color:var(--red) }
 #layer-ctx-menu button.danger:hover { background:rgba(220,50,50,.12) }
+/* ── Login overlay ────────────────────────────────────────── */
+#login-overlay{position:fixed;inset:0;z-index:999999;background:#080808;display:flex;align-items:center;justify-content:center;font-family:var(--fu)}
+.lgn-box{background:#111;border:1px solid #2a2a2a;border-radius:14px;padding:40px 36px;width:400px;max-width:94vw;box-shadow:0 24px 64px #000a}
+.lgn-head{text-align:center;margin-bottom:30px}
+.lgn-logo{font-size:28px;margin-bottom:10px}
+.lgn-title{font-size:18px;font-weight:700;color:var(--gold);letter-spacing:3px;text-transform:uppercase}
+.lgn-sub{font-size:10px;color:var(--text-muted);letter-spacing:1.5px;margin-top:5px;text-transform:uppercase}
+.lgn-lbl{font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;display:block;margin-bottom:8px}
+.lgn-avatars{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px}
+.lgn-av{width:38px;height:38px;border-radius:8px;background:var(--bg-card);border:2px solid var(--border);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;transition:border-color .1s,background .1s}
+.lgn-av:hover{border-color:#555}.lgn-av.active{border-color:var(--gold);background:rgba(201,162,39,.12)}
+.lgn-colors{display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap}
+.lgn-col{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border-color .1s,transform .1s}
+.lgn-col:hover{transform:scale(1.15)}.lgn-col.active{border-color:#fff;transform:scale(1.15)}
+.lgn-enter{width:100%;padding:13px;background:var(--gold);color:#000;border:none;border-radius:7px;font-family:var(--fu);font-size:13px;font-weight:700;letter-spacing:1.5px;cursor:pointer;text-transform:uppercase;margin-top:4px;transition:background .15s}
+.lgn-enter:hover{background:var(--gold-light)}
+.lgn-enter:disabled{opacity:.4;cursor:not-allowed}
+.lgn-err{font-size:11px;color:var(--red);margin-top:6px;min-height:16px;text-align:center}
 </style>
 </head>
 <body>
+<!-- ── Login overlay ──────────────────────────────────────── -->
+<div id="login-overlay">
+  <div class="lgn-box">
+    <div class="lgn-head">
+      <div class="lgn-logo">🎮</div>
+      <div class="lgn-title">Invictus Game Studio</div>
+      <div class="lgn-sub">Real-time Collaborative Editor</div>
+    </div>
+    <span class="lgn-lbl">Choose your avatar</span>
+    <div class="lgn-avatars" id="lgn-avatars"></div>
+    <span class="lgn-lbl">Display name</span>
+    <input id="lgn-name" class="fi" placeholder="Enter your name…" maxlength="24"
+      style="margin-bottom:16px;font-size:14px"
+      oninput="document.getElementById('lgn-err').textContent=''"
+      onkeydown="if(event.key==='Enter')loginEnter()">
+    <span class="lgn-lbl">Cursor color</span>
+    <div class="lgn-colors" id="lgn-colors"></div>
+    <div id="lgn-err" class="lgn-err"></div>
+    <button class="lgn-enter" onclick="loginEnter()">Enter Studio →</button>
+  </div>
+</div>
 <div id="mob-overlay" onclick="closeMobSidebar()"></div>
 <div id="layer-ctx-menu"></div>
 <!-- TOPBAR -->
@@ -1471,9 +1519,10 @@ const PS = {
     this.data.currentProject = _s('currentProject', 'Project Alpha');
     this.data.studying       = _s('studying', { topics:[], notes:[] });
     this.data.notes          = _s('notes', { lists:[{id:'nl_default',name:'General',color:'#c9a227',icon:'📋',items:[]}], activeList:'nl_default' });
+    this.data.ia             = _s('ia', { strokes:[] });
     // Merge _sectionTs — keep max per section so neither side forgets its own work
     if (!this.data._sectionTs) this.data._sectionTs = {};
-    ['tasks','maps','calendarEvents','assets','charts','docs','settings','currentProject','studying','notes']
+    ['tasks','maps','calendarEvents','assets','charts','docs','settings','currentProject','studying','notes','ia']
       .forEach(s => { this.data._sectionTs[s] = Math.max(remoteSTs[s]||0, localSTs[s]||0); });
     if (keepLocalTs) this.data._localTs = keepLocalTs;
   },
@@ -1652,13 +1701,12 @@ let _autoSaveTimer;
 let _fbQuickTimer;
 // Maps sidebar module id → PS.data section key
 const _MOD_SECTION = { tasks:'tasks', map:'maps', notes:'notes', calendar:'calendarEvents',
-                       gdd:'docs', ldd:'docs', charts:'charts', assets:'assets', studying:'studying' };
+                       gdd:'docs', ldd:'docs', charts:'charts', assets:'assets', studying:'studying', annotator:'ia' };
 // Sections locally modified but not yet confirmed pushed — protected from remote overwrite
-const _ALL_SECTIONS = ['tasks','maps','calendarEvents','assets','charts','docs','settings','currentProject','studying','notes'];
+const _ALL_SECTIONS = ['tasks','maps','calendarEvents','assets','charts','docs','settings','currentProject','studying','notes','ia'];
 let _localDirty = new Set();
 
 function autoSave() {
-  if (!PS.data.settings.autosave) return;
   // Tag which section changed based on the currently active module
   const mod = document.querySelector('.sb-item.active')?.dataset?.mod;
   const section = _MOD_SECTION[mod];
@@ -1667,9 +1715,10 @@ function autoSave() {
     PS.data._sectionTs[section] = Date.now();
     _localDirty.add(section);  // mark as unsaved local change
   }
-  // Fast Firebase push — 800ms after last change (real-time feel)
+  // Fast Firebase push — always, regardless of autosave toggle
   clearTimeout(_fbQuickTimer);
-  _fbQuickTimer = setTimeout(() => { collectDocData(); mapSaveCurrent(); FIREBASE.push(); }, 800);
+  _fbQuickTimer = setTimeout(() => { collectDocData(); mapSaveCurrent(); FIREBASE.push(); }, 300);
+  if (!PS.data.settings.autosave) return;
   // Full local save — 3s
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(() => {
@@ -1719,7 +1768,11 @@ function showModule(name) {
   if (name === 'notes') { ensureNotes(); renderNotesLists(); renderNotesItems(); }
   if (name === 'annotator') { IA.onShow(); }
   // Update presence immediately so others see which module you switched to
-  if (FIREBASE._ready) FIREBASE._writePresence();
+  if (FIREBASE._ready) {
+    FIREBASE._writePresence();
+    // Clear live cursor when leaving map so ghost cursors don't linger
+    if (name !== 'map') fetch(FIREBASE._myLiveUrl, { method: 'DELETE' }).catch(() => {});
+  }
 }
 
 function gotoLC(mod) {
@@ -1827,6 +1880,15 @@ const CLOUD = {
 // REST API + SSE + polling fallback — no SDK needed
 // ════════════════════════════════════════════════════════════
 let _fbPresence = {};
+let _fbLive     = {};  // live cursor positions: { sessionId: {x,y,mapId,name,flag,ts} }
+
+// Consistent color per session for live cursors
+const _CURSOR_COLORS = ['#4a9eff','#e05252','#4ecb71','#e07820','#9b6bde','#00cfff','#ff9f43'];
+function _sessionColor(sid) {
+  let h = 0;
+  for (let i = 0; i < sid.length; i++) h = ((h << 5) - h) + sid.charCodeAt(i);
+  return _CURSOR_COLORS[Math.abs(h) % _CURSOR_COLORS.length];
+}
 
 const FIREBASE = {
   dbUrl:     'https://invictus-game-studio-default-rtdb.firebaseio.com',
@@ -1837,17 +1899,20 @@ const FIREBASE = {
 
   _throttleTimer: null, _throttleDelay: 200,
   _pendingWrite:  false,
-  _stateSse:      null, _presSse: null,
+  _stateSse:      null, _presSse: null, _liveSse: null,
   _heartbeat:     null, _pollTimer: null,
+  _liveThrottle:  null, _liveIAThrottle: null,
   _ready:         false, _writeQueue: false,
   _lastRemoteTs:  0,
   _pendingPayload: null,
   _log:           [],
 
   // ── URLs ──────────────────────────────────────────────────
-  get _stateUrl()  { return `${this.dbUrl}/projects/${this.projectId}/state.json`; },
-  get _presUrl()   { return `${this.dbUrl}/projects/${this.projectId}/presence.json`; },
-  get _myPresUrl() { return `${this.dbUrl}/projects/${this.projectId}/presence/${this.sessionId}.json`; },
+  get _stateUrl()   { return `${this.dbUrl}/projects/${this.projectId}/state.json`; },
+  get _presUrl()    { return `${this.dbUrl}/projects/${this.projectId}/presence.json`; },
+  get _myPresUrl()  { return `${this.dbUrl}/projects/${this.projectId}/presence/${this.sessionId}.json`; },
+  get _liveUrl()    { return `${this.dbUrl}/projects/${this.projectId}/live.json`; },
+  get _myLiveUrl()  { return `${this.dbUrl}/projects/${this.projectId}/live/${this.sessionId}.json`; },
 
   // ── Init ──────────────────────────────────────────────────
   async init() {
@@ -1858,6 +1923,7 @@ const FIREBASE = {
       await this._loadState();
       this._subscribeState();
       this._subscribePresence();
+      this._subscribeLive();
       this._startHeartbeat();
       this._startPolling();
       this._ready = true;
@@ -1952,11 +2018,21 @@ const FIREBASE = {
         this._lastRemoteTs = payload.ts || Date.now();
         const sender = payload.userName || (payload.sessionId||'?').slice(0,8);
         this._addLog('⬇ ' + sender + ' updated');
-        // Find which sections the remote actually changed
+        // Always merge map objects immediately (collaborative drawing — bypass section-level conflict)
+        const activemod = document.querySelector('.sb-item.active')?.dataset?.mod;
         const remSTs = (payload.data._sectionTs) || {};
         const locSTs = (PS.data._sectionTs)      || {};
-        const changedSecs = _ALL_SECTIONS.filter(s => (remSTs[s]||0) > (locSTs[s]||0));
-        const conflicts   = changedSecs.filter(s => _localDirty.has(s));
+        if (payload.data.maps) {
+          // allowFullSync when User B hasn't drawn anything recently (safe to sync moves/deletes too)
+          _applyMapMerge(payload.data.maps, !_localDirty.has('maps'));
+          // Stamp maps ts to max so PS._merge below keeps our already-merged local version
+          if (!PS.data._sectionTs) PS.data._sectionTs = {};
+          PS.data._sectionTs['maps'] = Math.max(remSTs['maps']||0, locSTs['maps']||0);
+        }
+        // Find which sections the remote actually changed (maps already handled above)
+        const changedSecs    = _ALL_SECTIONS.filter(s => (remSTs[s]||0) > (locSTs[s]||0));
+        const nonMapChanged  = changedSecs.filter(s => s !== 'maps');
+        const conflicts      = nonMapChanged.filter(s => _localDirty.has(s));
         if (conflicts.length > 0) {
           // Remote changed something we also modified locally — show banner, don't overwrite
           this._pendingPayload = payload;
@@ -2037,10 +2113,17 @@ const FIREBASE = {
           this._lastRemoteTs = payload.ts || Date.now();
           const sender = payload.userName || (payload.sessionId||'?').slice(0,8);
           this._addLog('⬇ Poll: ' + sender + ' updated');
+          // Always merge map objects immediately (collaborative drawing)
           const remSTs2 = (payload.data._sectionTs) || {};
           const locSTs2 = (PS.data._sectionTs)      || {};
-          const changedSecs2 = _ALL_SECTIONS.filter(s => (remSTs2[s]||0) > (locSTs2[s]||0));
-          const conflicts2   = changedSecs2.filter(s => _localDirty.has(s));
+          if (payload.data.maps) {
+            _applyMapMerge(payload.data.maps, !_localDirty.has('maps'));
+            if (!PS.data._sectionTs) PS.data._sectionTs = {};
+            PS.data._sectionTs['maps'] = Math.max(remSTs2['maps']||0, locSTs2['maps']||0);
+          }
+          const changedSecs2   = _ALL_SECTIONS.filter(s => (remSTs2[s]||0) > (locSTs2[s]||0));
+          const nonMapChanged2 = changedSecs2.filter(s => s !== 'maps');
+          const conflicts2     = nonMapChanged2.filter(s => _localDirty.has(s));
           if (conflicts2.length > 0) {
             this._pendingPayload = payload;
             _showUpdateBanner(sender, changedSecs2, conflicts2);
@@ -2065,8 +2148,9 @@ const FIREBASE = {
   },
 
   _writePresence() {
-    const mod  = document.querySelector('.sb-item.active')?.dataset?.mod || '';
-    const info = { name:this.userName, ts:Date.now(), sessionId:this.sessionId, mod, ...this._userInfo };
+    const mod   = document.querySelector('.sb-item.active')?.dataset?.mod || '';
+    const mapId = (typeof MAP !== 'undefined' && MAP.currentMapId) || '';
+    const info  = { name:this.userName, ts:Date.now(), sessionId:this.sessionId, mod, mapId, color:localStorage.getItem('igs_color')||'#4a9eff', ...this._userInfo };
     fetch(this._myPresUrl, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(info) })
       .catch(e => console.warn('[Firebase] presence error:', e));
   },
@@ -2079,17 +2163,100 @@ const FIREBASE = {
     });
   },
 
+  // ── Live cursor: broadcast my position to collaborators ─────
+  _pushLive(x, y) {
+    if (this._liveThrottle) return;
+    this._liveThrottle = setTimeout(() => { this._liveThrottle = null; }, 30);
+    // In-progress draw preview (shape being drawn before mouseup)
+    let drawPreview = null;
+    if (MAP.isDrawing && MAP.drawStart) {
+      if (MAP.tool === 'draw' && MAP.drawPoints?.length > 1)
+        drawPreview = { type: 'draw', points: MAP.drawPoints.slice(-80) };
+      else if (MAP.drawCurrent)
+        drawPreview = { type: MAP.tool, start: MAP.drawStart, end: MAP.drawCurrent };
+    }
+    // Live object positions during drag/resize — collaborators see objects moving in real-time
+    let liveObjects = null;
+    if ((MAP.isDragging || MAP.isResizing || MAP.isGroupResizing) && MAP.selectedIds.size) {
+      liveObjects = [];
+      MAP.selectedIds.forEach(id => {
+        const o = MAP.objects.find(obj => obj.id === id);
+        if (o) liveObjects.push({ id:o.id, type:o.type, x:o.x, y:o.y, w:o.w, h:o.h,
+          r:o.r, x2:o.x2, y2:o.y2, points:o.points, fill:o.fill, stroke:o.stroke,
+          opacity:o.opacity, text:o.text, fontSize:o.fontSize, name:o.name });
+      });
+    }
+    const payload = { x, y, mapId: MAP.currentMapId,
+      name: this.userName, flag: this._userInfo.flag || '🌐',
+      color: localStorage.getItem('igs_color') || null,
+      sessionId: this.sessionId, ts: Date.now(),
+      drawPreview, liveObjects };
+    fetch(this._myLiveUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => {});
+  },
+
+  _pushLiveIA(stroke) {
+    if (this._liveIAThrottle) return;
+    this._liveIAThrottle = setTimeout(() => { this._liveIAThrottle = null; }, 30);
+    const payload = {
+      iaStroke: stroke ? JSON.parse(JSON.stringify(stroke)) : null,
+      name: this.userName, flag: this._userInfo.flag || '🌐',
+      color: localStorage.getItem('igs_color') || '#4a9eff',
+      sessionId: this.sessionId, ts: Date.now()
+    };
+    fetch(this._myLiveUrl, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(() => {});
+  },
+
+  // ── Live cursor: subscribe to others' positions ───────────
+  _subscribeLive() {
+    if (this._liveSse) { try { this._liveSse.close(); } catch(e) {} }
+    this._liveSse = new EventSource(this._liveUrl);
+    this._liveSse.addEventListener('put', e => {
+      try {
+        const ev = JSON.parse(e.data);
+        if (ev.path === '/') { _fbLive = ev.data || {}; }
+        else {
+          const k = ev.path.replace(/^\//, '');
+          if (ev.data === null) delete _fbLive[k]; else _fbLive[k] = ev.data;
+        }
+        // Re-render whichever module is visible
+        const mod = document.querySelector('.sb-item.active')?.dataset?.mod;
+        if (mod === 'map' && MAP.currentMapId) renderMap();
+        else if (mod === 'annotator') IA.redrawLive();
+      } catch(err) { console.warn('[Live SSE put]', err); }
+    });
+    this._liveSse.addEventListener('patch', e => {
+      try {
+        const d = (JSON.parse(e.data) || {}).data || {};
+        Object.keys(d).forEach(k => { if (d[k] === null) delete _fbLive[k]; else _fbLive[k] = d[k]; });
+        const mod = document.querySelector('.sb-item.active')?.dataset?.mod;
+        if (mod === 'map' && MAP.currentMapId) renderMap();
+        else if (mod === 'annotator') IA.redrawLive();
+      } catch(err) { console.warn('[Live SSE patch]', err); }
+    });
+    this._liveSse.onerror = () => {
+      try { this._liveSse.close(); } catch(e) {}
+      setTimeout(() => { if (this._ready) this._subscribeLive(); }, 3000);
+    };
+  },
+
   _cleanup() {
     if (this._stateSse) { try { this._stateSse.close(); } catch(e) {} this._stateSse = null; }
     if (this._presSse)  { try { this._presSse.close();  } catch(e) {} this._presSse  = null; }
+    if (this._liveSse)  { try { this._liveSse.close();  } catch(e) {} this._liveSse  = null; }
     if (this._heartbeat) { clearInterval(this._heartbeat); this._heartbeat = null; }
     if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
     fetch(this._myPresUrl, { method:'DELETE', keepalive:true }).catch(()=>{});
+    fetch(this._myLiveUrl, { method:'DELETE', keepalive:true }).catch(()=>{});
   },
 
   // ── Write state to Firebase ───────────────────────────────
   async _doWrite() {
-    const payload = { data: PS.data, sessionId: this.sessionId, ts: Date.now(), userName: this.userName };
+    const now = Date.now();
+    PS.data._localTs = now;  // keep local ts in sync with what we push
+    const payload = { data: PS.data, sessionId: this.sessionId, ts: now, userName: this.userName };
     this._setStatus('saving', '⬆ Saving…');
     try {
       const res = await fetch(this._stateUrl, {
@@ -2365,17 +2532,90 @@ function dismissUpdateBanner() {
   if (b) b.style.display = 'none';
 }
 
+// ── Object-level merge for maps (collaborative drawing) ──────
+// Merge remote maps into PS.data.maps.
+// allowFullSync=true  → full sync: update/delete existing objects too (use when User B isn't actively drawing)
+// allowFullSync=false → additive only: only add new objects by ID (use when User B is mid-draw)
+function _mergeMapObjects(remoteMaps, allowFullSync) {
+  if (!Array.isArray(remoteMaps) || !remoteMaps.length) return;
+  if (!PS.data.maps) PS.data.maps = [];
+  remoteMaps.forEach(remMap => {
+    const locMap = PS.data.maps.find(m => m.id === remMap.id);
+    if (!locMap) { PS.data.maps.push(JSON.parse(JSON.stringify(remMap))); return; }
+    const remObjs = remMap.objects || [];
+    if (allowFullSync) {
+      // Full sync: replace objects entirely — picks up moves, resizes, deletes, property changes
+      locMap.objects = JSON.parse(JSON.stringify(remObjs));
+      locMap.layers  = remMap.layers  ? [...remMap.layers]  : locMap.layers;
+      locMap.groups  = remMap.groups  ? JSON.parse(JSON.stringify(remMap.groups)) : locMap.groups;
+      locMap.name    = remMap.name    || locMap.name;
+    } else {
+      // Additive only: add remote objects that don't exist locally yet
+      if (!locMap.objects) locMap.objects = [];
+      remObjs.forEach(remObj => {
+        if (!locMap.objects.find(o => o.id === remObj.id))
+          locMap.objects.push(JSON.parse(JSON.stringify(remObj)));
+      });
+    }
+  });
+}
+
+// Apply _mergeMapObjects and re-render the active map canvas.
+// Auto-selects the first map if the user is on the map module with nothing loaded.
+function _applyMapMerge(remoteMaps, allowFullSync) {
+  _mergeMapObjects(remoteMaps, allowFullSync);
+  const onMapMod = document.querySelector('.sb-item.active')?.dataset?.mod === 'map';
+  // Auto-load first available map if user is on map module but hasn't selected one
+  if (!MAP.currentMapId && onMapMod && PS.data.maps?.length) {
+    MAP.currentMapId = PS.data.maps[0].id;
+    const m = PS.data.maps[0];
+    MAP.objects = JSON.parse(JSON.stringify(m.objects || []));
+    MAP.layers  = [...(m.layers || ['Ground','Walls','Props','Labels'])];
+    MAP.groups  = JSON.parse(JSON.stringify(m.groups || []));
+    renderMapSelect();
+    const sel = document.getElementById('map-sel');
+    if (sel) sel.value = MAP.currentMapId;
+    renderMap(); renderMapLayers(); renderMapProps();
+    return;
+  }
+  if (MAP.currentMapId) {
+    const m = PS.data.maps?.find(x => x.id === MAP.currentMapId);
+    if (m) {
+      MAP.objects = JSON.parse(JSON.stringify(m.objects || []));
+      MAP.layers  = [...(m.layers || MAP.layers)];
+    }
+    renderMap(); renderMapLayers(); renderMapProps(); renderMapSelect();
+  } else {
+    renderMapSelect();
+  }
+}
+
 // ── Apply remote state to currently visible module ────────────
 function _fbApply() {
   try { if (typeof refreshDashboard === 'function') refreshDashboard(); } catch(e) {}
   const mod = document.querySelector('.sb-item.active')?.dataset?.mod;
   if (!mod) return;
   try {
-    if      (mod === 'map')   { if (MAP.currentMapId) { renderMap(); renderMapLayers(); renderMapProps(); } }
-    else if (mod === 'notes') { renderNotesLists(); renderNotesItems(); }
-    else if (mod === 'tasks') { renderTasks(); }
-    else if (mod === 'gdd')   { initGDD(); }
-    else if (mod === 'ldd')   { initLDD(); }
+    if (mod === 'map') {
+      if (MAP.currentMapId) {
+        // Reload in-memory MAP.objects from the just-merged PS.data so renderMap draws fresh data
+        const map = PS.data.maps?.find(m => m.id === MAP.currentMapId);
+        if (map) {
+          MAP.objects = JSON.parse(JSON.stringify(map.objects || []));
+          MAP.layers  = [...(map.layers  || [])];
+        }
+        renderMap(); renderMapLayers(); renderMapProps();
+      }
+    }
+    else if (mod === 'notes')    { renderNotesLists(); renderNotesItems(); }
+    else if (mod === 'tasks')    { renderTasks(); }
+    else if (mod === 'gdd')      { initGDD(); }
+    else if (mod === 'ldd')      { initLDD(); }
+    else if (mod === 'calendar') { renderCalendar(); }
+    else if (mod === 'charts')   { initCurveEditor(); }
+    else if (mod === 'assets')   { renderAssets(); }
+    else if (mod === 'studying') { renderStudyTopics(); renderStudyNotes(); }
+    else if (mod === 'annotator'){ IA.syncFromData(); }
   } catch(err) { console.warn('[Firebase] _fbApply error:', mod, err); }
 }
 
@@ -2554,6 +2794,7 @@ function openFirebaseModal() {
         <code style="font-family:var(--fm);background:var(--bg-input);padding:2px 5px;border-radius:3px">{ "rules": { ".read": true, ".write": true } }</code>
       </div>
       <button class="btn btn-sm" style="font-size:11px" onclick="FIREBASE.testConnection()">🔍 Test Connection Now</button>
+      <button class="btn btn-sm" style="font-size:11px;margin-top:6px;background:rgba(201,162,39,.12);border-color:var(--gold);color:var(--gold)" onclick="location.replace(location.pathname+'?_v='+Date.now())">⚡ Force Reload (clear browser cache)</button>
       <div id="fb-test-result" style="margin-top:8px;font-size:11px;line-height:1.7;font-family:var(--fm)"></div>
     </div>`;
 
@@ -4382,6 +4623,8 @@ function mapMM(e) {
   const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
   const w = s2w(sx, sy);
   updateStatusBar(sx, sy);
+  // Broadcast live cursor position to collaborators (throttled inside _pushLive)
+  if (FIREBASE._ready && MAP.currentMapId) FIREBASE._pushLive(w.x, w.y);
 
   if (MAP.isPanning) {
     MAP.cam.x = MAP.panStartCam.x + (e.clientX - MAP.panStartMouse.x);
@@ -4414,15 +4657,43 @@ function mapMM(e) {
     const gs = MAP.groupResizeStart;
     const bb = gs.bbox;
     const bbW = bb.x2 - bb.x1 || 1, bbH = bb.y2 - bb.y1 || 1;
+    const ratio = bbW / bbH;
     const h = MAP.groupResizeHandle;
     // Compute new bbox corners in world space
     const dsx = (sx - gs.sx) / MAP.cam.zoom;
     const dsy = (sy - gs.sy) / MAP.cam.zoom;
     let nx1=bb.x1,ny1=bb.y1,nx2=bb.x2,ny2=bb.y2;
-    if(h.includes('e')) nx2=Math.max(bb.x1+8,snap(bb.x2+dsx));
-    if(h.includes('s')) ny2=Math.max(bb.y1+8,snap(bb.y2+dsy));
-    if(h.includes('w')) nx1=Math.min(bb.x2-8,snap(bb.x1+dsx));
-    if(h.includes('n')) ny1=Math.min(bb.y2-8,snap(bb.y1+dsy));
+    if (e.shiftKey) {
+      // Proportional: use dominant delta on corner handles, lock ratio on edge handles
+      const useX = h.includes('e') || h.includes('w');
+      const useY = h.includes('n') || h.includes('s');
+      if (useX && useY) {
+        if (Math.abs(dsx) >= Math.abs(dsy)) {
+          if(h.includes('e')) nx2=Math.max(bb.x1+8,snap(bb.x2+dsx));
+          if(h.includes('w')) nx1=Math.min(bb.x2-8,snap(bb.x1+dsx));
+          const nW=nx2-nx1; const nH=nW/ratio;
+          if(h.includes('s')) ny2=snap(bb.y1+nH); else ny1=snap(bb.y2-nH);
+        } else {
+          if(h.includes('s')) ny2=Math.max(bb.y1+8,snap(bb.y2+dsy));
+          if(h.includes('n')) ny1=Math.min(bb.y2-8,snap(bb.y1+dsy));
+          const nH=ny2-ny1; const nW=nH*ratio;
+          if(h.includes('e')) nx2=snap(bb.x1+nW); else nx1=snap(bb.x2-nW);
+        }
+      } else if (useX) {
+        if(h.includes('e')) nx2=Math.max(bb.x1+8,snap(bb.x2+dsx));
+        if(h.includes('w')) nx1=Math.min(bb.x2-8,snap(bb.x1+dsx));
+        const nH=(nx2-nx1)/ratio; ny2=snap(bb.y1+nH);
+      } else {
+        if(h.includes('s')) ny2=Math.max(bb.y1+8,snap(bb.y2+dsy));
+        if(h.includes('n')) ny1=Math.min(bb.y2-8,snap(bb.y1+dsy));
+        const nW=(ny2-ny1)*ratio; nx2=snap(bb.x1+nW);
+      }
+    } else {
+      if(h.includes('e')) nx2=Math.max(bb.x1+8,snap(bb.x2+dsx));
+      if(h.includes('s')) ny2=Math.max(bb.y1+8,snap(bb.y2+dsy));
+      if(h.includes('w')) nx1=Math.min(bb.x2-8,snap(bb.x1+dsx));
+      if(h.includes('n')) ny1=Math.min(bb.y2-8,snap(bb.y1+dsy));
+    }
     const scaleX=(nx2-nx1)/bbW, scaleY=(ny2-ny1)/bbH;
     gs.snaps.forEach(sn=>{
       const obj=MAP.objects.find(o=>o.id===sn.id);
@@ -4447,10 +4718,31 @@ function mapMM(e) {
       const dsy = (sy - MAP.dragStart.sy) / MAP.cam.zoom;
       const s = MAP.resizeObjStart;
       const h = MAP.resizeHandle;
-      if (h.includes('e')) obj.w = Math.max(8, snap(s.w + dsx));
-      if (h.includes('s')) obj.h = Math.max(8, snap(s.h + dsy));
-      if (h.includes('w')) { obj.x = snap(s.x + dsx); obj.w = Math.max(8, snap(s.w - dsx)); }
-      if (h.includes('n')) { obj.y = snap(s.y + dsy); obj.h = Math.max(8, snap(s.h - dsy)); }
+      if (e.shiftKey && s.w > 0 && s.h > 0) {
+        // Proportional resize: use the dominant axis delta
+        const ratio = s.w / s.h;
+        const useX = h.includes('e') || h.includes('w');
+        const useY = h.includes('n') || h.includes('s');
+        let newW = s.w, newH = s.h;
+        if (useX && useY) {
+          // Corner handle: pick largest delta
+          const absDX = Math.abs(dsx), absDY = Math.abs(dsy);
+          if (absDX >= absDY) { newW = Math.max(8, snap(s.w + (h.includes('w') ? -dsx : dsx))); newH = Math.max(8, snap(newW / ratio)); }
+          else                { newH = Math.max(8, snap(s.h + (h.includes('n') ? -dsy : dsy))); newW = Math.max(8, snap(newH * ratio)); }
+        } else if (useX) {
+          newW = Math.max(8, snap(s.w + (h.includes('w') ? -dsx : dsx))); newH = Math.max(8, snap(newW / ratio));
+        } else {
+          newH = Math.max(8, snap(s.h + (h.includes('n') ? -dsy : dsy))); newW = Math.max(8, snap(newH * ratio));
+        }
+        if (h.includes('w')) obj.x = snap(s.x + (s.w - newW));
+        if (h.includes('n')) obj.y = snap(s.y + (s.h - newH));
+        obj.w = newW; obj.h = newH;
+      } else {
+        if (h.includes('e')) obj.w = Math.max(8, snap(s.w + dsx));
+        if (h.includes('s')) obj.h = Math.max(8, snap(s.h + dsy));
+        if (h.includes('w')) { obj.x = snap(s.x + dsx); obj.w = Math.max(8, snap(s.w - dsx)); }
+        if (h.includes('n')) { obj.y = snap(s.y + dsy); obj.h = Math.max(8, snap(s.h - dsy)); }
+      }
       if (obj.type === 'circle') obj.r = Math.max(4, snap(obj.w/2));
       renderMap(); renderMapProps();
     }
@@ -4868,6 +5160,76 @@ function renderMap() {
     ctx.fillStyle='rgba(201,162,39,0.07)';ctx.fillRect(x1,y1,x2-x1,y2-y1);
     ctx.restore();
   }
+
+  // ── Live collaborator cursors + in-progress drawings ─────
+  const _liveCutoff = Date.now() - 3000;
+  Object.values(_fbLive).forEach(u => {
+    if (!u || u.ts < _liveCutoff) return;
+    if (u.sessionId === FIREBASE.sessionId) return;
+    if (u.mapId !== MAP.currentMapId) return;
+    const col = u.color || _sessionColor(u.sessionId);
+
+    // Draw live objects being dragged/resized by this collaborator
+    if (u.liveObjects && u.liveObjects.length) {
+      ctx.save(); ctx.globalAlpha = 0.5;
+      u.liveObjects.forEach(o => {
+        try { drawObj(o, ctx); } catch(e) {}
+        ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.setLineDash([4,3]); ctx.globalAlpha = 0.8;
+        const sp = w2s(o.x||0, o.y||0);
+        if (o.type==='circle'||o.type==='light') { const sr=(o.r||32)*MAP.cam.zoom; ctx.beginPath(); ctx.arc(sp.x,sp.y,sr,0,Math.PI*2); ctx.stroke(); }
+        else if (o.type==='arrow') { const pe=w2s(o.x2||o.x,o.y2||o.y); ctx.beginPath(); ctx.moveTo(sp.x,sp.y); ctx.lineTo(pe.x,pe.y); ctx.stroke(); }
+        else if (o.w&&o.h) { ctx.strokeRect(sp.x,sp.y,o.w*MAP.cam.zoom,o.h*MAP.cam.zoom); }
+      });
+      ctx.restore();
+    }
+    // Draw in-progress shape preview (ghost of what they're drawing)
+    if (u.drawPreview) {
+      const dp = u.drawPreview;
+      ctx.save();
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.globalAlpha = 0.65; ctx.setLineDash([5, 3]);
+      if (dp.type === 'draw' && dp.points?.length > 1) {
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        const dps = dp.points.map(p => w2s(p.x, p.y));
+        ctx.moveTo(dps[0].x, dps[0].y);
+        dps.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.stroke();
+      } else if (dp.start && dp.end) {
+        const ps = w2s(dp.start.x, dp.start.y), pe = w2s(dp.end.x, dp.end.y);
+        if (dp.type === 'circle') {
+          const r = Math.hypot(pe.x - ps.x, pe.y - ps.y);
+          ctx.beginPath(); ctx.arc(ps.x, ps.y, r, 0, Math.PI * 2); ctx.stroke();
+        } else if (dp.type === 'arrow') {
+          ctx.setLineDash([]); ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(ps.x, ps.y); ctx.lineTo(pe.x, pe.y); ctx.stroke();
+          const ang = Math.atan2(pe.y - ps.y, pe.x - ps.x), al = 12;
+          ctx.beginPath(); ctx.moveTo(pe.x, pe.y);
+          ctx.lineTo(pe.x - al * Math.cos(ang - .45), pe.y - al * Math.sin(ang - .45));
+          ctx.lineTo(pe.x - al * Math.cos(ang + .45), pe.y - al * Math.sin(ang + .45));
+          ctx.closePath(); ctx.fill();
+        } else {
+          ctx.strokeRect(ps.x, ps.y, pe.x - ps.x, pe.y - ps.y);
+        }
+      }
+      ctx.restore();
+    }
+
+    // Draw cursor crosshair + name label
+    const s = w2s(u.x, u.y);
+    ctx.save();
+    ctx.globalAlpha = 0.92; ctx.setLineDash([]);
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(s.x - 9, s.y); ctx.lineTo(s.x + 9, s.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s.x, s.y - 9); ctx.lineTo(s.x, s.y + 9); ctx.stroke();
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, Math.PI * 2); ctx.fill();
+    const label = (u.flag || '') + ' ' + (u.name || 'User');
+    ctx.font = 'bold 11px monospace';
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = col + 'cc'; ctx.fillRect(s.x + 11, s.y - 17, tw + 8, 16);
+    ctx.fillStyle = '#000'; ctx.fillText(label, s.x + 15, s.y - 5);
+    ctx.restore();
+  });
 
   document.getElementById('sb-zoom').textContent=Math.round(MAP.cam.zoom*100);
   document.getElementById('sb-objs').textContent=MAP.objects.length;
@@ -5733,15 +6095,22 @@ function loadSelectedMap(){
   const noMap=document.getElementById('map-no-map');
   if(noMap)noMap.style.display='none';
   renderMapLayers();renderMap();renderMapProps();
+  if(FIREBASE._ready) FIREBASE._writePresence();
   showToast('Loaded: '+map.name);
 }
-function mapSaveCurrent(){
+function mapSaveCurrent(pushNow){
   if(!MAP.currentMapId)return;
   const map=PS.data.maps.find(m=>m.id===MAP.currentMapId);
   if(map){
     map.objects=JSON.parse(JSON.stringify(MAP.objects));
     map.layers=[...MAP.layers];
     map.groups=JSON.parse(JSON.stringify(MAP.groups||[]));
+  }
+  if(pushNow && FIREBASE._ready){
+    if(!PS.data._sectionTs)PS.data._sectionTs={};
+    PS.data._sectionTs['maps']=Date.now();
+    _localDirty.add('maps');
+    FIREBASE.push();
   }
 }
 
@@ -7764,7 +8133,14 @@ const IA = (() => {
     ctx.clearRect(0, 0, c.width, c.height);
     strokes.forEach(s => _paint(ctx, s));
     if (curStroke) _paint(ctx, curStroke);
+    // Render collaborators' live in-progress strokes
+    const _iaCutoff = Date.now() - 3000;
+    Object.values(_fbLive).forEach(u => {
+      if (!u || u.ts < _iaCutoff || u.sessionId === FIREBASE.sessionId || !u.iaStroke) return;
+      _paint(ctx, u.iaStroke);
+    });
   }
+  function redrawLive() { _redraw(); }
 
   function _paint(ctx, s) {
     ctx.save();
@@ -7855,6 +8231,8 @@ const IA = (() => {
     if (at === 'pen') curStroke.points.push({...p});
     else              { curStroke.x2 = p.x; curStroke.y2 = p.y; }
     _redraw();
+    // Broadcast live stroke preview to collaborators
+    if (FIREBASE._ready) FIREBASE._pushLiveIA(curStroke);
   }
 
   function _mu() {
@@ -7864,6 +8242,8 @@ const IA = (() => {
     if (curStroke) {
       strokes.push(curStroke); redoStack = []; curStroke = null;
       $('ia-drop-hint').classList.add('ia-hidden');
+      _syncToData();
+      if (FIREBASE._ready) FIREBASE._pushLiveIA(null);
     }
     _redraw(); _updateStatus();
   }
@@ -7880,6 +8260,21 @@ const IA = (() => {
   // ── Status ────────────────────────────────────────────────
   function _setXY(p) { const el=$('ia-status-xy'); if(el) el.textContent=`x:${Math.round(p.x)} y:${Math.round(p.y)}`; }
   function _updateStatus() { const el=$('ia-status-strokes'); if(el) el.textContent=strokes.length+(strokes.length!==1?' strokes':' stroke'); }
+
+  // ── Persistence: save strokes to PS.data so Firebase can sync them ──
+  function _syncToData() {
+    if (!PS.data.ia) PS.data.ia = {};
+    PS.data.ia.strokes = JSON.parse(JSON.stringify(strokes));
+    autoSave();
+  }
+
+  // ── Load strokes from PS.data and redraw (called by _fbApply on remote update) ──
+  function syncFromData() {
+    const saved = PS.data?.ia?.strokes;
+    if (!Array.isArray(saved)) return;
+    strokes = JSON.parse(JSON.stringify(saved));
+    _redraw(); _updateStatus();
+  }
 
   // ── Public API ────────────────────────────────────────────
   function setTool(t) {
@@ -7900,14 +8295,14 @@ const IA = (() => {
   function setSize(v)    { size = v; const l=$('ia-size-lbl'); if(l) l.textContent=v; }
   function setDash(v)    { dashed=v; $('ia-solid-btn')?.classList.toggle('active',!v); $('ia-dash-btn')?.classList.toggle('active',v); }
   function setOpacity(v) { opacity = v / 100; }
-  function undo()        { if(!strokes.length) return; redoStack.push(strokes.pop()); _redraw(); _updateStatus(); }
-  function redo()        { if(!redoStack.length) return; strokes.push(redoStack.pop()); _redraw(); _updateStatus(); }
+  function undo()        { if(!strokes.length) return; redoStack.push(strokes.pop()); _redraw(); _updateStatus(); _syncToData(); }
+  function redo()        { if(!redoStack.length) return; strokes.push(redoStack.pop()); _redraw(); _updateStatus(); _syncToData(); }
 
   function clear() {
     if (!strokes.length) return;
     if (!confirm('Clear all annotations?')) return;
     redoStack = [...strokes, ...redoStack]; strokes = [];
-    _redraw(); _updateStatus();
+    _redraw(); _updateStatus(); _syncToData();
   }
 
   function loadFile()      { $('ia-file-input').click(); }
@@ -7925,7 +8320,7 @@ const IA = (() => {
       if (val && textPend) {
         strokes.push({ type:'text', color, size, dashed:false, opacity, text:val, x1:textPend.x, y1:textPend.y });
         redoStack = []; $('ia-drop-hint').classList.add('ia-hidden');
-        _redraw(); _updateStatus();
+        _redraw(); _updateStatus(); _syncToData();
       }
       ev.target.style.display = 'none'; textPend = null;
     } else if (ev.key === 'Escape') { ev.target.style.display = 'none'; textPend = null; }
@@ -7942,6 +8337,7 @@ const IA = (() => {
   }
 
   function onShow() {
+    syncFromData();
     requestAnimationFrame(() => { if (!hasImage) _sizeBlank(); else _redraw(); });
   }
 
@@ -7993,9 +8389,80 @@ const IA = (() => {
     });
   }
 
-  return { setTool, setColor, setSize, setDash, setOpacity, undo, redo, clear, loadFile, onFileInput, onDrop, onTextKey, download, onShow, init };
+  return { setTool, setColor, setSize, setDash, setOpacity, undo, redo, clear, loadFile, onFileInput, onDrop, onTextKey, download, onShow, init, syncFromData, redrawLive };
 })();
 
+
+// ── Login screen ──────────────────────────────────────────────
+const _LGN_AVATARS = ['🎮','🦊','🐲','👾','🎯','🚀','🦁','🐺','🔥','⚡','🌟','🎨','🧠','🏴‍☠️','🤖','🐉'];
+const _LGN_COLORS  = ['#4a9eff','#4ecb71','#e05252','#e07820','#9b6bde','#c9a227','#00cfff','#ff9f43'];
+let _lgnAvatar = localStorage.getItem('igs_avatar') || '🎮';
+let _lgnColor  = localStorage.getItem('igs_color')  || '#4a9eff';
+
+function _initLogin() {
+  const saved = localStorage.getItem('fb_username');
+  const isDefault = !saved || /^User_[A-Z0-9]{3}$/i.test(saved);
+  if (!isDefault) {
+    // Already have a real name — skip login screen
+    document.getElementById('login-overlay').style.display = 'none';
+    return;
+  }
+  // Render avatar grid
+  document.getElementById('lgn-avatars').innerHTML = _LGN_AVATARS.map(a =>
+    `<div class="lgn-av${a===_lgnAvatar?' active':''}" onclick="_lgnPickAvatar('${a}')">${a}</div>`
+  ).join('');
+  // Render color swatches
+  document.getElementById('lgn-colors').innerHTML = _LGN_COLORS.map(c =>
+    `<div class="lgn-col${c===_lgnColor?' active':''}" style="background:${c}" onclick="_lgnPickColor('${c}')"></div>`
+  ).join('');
+  // Pre-fill name if partially set
+  if (saved && !isDefault) document.getElementById('lgn-name').value = saved;
+  setTimeout(() => document.getElementById('lgn-name')?.focus(), 150);
+}
+
+function _lgnPickAvatar(a) {
+  _lgnAvatar = a;
+  document.querySelectorAll('.lgn-av').forEach(el => el.classList.toggle('active', el.textContent.trim() === a));
+}
+function _lgnPickColor(c) {
+  _lgnColor = c;
+  document.querySelectorAll('.lgn-col').forEach(el => el.classList.toggle('active', el.style.background === c));
+}
+function loginEnter() {
+  const name = document.getElementById('lgn-name')?.value?.trim();
+  if (!name) { document.getElementById('lgn-err').textContent = 'Please enter your name.'; return; }
+  localStorage.setItem('igs_avatar', _lgnAvatar);
+  localStorage.setItem('igs_color',  _lgnColor);
+  FIREBASE.setUserName(name);
+  const ov = document.getElementById('login-overlay');
+  ov.style.transition = 'opacity .35s';
+  ov.style.opacity = '0';
+  setTimeout(() => { ov.style.display = 'none'; }, 360);
+  showToast(_lgnAvatar + ' Welcome, ' + name + '!');
+}
+
+function _promptUserName() {
+  const body = `
+    <div style="text-align:center;padding:10px 0 18px">
+      <div style="font-size:32px;margin-bottom:10px">👋</div>
+      <div style="font-family:var(--fu);font-size:16px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">Welcome to Invictus Game Studio</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:20px">Choose a display name — your teammates will see it in real-time.</div>
+      <input id="welcome-name-input" class="fi" placeholder="Your name (e.g. Rodrigo)" maxlength="24"
+        style="font-family:var(--fb);font-size:15px;text-align:center;max-width:280px;margin:0 auto;display:block"
+        onkeydown="if(event.key==='Enter'){const v=this.value.trim();if(v){FIREBASE.setUserName(v);closeModal();showToast('Welcome, '+v+' ✓');}}" >
+    </div>`;
+  openModal('👋 Who are you?', body, [
+    { label: 'Skip', cls: 'btn', fn: closeModal },
+    { label: 'Let\'s go →', cls: 'btn btn-gold', fn: () => {
+      const v = document.getElementById('welcome-name-input')?.value?.trim();
+      if (!v) return;
+      FIREBASE.setUserName(v);
+      closeModal();
+      showToast('Welcome, ' + v + ' ✓');
+    }}
+  ]);
+  setTimeout(() => document.getElementById('welcome-name-input')?.focus(), 100);
+}
 
 function init() {
   PS.load();
@@ -8023,6 +8490,9 @@ function init() {
 
     // Firebase Realtime Database — connect and subscribe to live updates
     FIREBASE.init();
+
+    // Initialize login screen (hides overlay if already logged in)
+    _initLogin();
 
     // Deadline notifications — request browser permission + check on load
     requestNotifPermission();
