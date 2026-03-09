@@ -4798,8 +4798,29 @@ function mapMM(e) {
         obj.y = s.y + moveX * sin + moveY * cos;
       };
 
-      if (e.shiftKey && s.w > 0 && s.h > 0) {
-        // Proportional resize in local space
+      if (!rot) {
+        // Non-rotated: anchor-based resize keeps the opposite edge fixed
+        const nw = h.includes('w') ? Math.max(8, snap(s.w - ldx)) : Math.max(8, snap(s.w + (h.includes('e') ? ldx : 0)));
+        const nh = h.includes('n') ? Math.max(8, snap(s.h - ldy)) : Math.max(8, snap(s.h + (h.includes('s') ? ldy : 0)));
+        obj.w = h.includes('e') || h.includes('w') ? nw : s.w;
+        obj.h = h.includes('n') || h.includes('s') ? nh : s.h;
+        obj.x = h.includes('w') ? s.x + s.w - nw : s.x;
+        obj.y = h.includes('n') ? s.y + s.h - nh : s.y;
+        if (e.shiftKey && s.w > 0 && s.h > 0) {
+          const ratio = s.w / s.h;
+          const useX = h.includes('e') || h.includes('w'), useY = h.includes('n') || h.includes('s');
+          let fw = s.w, fh = s.h;
+          if (useX && useY) {
+            if (Math.abs(ldx) >= Math.abs(ldy)) { fw = Math.max(8, snap(s.w + (h.includes('w') ? -ldx : ldx))); fh = Math.max(8, snap(fw / ratio)); }
+            else { fh = Math.max(8, snap(s.h + (h.includes('n') ? -ldy : ldy))); fw = Math.max(8, snap(fh * ratio)); }
+          } else if (useX) { fw = Math.max(8, snap(s.w + (h.includes('w') ? -ldx : ldx))); fh = Math.max(8, snap(fw / ratio)); }
+          else { fh = Math.max(8, snap(s.h + (h.includes('n') ? -ldy : ldy))); fw = Math.max(8, snap(fh * ratio)); }
+          obj.w = fw; obj.h = fh;
+          obj.x = h.includes('w') ? s.x + s.w - fw : s.x;
+          obj.y = h.includes('n') ? s.y + s.h - fh : s.y;
+        }
+      } else if (e.shiftKey && s.w > 0 && s.h > 0) {
+        // Rotated + proportional
         const ratio = s.w / s.h;
         const useX = h.includes('e') || h.includes('w');
         const useY = h.includes('n') || h.includes('s');
@@ -4815,6 +4836,7 @@ function mapMM(e) {
         _moveOrigin(h.includes('w') ? s.w - newW : 0, h.includes('n') ? s.h - newH : 0);
         obj.w = newW; obj.h = newH;
       } else {
+        // Rotated: use local-axis projection
         if (h.includes('e')) obj.w = Math.max(8, snap(s.w + ldx));
         if (h.includes('s')) obj.h = Math.max(8, snap(s.h + ldy));
         if (h.includes('w') || h.includes('n')) _moveOrigin(h.includes('w') ? ldx : 0, h.includes('n') ? ldy : 0);
