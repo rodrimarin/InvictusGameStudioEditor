@@ -4774,30 +4774,52 @@ function mapMM(e) {
       const dsy = (sy - MAP.dragStart.sy) / MAP.cam.zoom;
       const s = MAP.resizeObjStart;
       const h = MAP.resizeHandle;
+      const rot = s.rotation || 0;
+
+      // Project mouse delta onto object's local axes (handles rotation)
+      // Local x-axis = (cos θ, sin θ),  local y-axis = (-sin θ, cos θ)
+      let ldx = dsx, ldy = dsy;
+      if (rot) {
+        const r = rot * Math.PI / 180;
+        const cos = Math.cos(r), sin = Math.sin(r);
+        ldx =  dsx * cos + dsy * sin;   // component along local x
+        ldy = -dsx * sin + dsy * cos;   // component along local y
+      }
+
+      // When a handle moves the origin (w or n), the origin must shift
+      // in the direction of the object's local axes (world space)
+      const _moveOrigin = (moveX, moveY) => {
+        if (!rot) { obj.x = snap(s.x + moveX); obj.y = snap(s.y + moveY); return; }
+        const r = rot * Math.PI / 180;
+        const cos = Math.cos(r), sin = Math.sin(r);
+        // ldx offset along local-x maps to world: (ldx*cos, ldx*sin)
+        // ldy offset along local-y maps to world: (-ldy*sin, ldy*cos)
+        obj.x = s.x + moveX * cos - moveY * sin;
+        obj.y = s.y + moveX * sin + moveY * cos;
+      };
+
       if (e.shiftKey && s.w > 0 && s.h > 0) {
-        // Proportional resize: use the dominant axis delta
+        // Proportional resize in local space
         const ratio = s.w / s.h;
         const useX = h.includes('e') || h.includes('w');
         const useY = h.includes('n') || h.includes('s');
         let newW = s.w, newH = s.h;
         if (useX && useY) {
-          // Corner handle: pick largest delta
-          const absDX = Math.abs(dsx), absDY = Math.abs(dsy);
-          if (absDX >= absDY) { newW = Math.max(8, snap(s.w + (h.includes('w') ? -dsx : dsx))); newH = Math.max(8, snap(newW / ratio)); }
-          else                { newH = Math.max(8, snap(s.h + (h.includes('n') ? -dsy : dsy))); newW = Math.max(8, snap(newH * ratio)); }
+          if (Math.abs(ldx) >= Math.abs(ldy)) { newW = Math.max(8, snap(s.w + (h.includes('w') ? -ldx : ldx))); newH = Math.max(8, snap(newW / ratio)); }
+          else                                { newH = Math.max(8, snap(s.h + (h.includes('n') ? -ldy : ldy))); newW = Math.max(8, snap(newH * ratio)); }
         } else if (useX) {
-          newW = Math.max(8, snap(s.w + (h.includes('w') ? -dsx : dsx))); newH = Math.max(8, snap(newW / ratio));
+          newW = Math.max(8, snap(s.w + (h.includes('w') ? -ldx : ldx))); newH = Math.max(8, snap(newW / ratio));
         } else {
-          newH = Math.max(8, snap(s.h + (h.includes('n') ? -dsy : dsy))); newW = Math.max(8, snap(newH * ratio));
+          newH = Math.max(8, snap(s.h + (h.includes('n') ? -ldy : ldy))); newW = Math.max(8, snap(newH * ratio));
         }
-        if (h.includes('w')) obj.x = snap(s.x + (s.w - newW));
-        if (h.includes('n')) obj.y = snap(s.y + (s.h - newH));
+        if (h.includes('w')) _moveOrigin(s.w - newW, 0);
+        if (h.includes('n')) _moveOrigin(0, s.h - newH);
         obj.w = newW; obj.h = newH;
       } else {
-        if (h.includes('e')) obj.w = Math.max(8, snap(s.w + dsx));
-        if (h.includes('s')) obj.h = Math.max(8, snap(s.h + dsy));
-        if (h.includes('w')) { obj.x = snap(s.x + dsx); obj.w = Math.max(8, snap(s.w - dsx)); }
-        if (h.includes('n')) { obj.y = snap(s.y + dsy); obj.h = Math.max(8, snap(s.h - dsy)); }
+        if (h.includes('e')) obj.w = Math.max(8, snap(s.w + ldx));
+        if (h.includes('s')) obj.h = Math.max(8, snap(s.h + ldy));
+        if (h.includes('w')) { _moveOrigin(ldx, 0); obj.w = Math.max(8, snap(s.w - ldx)); }
+        if (h.includes('n')) { _moveOrigin(0, ldy); obj.h = Math.max(8, snap(s.h - ldy)); }
       }
       if (obj.type === 'circle') obj.r = Math.max(4, snap(obj.w/2));
       renderMap(); renderMapProps();
