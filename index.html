@@ -5195,14 +5195,21 @@ function renderMap() {
         ctx.rotate(obj.rotation*Math.PI/180);
         ctx.translate(-cp.x,-cp.y);
       }
-      ctx.strokeRect(p.x-2,p.y-2,q.x-p.x+4,q.y-p.y+4);
+      // Draw selection outline — clamp to safe coordinate range to avoid canvas rendering bugs at extreme zoom
+      const CW=MAP.canvas.width, CH=MAP.canvas.height, PAD=8000;
+      const bx=Math.max(p.x-2,-PAD), by=Math.max(p.y-2,-PAD);
+      const bx2=Math.min(q.x+2,CW+PAD), by2=Math.min(q.y+2,CH+PAD);
+      ctx.beginPath(); ctx.rect(bx,by,bx2-bx,by2-by); ctx.stroke();
       // Handles: only for single selection
       if(MAP.selectedIds.size===1){
         ctx.setLineDash([]);
+        // Helper: only draw handles that are actually visible on canvas
+        const _vis=(x,y)=>x>-20&&x<CW+20&&y>-20&&y<CH+20;
         if(MAP.tool==='rotate'){
           // Rotate mode: show ↻ circles on the 4 corners
           const corners=[{x:p.x,y:p.y},{x:q.x,y:p.y},{x:p.x,y:q.y},{x:q.x,y:q.y}];
           corners.forEach(h=>{
+            if(!_vis(h.x,h.y)) return;
             ctx.beginPath();ctx.arc(h.x,h.y,8,0,Math.PI*2);
             ctx.fillStyle='rgba(201,162,39,0.18)';ctx.fill();
             ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;ctx.stroke();
@@ -5211,20 +5218,22 @@ function renderMap() {
           });
           // Edge midpoints as smaller dots
           const mids=[{x:(p.x+q.x)/2,y:p.y},{x:(p.x+q.x)/2,y:q.y},{x:p.x,y:(p.y+q.y)/2},{x:q.x,y:(p.y+q.y)/2}];
-          mids.forEach(h=>{ctx.beginPath();ctx.arc(h.x,h.y,4,0,Math.PI*2);ctx.fillStyle='rgba(201,162,39,0.4)';ctx.fill();ctx.strokeStyle='#c9a227';ctx.lineWidth=1;ctx.stroke();});
+          mids.forEach(h=>{if(!_vis(h.x,h.y))return;ctx.beginPath();ctx.arc(h.x,h.y,4,0,Math.PI*2);ctx.fillStyle='rgba(201,162,39,0.4)';ctx.fill();ctx.strokeStyle='#c9a227';ctx.lineWidth=1;ctx.stroke();});
         } else {
           // Select mode: resize squares + ↻ circle above
           ctx.fillStyle='#c9a227';
           const handles=[{x:p.x,y:p.y},{x:q.x,y:p.y},{x:p.x,y:q.y},{x:q.x,y:q.y},
             {x:(p.x+q.x)/2,y:p.y},{x:(p.x+q.x)/2,y:q.y},{x:p.x,y:(p.y+q.y)/2},{x:q.x,y:(p.y+q.y)/2}];
-          handles.forEach(h=>{ctx.fillRect(h.x-5,h.y-5,10,10);});
-          // ↻ rotate handle above top-center
+          handles.forEach(h=>{if(_vis(h.x,h.y)) ctx.fillRect(h.x-5,h.y-5,10,10);});
+          // ↻ rotate handle above top-center (only if on-screen)
           const rmx=(p.x+q.x)/2;
-          ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;
-          ctx.beginPath();ctx.moveTo(rmx,p.y-4);ctx.lineTo(rmx,p.y-18);ctx.stroke();
-          ctx.beginPath();ctx.arc(rmx,p.y-25,7,0,Math.PI*2);ctx.stroke();
-          ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-          ctx.fillStyle='#c9a227';ctx.fillText('↻',rmx,p.y-25);
+          if(_vis(rmx,p.y-25)){
+            ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;
+            ctx.beginPath();ctx.moveTo(rmx,p.y-4);ctx.lineTo(rmx,p.y-18);ctx.stroke();
+            ctx.beginPath();ctx.arc(rmx,p.y-25,7,0,Math.PI*2);ctx.stroke();
+            ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+            ctx.fillStyle='#c9a227';ctx.fillText('↻',rmx,p.y-25);
+          }
         }
       }
     }
@@ -5237,15 +5246,19 @@ function renderMap() {
     if(bb){
       const p1=w2s(bb.x1,bb.y1),p2=w2s(bb.x2,bb.y2);
       ctx.save();
+      const _CW=MAP.canvas.width,_CH=MAP.canvas.height,_P=8000;
+      const _vis2=(x,y)=>x>-20&&x<_CW+20&&y>-20&&y<_CH+20;
       ctx.strokeStyle='rgba(201,162,39,0.55)';ctx.lineWidth=1;ctx.setLineDash([6,4]);
-      ctx.strokeRect(p1.x-6,p1.y-6,p2.x-p1.x+12,p2.y-p1.y+12);
+      const _bx=Math.max(p1.x-6,-_P),_by=Math.max(p1.y-6,-_P);
+      const _bx2=Math.min(p2.x+6,_CW+_P),_by2=Math.min(p2.y+6,_CH+_P);
+      ctx.beginPath();ctx.rect(_bx,_by,_bx2-_bx,_by2-_by);ctx.stroke();
       // Resize handles
       ctx.setLineDash([]);ctx.fillStyle='#c9a227';
       const mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2;
       const hpts=[{x:p1.x-6,y:p1.y-6},{x:mx,y:p1.y-6},{x:p2.x+6,y:p1.y-6},
                   {x:p1.x-6,y:my},                     {x:p2.x+6,y:my},
                   {x:p1.x-6,y:p2.y+6},{x:mx,y:p2.y+6},{x:p2.x+6,y:p2.y+6}];
-      hpts.forEach(h=>ctx.fillRect(h.x-4,h.y-4,8,8));
+      hpts.forEach(h=>{if(_vis2(h.x,h.y)) ctx.fillRect(h.x-4,h.y-4,8,8);});
       ctx.restore();
     }
   }
