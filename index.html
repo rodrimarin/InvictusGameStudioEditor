@@ -4614,7 +4614,6 @@ function mapMD(e) {
     MAP.objects.push(obj);
     MAP.selectedIds.clear(); MAP.selectedIds.add(obj.id);
     renderMap(); renderMapProps(); autoSave(); mapSaveCurrent();
-    setTool('select');
     return;
   }
 
@@ -4624,21 +4623,21 @@ function mapMD(e) {
     const r=48; const id='obj_'+Date.now();
     const obj={id,type:'light',name:'Light',layer:MAP.activeLayer,x:snap(w.x),y:snap(w.y),r,w:r*2,h:r*2,fill:'#ffcc55',opacity:0.6};
     MAP.objects.push(obj); MAP.selectedIds.clear(); MAP.selectedIds.add(id);
-    renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); setTool('select'); return;
+    renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); return;
   }
   if (MAP.tool === 'person') {
     mapPushHistory();
     const id='obj_'+Date.now();
     const obj={id,type:'person',name:'Player',layer:MAP.activeLayer,x:snap(w.x),y:snap(w.y),w:20,h:32,fill:'#4a9eff',opacity:1};
     MAP.objects.push(obj); MAP.selectedIds.clear(); MAP.selectedIds.add(id);
-    renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); setTool('select'); return;
+    renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); return;
   }
   if (MAP.tool === 'enemy') {
     mapPushHistory();
     const id='obj_'+Date.now();
     const obj={id,type:'enemy',name:'Enemy',layer:MAP.activeLayer,x:snap(w.x),y:snap(w.y),w:24,h:28,fill:'#e05252',opacity:1};
     MAP.objects.push(obj); MAP.selectedIds.clear(); MAP.selectedIds.add(id);
-    renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); setTool('select'); return;
+    renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); return;
   }
   if (MAP.tool === 'asset' && MAP.assetPreset) {
     mapPushHistory();
@@ -4647,7 +4646,7 @@ function mapMD(e) {
     const obj={id,type:'asset',name:ap.name||'Asset',layer:MAP.activeLayer,
       assetId:ap.id, x:snap(w.x-ap.w/2), y:snap(w.y-ap.h/2), w:ap.w, h:ap.h, opacity:1};
     MAP.objects.push(obj); MAP.selectedIds.clear(); MAP.selectedIds.add(id);
-    renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); setTool('select'); return;
+    renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); return;
   }
 
   // Freehand draw start
@@ -4938,7 +4937,6 @@ function mapMU(e) {
     MAP.objects.push(obj);
     MAP.selectedIds.clear(); MAP.selectedIds.add(id);
     renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent();
-    setTool('select'); // auto-switch to select/move after placing a shape
   }
 }
 
@@ -5198,20 +5196,36 @@ function renderMap() {
         ctx.translate(-cp.x,-cp.y);
       }
       ctx.strokeRect(p.x-2,p.y-2,q.x-p.x+4,q.y-p.y+4);
-      // Resize handles: only for single selection
+      // Handles: only for single selection
       if(MAP.selectedIds.size===1){
         ctx.setLineDash([]);
-        ctx.fillStyle='#c9a227';
-        const handles=[{x:p.x,y:p.y},{x:q.x,y:p.y},{x:p.x,y:q.y},{x:q.x,y:q.y},
-          {x:(p.x+q.x)/2,y:p.y},{x:(p.x+q.x)/2,y:q.y},{x:p.x,y:(p.y+q.y)/2},{x:q.x,y:(p.y+q.y)/2}];
-        handles.forEach(h=>{ctx.fillRect(h.x-5,h.y-5,10,10);});
-        // Rotate handle: stem + circle above top-center
-        const rmx=(p.x+q.x)/2;
-        ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;ctx.setLineDash([]);
-        ctx.beginPath();ctx.moveTo(rmx,p.y-4);ctx.lineTo(rmx,p.y-18);ctx.stroke();
-        ctx.beginPath();ctx.arc(rmx,p.y-25,7,0,Math.PI*2);ctx.stroke();
-        ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillStyle='#c9a227';ctx.fillText('↻',rmx,p.y-25);
+        if(MAP.tool==='rotate'){
+          // Rotate mode: show ↻ circles on the 4 corners
+          const corners=[{x:p.x,y:p.y},{x:q.x,y:p.y},{x:p.x,y:q.y},{x:q.x,y:q.y}];
+          corners.forEach(h=>{
+            ctx.beginPath();ctx.arc(h.x,h.y,8,0,Math.PI*2);
+            ctx.fillStyle='rgba(201,162,39,0.18)';ctx.fill();
+            ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;ctx.stroke();
+            ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+            ctx.fillStyle='#c9a227';ctx.fillText('↻',h.x,h.y);
+          });
+          // Edge midpoints as smaller dots
+          const mids=[{x:(p.x+q.x)/2,y:p.y},{x:(p.x+q.x)/2,y:q.y},{x:p.x,y:(p.y+q.y)/2},{x:q.x,y:(p.y+q.y)/2}];
+          mids.forEach(h=>{ctx.beginPath();ctx.arc(h.x,h.y,4,0,Math.PI*2);ctx.fillStyle='rgba(201,162,39,0.4)';ctx.fill();ctx.strokeStyle='#c9a227';ctx.lineWidth=1;ctx.stroke();});
+        } else {
+          // Select mode: resize squares + ↻ circle above
+          ctx.fillStyle='#c9a227';
+          const handles=[{x:p.x,y:p.y},{x:q.x,y:p.y},{x:p.x,y:q.y},{x:q.x,y:q.y},
+            {x:(p.x+q.x)/2,y:p.y},{x:(p.x+q.x)/2,y:q.y},{x:p.x,y:(p.y+q.y)/2},{x:q.x,y:(p.y+q.y)/2}];
+          handles.forEach(h=>{ctx.fillRect(h.x-5,h.y-5,10,10);});
+          // ↻ rotate handle above top-center
+          const rmx=(p.x+q.x)/2;
+          ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;
+          ctx.beginPath();ctx.moveTo(rmx,p.y-4);ctx.lineTo(rmx,p.y-18);ctx.stroke();
+          ctx.beginPath();ctx.arc(rmx,p.y-25,7,0,Math.PI*2);ctx.stroke();
+          ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+          ctx.fillStyle='#c9a227';ctx.fillText('↻',rmx,p.y-25);
+        }
       }
     }
     ctx.restore();
