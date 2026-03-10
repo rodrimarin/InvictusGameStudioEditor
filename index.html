@@ -4495,6 +4495,11 @@ const MAP = {
   rotateCenter: null,
   rotateStartAngle: 0,
   rotateObjStart: null,
+  // Hover feedback
+  hoverObjId: null,
+  hoverHandle: null,
+  _dashOffset: 0,
+  _marchRaf: null,
   // History
   history: [],
   future: [],
@@ -4840,9 +4845,9 @@ function mapMM(e) {
       const obj = MAP.objects.find(o=>o.id===id);
       const start = MAP.dragObjStarts[id];
       if (obj && start && !MAP.lockedLayers.has(obj.layer)) {
-        obj.x = snap(start.x + dx);
-        obj.y = snap(start.y + dy);
-        if(obj.type==='arrow'&&start.x2!==undefined){obj.x2=snap(start.x2+dx);obj.y2=snap(start.y2+dy);}
+        obj.x = Math.round(start.x + dx);
+        obj.y = Math.round(start.y + dy);
+        if(obj.type==='arrow'&&start.x2!==undefined){obj.x2=Math.round(start.x2+dx);obj.y2=Math.round(start.y2+dy);}
       }
     });
     renderMap(); renderMapProps(); return;
@@ -5030,6 +5035,19 @@ function mapMM(e) {
     renderMap(); return;
   }
 
+  // Hover tracking — update hovered object + handle
+  const _hobj = getObjectAt(w.x, w.y);
+  const newHoverId = _hobj ? _hobj.id : null;
+  let newHoverHandle = null;
+  if (MAP.tool === 'select' && MAP.selectedIds.size === 1 && !MAP.isResizing && !MAP.isDragging) {
+    const _so = MAP.objects.find(o => MAP.selectedIds.has(o.id));
+    if (_so) newHoverHandle = getResizeHandle(_so, sx, sy);
+  }
+  const hoverChanged = newHoverId !== MAP.hoverObjId || newHoverHandle !== MAP.hoverHandle;
+  MAP.hoverObjId = newHoverId;
+  MAP.hoverHandle = newHoverHandle;
+  if (hoverChanged) renderMap();
+
   // Cursor feedback
   if (MAP.tool === 'select') {
     if (MAP.selectedIds.size > 1) {
@@ -5038,14 +5056,17 @@ function mapMM(e) {
     } else if (MAP.selectedIds.size === 1) {
       const obj = MAP.objects.find(o=>MAP.selectedIds.has(o.id));
       if (obj) {
-        // Check rotate handle hover
         if (obj.w && obj.h) {
           const rh=_getRotateHandlePos(obj);
           if(rh && Math.hypot(sx-rh.x,sy-rh.y)<=12){MAP.canvas.style.cursor='grab';return;}
         }
-        const h=getResizeHandle(obj,sx,sy); MAP.canvas.style.cursor=h?resizeCursor(h):'default'; return;
+        const h=getResizeHandle(obj,sx,sy);
+        if (h) { MAP.canvas.style.cursor=resizeCursor(h); return; }
       }
     }
+    // Move cursor when hovering over any object
+    if (_hobj) { MAP.canvas.style.cursor='move'; return; }
+    MAP.canvas.style.cursor='default'; return;
   }
   if (MAP.tool==='rotate') { MAP.canvas.style.cursor=MAP.isRotating?'grabbing':'grab'; return; }
   const cursors={select:'default',pan:'grab',rect:'crosshair',wall:'crosshair',poly:'crosshair',circle:'crosshair',text:'text',erase:'not-allowed'};
@@ -5055,6 +5076,8 @@ function mapMM(e) {
 function mapMU(e) {
   MAP.isPanning = false;
   MAP.canvas.style.cursor = 'default';
+  // Start/stop marching ants based on selection
+  if (MAP.selectedIds.size > 0) _startMarchingAnts(); else _stopMarchingAnts();
 
   if (MAP.isMarquee && MAP.marqueeStart && MAP.marqueeCurrent) {
     MAP.isMarquee = false;
@@ -5439,12 +5462,39 @@ function renderMap() {
     MAP.objects.filter(o=>o.layer===layer).forEach(obj=>drawObj(obj,ctx));
   });
 
+  // Hover highlight — subtle glow on hovered non-selected object
+  if (MAP.hoverObjId && !MAP.selectedIds.has(MAP.hoverObjId)) {
+    const hobj = MAP.objects.find(o => o.id === MAP.hoverObjId);
+    if (hobj && !hobj.hidden) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      if (hobj.type==='circle'||hobj.type==='light') {
+        const hp=w2s(hobj.x,hobj.y),hr=(hobj.r||32)*MAP.cam.zoom;
+        ctx.beginPath();ctx.arc(hp.x,hp.y,hr+4,0,Math.PI*2);ctx.stroke();
+      } else if ((hobj.type==='draw'||hobj.type==='person'||hobj.type==='enemy') && hobj.w && hobj.h) {
+        const hp=w2s(hobj.x,hobj.y),hq=w2s(hobj.x+hobj.w,hobj.y+hobj.h);
+        ctx.strokeRect(hp.x-4,hp.y-4,hq.x-hp.x+8,hq.y-hp.y+8);
+      } else if (hobj.w && hobj.h) {
+        const hp=w2s(hobj.x,hobj.y),hq=w2s(hobj.x+hobj.w,hobj.y+hobj.h);
+        if (hobj.rotation) {
+          const hcp=w2s(hobj.x+hobj.w/2,hobj.y+hobj.h/2);
+          ctx.translate(hcp.x,hcp.y);ctx.rotate(hobj.rotation*Math.PI/180);ctx.translate(-hcp.x,-hcp.y);
+        }
+        ctx.strokeRect(hp.x-4,hp.y-4,hq.x-hp.x+8,hq.y-hp.y+8);
+      }
+      ctx.restore();
+    }
+  }
+
   // Selection
   MAP.objects.filter(o=>MAP.selectedIds.has(o.id)).forEach(obj=>{
     ctx.save();
     ctx.strokeStyle='#c9a227';
     ctx.lineWidth=2;
     ctx.setLineDash([5,3]);
+    ctx.lineDashOffset = -MAP._dashOffset;
     if(obj.type==='circle'||obj.type==='light'){
       const p=w2s(obj.x,obj.y),r=(obj.r||32)*MAP.cam.zoom;
       ctx.beginPath();ctx.arc(p.x,p.y,r+3,0,Math.PI*2);ctx.stroke();
@@ -5835,6 +5885,22 @@ function drawObj(obj,ctx) {
     ctx.restore();
   }
   ctx.restore();
+}
+
+// ── Marching ants animation ──────────────────────────────────
+function _startMarchingAnts() {
+  if (MAP._marchRaf) return;
+  function _step() {
+    if (!MAP.selectedIds.size) { MAP._marchRaf = null; return; }
+    MAP._dashOffset = (MAP._dashOffset + 0.4) % 16;
+    renderMap();
+    MAP._marchRaf = requestAnimationFrame(_step);
+  }
+  MAP._marchRaf = requestAnimationFrame(_step);
+}
+function _stopMarchingAnts() {
+  if (MAP._marchRaf) { cancelAnimationFrame(MAP._marchRaf); MAP._marchRaf = null; }
+  MAP._dashOffset = 0;
 }
 
 let _histOnceFlag = false;
