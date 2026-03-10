@@ -4945,74 +4945,50 @@ function mapMM(e) {
         return;
       }
       const rot = s.rotation || 0;
-
-      // Project mouse delta onto object's local axes (handles rotation)
-      // Local x-axis = (cos θ, sin θ),  local y-axis = (-sin θ, cos θ)
+      // Project screen delta onto local axes
       let ldx = dsx, ldy = dsy;
       if (rot) {
         const r = rot * Math.PI / 180;
         const cos = Math.cos(r), sin = Math.sin(r);
-        ldx =  dsx * cos + dsy * sin;   // component along local x
-        ldy = -dsx * sin + dsy * cos;   // component along local y
+        ldx =  dsx * cos + dsy * sin;
+        ldy = -dsx * sin + dsy * cos;
       }
-
-      // When a handle moves the origin (w or n), the origin must shift
-      // in the direction of the object's local axes (world space)
-      const _moveOrigin = (moveX, moveY) => {
-        if (!rot) { obj.x = snap(s.x + moveX); obj.y = snap(s.y + moveY); return; }
+      // Compute new size
+      let nw = s.w, nh = s.h;
+      if (e.shiftKey && s.w > 0 && s.h > 0) {
+        const ratio = s.w / s.h;
+        const useX = h.includes('e') || h.includes('w'), useY = h.includes('n') || h.includes('s');
+        if (useX && useY) {
+          if (Math.abs(ldx) >= Math.abs(ldy)) { nw = Math.max(8, snap(s.w + (h.includes('w') ? -ldx : ldx))); nh = Math.max(8, snap(nw / ratio)); }
+          else { nh = Math.max(8, snap(s.h + (h.includes('n') ? -ldy : ldy))); nw = Math.max(8, snap(nh * ratio)); }
+        } else if (useX) { nw = Math.max(8, snap(s.w + (h.includes('w') ? -ldx : ldx))); nh = Math.max(8, snap(nw / ratio)); }
+        else { nh = Math.max(8, snap(s.h + (h.includes('n') ? -ldy : ldy))); nw = Math.max(8, snap(nh * ratio)); }
+      } else {
+        if (h.includes('e')) nw = Math.max(8, snap(s.w + ldx));
+        if (h.includes('w')) nw = Math.max(8, snap(s.w - ldx));
+        if (h.includes('s')) nh = Math.max(8, snap(s.h + ldy));
+        if (h.includes('n')) nh = Math.max(8, snap(s.h - ldy));
+      }
+      // Anchor: the corner/edge opposite the handle stays fixed in visual space.
+      // ax/ay: direction from center to anchor (+1 or -1 or 0)
+      const ax = h.includes('w') ? 1 : (h.includes('e') ? -1 : 0);
+      const ay = h.includes('n') ? 1 : (h.includes('s') ? -1 : 0);
+      // new center = C0 + R(rot) * (ax*(s.w-nw)/2, ay*(s.h-nh)/2)
+      const C0x = s.x + s.w / 2, C0y = s.y + s.h / 2;
+      const ddx = ax * (s.w - nw) / 2, ddy = ay * (s.h - nh) / 2;
+      let newCx, newCy;
+      if (rot) {
         const r = rot * Math.PI / 180;
         const cos = Math.cos(r), sin = Math.sin(r);
-        // ldx offset along local-x maps to world: (ldx*cos, ldx*sin)
-        // ldy offset along local-y maps to world: (-ldy*sin, ldy*cos)
-        obj.x = s.x + moveX * cos - moveY * sin;
-        obj.y = s.y + moveX * sin + moveY * cos;
-      };
-
-      if (!rot) {
-        // Non-rotated: anchor-based resize keeps the opposite edge fixed
-        const nw = h.includes('w') ? Math.max(8, snap(s.w - ldx)) : Math.max(8, snap(s.w + (h.includes('e') ? ldx : 0)));
-        const nh = h.includes('n') ? Math.max(8, snap(s.h - ldy)) : Math.max(8, snap(s.h + (h.includes('s') ? ldy : 0)));
-        obj.w = h.includes('e') || h.includes('w') ? nw : s.w;
-        obj.h = h.includes('n') || h.includes('s') ? nh : s.h;
-        obj.x = h.includes('w') ? s.x + s.w - nw : s.x;
-        obj.y = h.includes('n') ? s.y + s.h - nh : s.y;
-        if (e.shiftKey && s.w > 0 && s.h > 0) {
-          const ratio = s.w / s.h;
-          const useX = h.includes('e') || h.includes('w'), useY = h.includes('n') || h.includes('s');
-          let fw = s.w, fh = s.h;
-          if (useX && useY) {
-            if (Math.abs(ldx) >= Math.abs(ldy)) { fw = Math.max(8, snap(s.w + (h.includes('w') ? -ldx : ldx))); fh = Math.max(8, snap(fw / ratio)); }
-            else { fh = Math.max(8, snap(s.h + (h.includes('n') ? -ldy : ldy))); fw = Math.max(8, snap(fh * ratio)); }
-          } else if (useX) { fw = Math.max(8, snap(s.w + (h.includes('w') ? -ldx : ldx))); fh = Math.max(8, snap(fw / ratio)); }
-          else { fh = Math.max(8, snap(s.h + (h.includes('n') ? -ldy : ldy))); fw = Math.max(8, snap(fh * ratio)); }
-          obj.w = fw; obj.h = fh;
-          obj.x = h.includes('w') ? s.x + s.w - fw : s.x;
-          obj.y = h.includes('n') ? s.y + s.h - fh : s.y;
-        }
-      } else if (e.shiftKey && s.w > 0 && s.h > 0) {
-        // Rotated + proportional
-        const ratio = s.w / s.h;
-        const useX = h.includes('e') || h.includes('w');
-        const useY = h.includes('n') || h.includes('s');
-        let newW = s.w, newH = s.h;
-        if (useX && useY) {
-          if (Math.abs(ldx) >= Math.abs(ldy)) { newW = Math.max(8, snap(s.w + (h.includes('w') ? -ldx : ldx))); newH = Math.max(8, snap(newW / ratio)); }
-          else                                { newH = Math.max(8, snap(s.h + (h.includes('n') ? -ldy : ldy))); newW = Math.max(8, snap(newH * ratio)); }
-        } else if (useX) {
-          newW = Math.max(8, snap(s.w + (h.includes('w') ? -ldx : ldx))); newH = Math.max(8, snap(newW / ratio));
-        } else {
-          newH = Math.max(8, snap(s.h + (h.includes('n') ? -ldy : ldy))); newW = Math.max(8, snap(newH * ratio));
-        }
-        _moveOrigin(h.includes('w') ? s.w - newW : 0, h.includes('n') ? s.h - newH : 0);
-        obj.w = newW; obj.h = newH;
+        newCx = C0x + ddx * cos - ddy * sin;
+        newCy = C0y + ddx * sin + ddy * cos;
       } else {
-        // Rotated: use local-axis projection
-        if (h.includes('e')) obj.w = Math.max(8, snap(s.w + ldx));
-        if (h.includes('s')) obj.h = Math.max(8, snap(s.h + ldy));
-        if (h.includes('w') || h.includes('n')) _moveOrigin(h.includes('w') ? ldx : 0, h.includes('n') ? ldy : 0);
-        if (h.includes('w')) obj.w = Math.max(8, snap(s.w - ldx));
-        if (h.includes('n')) obj.h = Math.max(8, snap(s.h - ldy));
+        newCx = C0x + ddx;
+        newCy = C0y + ddy;
       }
+      obj.x = newCx - nw / 2;
+      obj.y = newCy - nh / 2;
+      obj.w = nw; obj.h = nh;
       if (obj.type === 'circle') obj.r = Math.max(4, snap(obj.w/2));
       renderMap(); renderMapProps();
     }
