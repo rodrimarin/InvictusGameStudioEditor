@@ -790,6 +790,15 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
     <button class="lgn-enter" onclick="loginEnter()">Enter Studio →</button>
   </div>
 </div>
+<script>
+(function(){
+  var s=localStorage.getItem('fb_username');
+  if(s && !/^User_[A-Z0-9]{3}$/i.test(s)){
+    var ov=document.getElementById('login-overlay');
+    if(ov) ov.style.display='none';
+  }
+})();
+</script>
 <div id="mob-overlay" onclick="closeMobSidebar()"></div>
 <div id="layer-ctx-menu"></div>
 <!-- TOPBAR -->
