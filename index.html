@@ -4788,9 +4788,11 @@ function mapMD(e) {
     renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); return;
   }
 
-  // Smart switch: clicking an existing object with any drawing tool → select it
-  const _drawHit = getObjectAt(w.x, w.y);
-  if (_drawHit) {
+  // Smart switch: clicking an ALREADY-SELECTED object with a drawing tool → switch to select
+  // Only fires on already-selected objects so it never blocks fresh drawing on empty/unselected areas
+  const _drawHit = (!MAP.shapePreset && MAP.selectedIds.size > 0)
+    ? getObjectAt(w.x, w.y) : null;
+  if (_drawHit && MAP.selectedIds.has(_drawHit.id)) {
     setTool('select');
     MAP.selectedIds.clear(); MAP.selectedIds.add(_drawHit.id);
     // If click lands on a resize handle, start resizing immediately
@@ -5975,6 +5977,12 @@ function mapRedo(){if(!MAP.future.length)return;MAP.history.push(JSON.stringify(
 function setTool(tool) {
   MAP.tool=tool;
   MAP.polyPoints=[];MAP.isDrawing=false;MAP.drawPoints=null;
+  // Clear preset when switching to a non-drawing tool
+  if (['select','erase','rotate','pan'].includes(tool)) {
+    MAP.shapePreset=null; MAP.assetPreset=null;
+    const body=document.getElementById('map-shapes-body');
+    if(body) body.querySelectorAll('.shape-btn.active-shape').forEach(b=>b.classList.remove('active-shape'));
+  }
   document.querySelectorAll('.mt[id^="tool-"]').forEach(b=>b.classList.remove('active'));
   const btn=document.getElementById('tool-'+tool);
   if(btn) btn.classList.add('active');
