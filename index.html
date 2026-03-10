@@ -5906,16 +5906,124 @@ function drawObj(obj,ctx) {
   } else {
     const q=w2s(obj.x+obj.w,obj.y+obj.h);
     const w=q.x-p.x, h=q.y-p.y;
+    const sc=obj.stroke||(obj.type==='wall'?'#c9a227':'#4a7a3a');
+    const lw=obj.type==='wall'?Math.max(1,2*MAP.cam.zoom):Math.max(0.5,1*MAP.cam.zoom);
     if(obj.type==='wall'){ctx.fillStyle=obj.fill||'#3a2a1a';}else{ctx.fillStyle=obj.fill||'#1e2e18';}
     ctx.fillRect(p.x,p.y,w,h);
-    ctx.strokeStyle=obj.stroke||(obj.type==='wall'?'#c9a227':'#4a7a3a');
-    ctx.lineWidth=obj.type==='wall'?Math.max(1,2*MAP.cam.zoom):Math.max(0.5,1*MAP.cam.zoom);
-    ctx.strokeRect(p.x,p.y,w,h);
+    ctx.strokeStyle=sc; ctx.lineWidth=lw; ctx.strokeRect(p.x,p.y,w,h);
+    // ── Shape-specific decorations ─────────────────────────────
+    const n=obj.name||''; const z=MAP.cam.zoom;
+    ctx.save();
+    ctx.strokeStyle=sc; ctx.fillStyle=sc; ctx.setLineDash([]);
+    if(n==='Water'||n==='Corridor'){
+      // Wavy lines for water / subtle lines for corridor
+      const waves=n==='Water';
+      ctx.strokeStyle=sc; ctx.lineWidth=Math.max(0.5,1*z); ctx.globalAlpha=waves?.45:.25;
+      const rows=Math.max(2,Math.floor(h/Math.max(6,10*z)));
+      for(let i=1;i<rows;i++){
+        const ly=p.y+h*i/rows;
+        if(waves){ctx.beginPath();const amp=Math.max(1.5,3*z),freq=Math.max(8,20*z);let x=p.x;ctx.moveTo(x,ly);while(x<p.x+w){ctx.quadraticCurveTo(x+freq*.25,ly-amp,x+freq*.5,ly);ctx.quadraticCurveTo(x+freq*.75,ly+amp,x+freq,ly);x+=freq;}ctx.stroke();}
+        else{ctx.beginPath();ctx.moveTo(p.x+4,ly);ctx.lineTo(p.x+w-4,ly);ctx.stroke();}
+      }
+    } else if(n==='Boss Room'){
+      // Red X danger mark in center
+      ctx.globalAlpha=.25; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,2.5*z);
+      const mx=p.x+w/2,my=p.y+h/2,s2=Math.min(w,h)*.25;
+      ctx.beginPath();ctx.moveTo(mx-s2,my-s2);ctx.lineTo(mx+s2,my+s2);ctx.moveTo(mx+s2,my-s2);ctx.lineTo(mx-s2,my+s2);ctx.stroke();
+    } else if(n==='Door'){
+      ctx.globalAlpha=.9; ctx.lineWidth=Math.max(1,1.5*z);
+      // Door frame left side
+      ctx.strokeStyle=sc; ctx.beginPath();ctx.moveTo(p.x+w*.12,p.y+h*.05);ctx.lineTo(p.x+w*.12,p.y+h*.95);ctx.stroke();
+      // Doorknob
+      ctx.beginPath();ctx.arc(p.x+w*.72,p.y+h*.52,Math.max(2,3*z),0,Math.PI*2);ctx.fillStyle=sc;ctx.fill();
+      // Top arc
+      ctx.beginPath();ctx.moveTo(p.x+w*.12,p.y+h*.05);ctx.quadraticCurveTo(p.x+w*.56,p.y-h*.05,p.x+w*.95,p.y+h*.05);ctx.stroke();
+    } else if(n==='Window'){
+      ctx.globalAlpha=.6; ctx.lineWidth=Math.max(0.5,1*z);
+      ctx.beginPath();ctx.moveTo(p.x+w/2,p.y+2);ctx.lineTo(p.x+w/2,p.y+h-2);
+      ctx.moveTo(p.x+2,p.y+h/2);ctx.lineTo(p.x+w-2,p.y+h/2);ctx.stroke();
+      ctx.globalAlpha=.25;ctx.fillStyle=sc+'44';ctx.fillRect(p.x+2,p.y+2,w/2-3,h/2-3);
+    } else if(n==='Gate'){
+      ctx.globalAlpha=.8; ctx.lineWidth=Math.max(0.5,1.5*z);
+      const bars=Math.max(2,Math.round(w/Math.max(8,16*z)));
+      for(let i=1;i<bars;i++){const bx=p.x+w*i/bars;ctx.beginPath();ctx.moveTo(bx,p.y+2);ctx.lineTo(bx,p.y+h-2);ctx.stroke();}
+      // Spikes on top
+      for(let i=0;i<=bars;i++){const bx=p.x+w*i/bars;const tip=Math.max(3,5*z);ctx.beginPath();ctx.moveTo(bx-2,p.y+4);ctx.lineTo(bx,p.y-tip);ctx.lineTo(bx+2,p.y+4);ctx.fill();}
+    } else if(n==='Pillar'){
+      ctx.globalAlpha=.85; ctx.lineWidth=Math.max(0.5,1.5*z);
+      const capH=Math.max(3,h*.15);
+      ctx.fillStyle=sc; ctx.globalAlpha=.5;
+      ctx.fillRect(p.x,p.y,w,capH);
+      ctx.fillRect(p.x,p.y+h-capH,w,capH);
+      ctx.globalAlpha=.2; ctx.fillStyle='#fff';
+      ctx.fillRect(p.x+w*.2,p.y+capH,w*.15,h-capH*2);
+    } else if(n==='Thick Wall'){
+      ctx.globalAlpha=.3; ctx.lineWidth=Math.max(0.5,1*z);
+      const brickW=Math.max(6,16*z),brickH=Math.max(4,10*z);
+      for(let row=0;row*brickH<h;row++){const offset=(row%2)*(brickW/2);for(let col=-1;col*brickW<w+brickW;col++){const bx=p.x+col*brickW+offset,by=p.y+row*brickH;ctx.strokeRect(bx,by,brickW,brickH);}}
+    } else if(n==='Ramp'){
+      ctx.globalAlpha=.7; ctx.lineWidth=Math.max(1,2*z);
+      ctx.beginPath();ctx.moveTo(p.x,p.y+h);ctx.lineTo(p.x+w,p.y);ctx.lineTo(p.x+w,p.y+h);ctx.closePath();
+      ctx.fillStyle=sc; ctx.globalAlpha=.25; ctx.fill();
+      ctx.globalAlpha=.8; ctx.stroke();
+    } else if(n==='Elevator'){
+      ctx.globalAlpha=.8; ctx.lineWidth=Math.max(1,1.5*z);
+      const mx=p.x+w/2,aSize=Math.max(3,5*z);
+      // Up arrow
+      ctx.beginPath();ctx.moveTo(mx,p.y+h*.25-aSize);ctx.lineTo(mx-aSize,p.y+h*.25+aSize);ctx.lineTo(mx+aSize,p.y+h*.25+aSize);ctx.closePath();ctx.fill();
+      // Down arrow
+      ctx.beginPath();ctx.moveTo(mx,p.y+h*.75+aSize);ctx.lineTo(mx-aSize,p.y+h*.75-aSize);ctx.lineTo(mx+aSize,p.y+h*.75-aSize);ctx.closePath();ctx.fill();
+      ctx.globalAlpha=.3;ctx.beginPath();ctx.moveTo(mx,p.y+4);ctx.lineTo(mx,p.y+h-4);ctx.stroke();
+    } else if(n==='Ladder'){
+      ctx.globalAlpha=.85; ctx.lineWidth=Math.max(0.5,1.5*z);
+      const rails=w*.25;
+      ctx.beginPath();ctx.moveTo(p.x+rails,p.y+2);ctx.lineTo(p.x+rails,p.y+h-2);
+      ctx.moveTo(p.x+w-rails,p.y+2);ctx.lineTo(p.x+w-rails,p.y+h-2);ctx.stroke();
+      const rungs=Math.max(2,Math.round(h/Math.max(6,12*z)));
+      for(let i=1;i<rungs;i++){ctx.beginPath();ctx.moveTo(p.x+rails,p.y+h*i/rungs);ctx.lineTo(p.x+w-rails,p.y+h*i/rungs);ctx.stroke();}
+    } else if(n==='Exit'){
+      ctx.globalAlpha=.9; ctx.lineWidth=Math.max(1,2*z);
+      const mx=p.x+w/2,my=p.y+h/2,as=Math.min(w,h)*.28;
+      ctx.beginPath();ctx.moveTo(mx-as,my);ctx.lineTo(mx+as,my);
+      ctx.moveTo(mx+as*.3,my-as*.6);ctx.lineTo(mx+as,my);ctx.lineTo(mx+as*.3,my+as*.6);ctx.stroke();
+    } else if(n==='Checkpoint'){
+      ctx.globalAlpha=.8;
+      const mx=p.x+w/2,my=p.y+h/2,ss=Math.min(w,h)*.3;
+      const pts=5,outer=ss,inner=ss*.45;
+      ctx.beginPath();for(let i=0;i<pts*2;i++){const r2=i%2===0?outer:inner,a=i*Math.PI/pts-Math.PI/2;ctx.lineTo(mx+r2*Math.cos(a),my+r2*Math.sin(a));}ctx.closePath();ctx.fill();
+    } else if(n==='Pickup'){
+      ctx.globalAlpha=.8;
+      const mx=p.x+w/2,my=p.y+h/2,ds=Math.min(w,h)*.28;
+      ctx.beginPath();ctx.moveTo(mx,my-ds);ctx.lineTo(mx+ds,my);ctx.lineTo(mx,my+ds);ctx.lineTo(mx-ds,my);ctx.closePath();ctx.fill();
+    } else if(n==='Objective'){
+      ctx.globalAlpha=.6; ctx.lineWidth=Math.max(0.5,1*z);
+      const mx=p.x+w/2,my=p.y+h/2,r2=Math.min(w,h)*.3;
+      ctx.beginPath();ctx.arc(mx,my,r2,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.arc(mx,my,r2*.5,0,Math.PI*2);ctx.stroke();
+      ctx.globalAlpha=.8;ctx.beginPath();ctx.arc(mx,my,r2*.15,0,Math.PI*2);ctx.fill();
+    } else if(n==='Hazard'){
+      ctx.globalAlpha=.75; ctx.lineWidth=Math.max(1,1.5*z);
+      const mx=p.x+w/2,my=p.y+h/2,ts=Math.min(w,h)*.32;
+      ctx.beginPath();ctx.moveTo(mx,my-ts);ctx.lineTo(mx+ts,my+ts*.6);ctx.lineTo(mx-ts,my+ts*.6);ctx.closePath();ctx.stroke();
+      ctx.font=`bold ${Math.max(8,11*z)}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('!',mx,my+ts*.1);
+    } else if(n==='Trap'){
+      ctx.globalAlpha=.7; ctx.lineWidth=Math.max(0.5,1*z);
+      const spikes=Math.max(2,Math.round(w/Math.max(6,12*z)));
+      for(let i=0;i<spikes;i++){const sx=p.x+w*(i+.5)/spikes,spike=Math.max(3,6*z);ctx.beginPath();ctx.moveTo(sx-spike*.5,p.y);ctx.lineTo(sx,p.y-spike);ctx.lineTo(sx+spike*.5,p.y);ctx.fill();}
+    } else if(n==='Prop'){
+      ctx.globalAlpha=.6; ctx.lineWidth=Math.max(0.5,1*z);
+      const mx=p.x+w/2,bot=p.y+h-2,capH=Math.max(2,h*.15);
+      ctx.fillStyle=sc; ctx.globalAlpha=.5;
+      ctx.fillRect(p.x+w*.2,p.y,w*.6,capH);
+      ctx.globalAlpha=.25; ctx.beginPath();ctx.ellipse(mx,bot,w*.35,Math.max(2,4*z),0,0,Math.PI*2);ctx.fill();
+    }
+    ctx.restore();
     // Object label
-    if(obj.name && MAP.cam.zoom>0.3){
-      ctx.font=`${Math.max(8,10*MAP.cam.zoom)}px Barlow`;
+    if(obj.name && z>0.3){
+      ctx.font=`${Math.max(8,10*z)}px Barlow`;
       ctx.fillStyle='rgba(232,224,204,0.45)';
-      ctx.fillText(obj.name,p.x+3*MAP.cam.zoom,p.y-3*MAP.cam.zoom);
+      ctx.fillText(obj.name,p.x+3*z,p.y-3*z);
     }
   }
   // ── Locked indicator (small padlock at top-right, non-obtrusive) ──
