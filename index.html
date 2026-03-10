@@ -385,6 +385,32 @@ body.focus-mode #focus-btn{display:flex}
 .modal-close{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--text-secondary);font-size:18px;cursor:pointer;transition:color .1s}
 .modal-close:hover{color:var(--text-primary)}
 
+/* ── LIVE CHAT ── */
+#chat-panel{position:fixed;bottom:20px;right:20px;width:310px;height:390px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;z-index:550;box-shadow:0 8px 40px rgba(0,0,0,.6);overflow:hidden}
+#chat-panel.chat-hidden{display:none}
+#chat-hdr{padding:9px 14px;background:var(--bg-panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;user-select:none}
+#chat-hdr-title{font-family:var(--fu);font-size:10px;letter-spacing:1.2px;color:var(--green)}
+#chat-hdr-count{font-size:9px;font-family:var(--fm);color:var(--text-muted);margin-left:auto}
+#chat-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0}
+#chat-close:hover{color:var(--text-primary)}
+#chat-msgs{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:7px;scroll-behavior:smooth}
+#chat-msgs::-webkit-scrollbar{width:4px}#chat-msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.chat-msg{display:flex;flex-direction:column;gap:3px;max-width:100%}
+.chat-msg-hdr{display:flex;align-items:center;gap:5px}
+.chat-msg-name{font-family:var(--fu);font-size:9px;letter-spacing:.5px}
+.chat-msg-time{color:var(--text-muted);font-family:var(--fm);font-size:9px;margin-left:auto;flex-shrink:0}
+.chat-msg-text{font-family:var(--fb);font-size:12px;color:var(--text-primary);padding:6px 10px;background:var(--bg-panel);border-radius:3px 8px 8px 8px;border:1px solid var(--border);word-break:break-word;line-height:1.4;white-space:pre-wrap}
+.chat-msg.is-self{align-items:flex-end}
+.chat-msg.is-self .chat-msg-text{background:rgba(201,162,39,.08);border-color:rgba(201,162,39,.2);border-radius:8px 3px 8px 8px}
+.chat-day-sep{text-align:center;font-size:9px;font-family:var(--fm);color:var(--text-muted);margin:4px 0}
+#chat-input-row{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg-panel)}
+#chat-input{flex:1;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text-primary);font-family:var(--fb);font-size:12px;outline:none;resize:none;line-height:1.3;max-height:80px}
+#chat-input:focus{border-color:var(--gold-dim)}
+#chat-send-btn{background:var(--gold);border:none;border-radius:6px;padding:0 13px;color:#000;font-family:var(--fu);font-size:10px;letter-spacing:.5px;cursor:pointer;flex-shrink:0}
+#chat-send-btn:hover{opacity:.85}
+#chat-toggle-btn{background:none;border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer;font-family:var(--fm);font-size:11px;color:var(--text-secondary);transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap;position:relative}
+#chat-toggle-btn:hover{border-color:var(--gold-dim);color:var(--gold)}
+#chat-badge{position:absolute;top:-5px;right:-5px;background:#e05252;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;font-family:var(--fu);display:none;min-width:16px;text-align:center}
 /* ── TOAST ── */
 #toast{position:fixed;bottom:18px;right:18px;background:var(--bg-card);border:1px solid var(--gold);border-radius:6px;padding:9px 16px;font-family:var(--fu);font-size:12px;color:var(--gold);letter-spacing:.5px;z-index:600;opacity:0;transform:translateY(6px);transition:all .25s;pointer-events:none}
 #toast.show{opacity:1;transform:none}
@@ -786,6 +812,7 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
   <button class="lang-btn" id="lang-es" onclick="setLang('es')">ES</button>
   <div class="tb-div"></div>
   <span id="collab-ind" style="font-family:var(--fm);font-size:11px;color:var(--blue);white-space:nowrap;display:none;padding:0 6px;border:1px solid rgba(74,158,255,.3);border-radius:3px;" title="Other tabs open"></span>
+  <button id="chat-toggle-btn" onclick="toggleChat()" title="Team Chat">💬 Chat<span id="chat-badge"></span></button>
   <button id="cloud-btn" onclick="openFirebaseModal()" title="Firebase Realtime Sync" style="background:none;border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer;font-family:var(--fm);font-size:11px;color:var(--text-secondary);transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap">
     <span id="cloud-dot" style="width:7px;height:7px;border-radius:50%;background:var(--text-muted);display:inline-block;flex-shrink:0"></span>
     <span id="cloud-lbl">Firebase…</span>
@@ -796,6 +823,20 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
 <div id="online-bar">
   <span class="ob-label">🌍 Online</span>
   <span id="online-bar-users"></span>
+</div>
+
+<!-- LIVE CHAT PANEL -->
+<div id="chat-panel" class="chat-hidden">
+  <div id="chat-hdr">
+    <span id="chat-hdr-title">💬 TEAM CHAT</span>
+    <span id="chat-hdr-count"></span>
+    <button id="chat-close" onclick="toggleChat()" title="Close">×</button>
+  </div>
+  <div id="chat-msgs"></div>
+  <div id="chat-input-row">
+    <textarea id="chat-input" rows="1" placeholder="Message your team…" maxlength="500" onkeydown="chatInputKey(event)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+    <button id="chat-send-btn" onclick="sendChatMessage()">SEND</button>
+  </div>
 </div>
 
 <!-- UPDATE NOTIFICATION BANNER -->
@@ -1927,6 +1968,7 @@ const FIREBASE = {
       this._subscribeLive();
       this._startHeartbeat();
       this._startPolling();
+      _subscribeChatSSE();
       this._ready = true;
       this._addLog('✓ Ready — SSE + polling active');
       if (this._writeQueue) { this._writeQueue = false; this._doWrite(); }
@@ -2253,6 +2295,7 @@ const FIREBASE = {
     if (this._stateSse) { try { this._stateSse.close(); } catch(e) {} this._stateSse = null; }
     if (this._presSse)  { try { this._presSse.close();  } catch(e) {} this._presSse  = null; }
     if (this._liveSse)  { try { this._liveSse.close();  } catch(e) {} this._liveSse  = null; }
+    if (typeof _chatSse !== 'undefined' && _chatSse) { try { _chatSse.close(); } catch(e) {} _chatSse = null; }
     if (this._heartbeat) { clearInterval(this._heartbeat); this._heartbeat = null; }
     if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
     fetch(this._myPresUrl, { method:'DELETE', keepalive:true }).catch(()=>{});
@@ -2537,6 +2580,86 @@ function applyPendingRemote() {
 function dismissUpdateBanner() {
   const b = document.getElementById('update-banner');
   if (b) b.style.display = 'none';
+}
+
+// ════════════════════════════════════════════════════════════
+// LIVE CHAT
+// ════════════════════════════════════════════════════════════
+let _chatMessages=[], _chatUnread=0, _chatOpen=false, _chatSse=null;
+function _chatUrl(){return `${FIREBASE.dbUrl}/projects/${FIREBASE.projectId}/chat.json`;}
+function toggleChat(){
+  _chatOpen=!_chatOpen;
+  const p=document.getElementById('chat-panel');
+  if(!p)return;
+  p.classList.toggle('chat-hidden',!_chatOpen);
+  if(_chatOpen){
+    _chatUnread=0;_updateChatBadge();_renderChatMessages();
+    setTimeout(()=>{const m=document.getElementById('chat-msgs');if(m)m.scrollTop=m.scrollHeight;document.getElementById('chat-input')?.focus();},50);
+  }
+}
+function _updateChatBadge(){
+  const b=document.getElementById('chat-badge');if(!b)return;
+  if(_chatUnread>0&&!_chatOpen){b.textContent=_chatUnread>9?'9+':String(_chatUnread);b.style.display='block';}
+  else b.style.display='none';
+}
+function _chatEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _renderChatMessages(){
+  const el=document.getElementById('chat-msgs');if(!el)return;
+  const cnt=document.getElementById('chat-hdr-count');
+  if(_chatMessages.length===0){el.innerHTML='<div style="text-align:center;color:var(--text-muted);font-size:11px;padding:30px 0">No messages yet.<br>Say hello! 👋</div>';if(cnt)cnt.textContent='';return;}
+  if(cnt)cnt.textContent=_chatMessages.length+' msg';
+  let html='',lastDay='';
+  _chatMessages.forEach(m=>{
+    const isSelf=m.sessionId===FIREBASE.sessionId;
+    const color=m.color||'#4a9eff';
+    const d=new Date(m.ts);
+    const day=d.toLocaleDateString([],{month:'short',day:'numeric'});
+    const time=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    if(day!==lastDay){html+=`<div class="chat-day-sep">— ${day} —</div>`;lastDay=day;}
+    html+=`<div class="chat-msg${isSelf?' is-self':''}">
+      <div class="chat-msg-hdr">
+        <span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0"></span>
+        <span class="chat-msg-name" style="color:${color}">${_chatEsc(m.flag||'🌐')} ${_chatEsc(m.name||'User')}</span>
+        <span class="chat-msg-time">${time}</span>
+      </div>
+      <div class="chat-msg-text">${_chatEsc(m.text)}</div>
+    </div>`;
+  });
+  el.innerHTML=html;el.scrollTop=el.scrollHeight;
+}
+function chatInputKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMessage();}}
+function sendChatMessage(){
+  const inp=document.getElementById('chat-input');
+  const text=inp?.value?.trim();
+  if(!text){return;}
+  if(!FIREBASE._ready){showToast('⚠ Firebase not connected');return;}
+  const msg={id:'msg_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),sessionId:FIREBASE.sessionId,name:FIREBASE.userName,flag:FIREBASE._userInfo?.flag||'🌐',color:localStorage.getItem('igs_color')||'#4a9eff',text,ts:Date.now()};
+  _chatMessages.push(msg);
+  if(_chatMessages.length>100)_chatMessages=_chatMessages.slice(-100);
+  inp.value='';inp.style.height='auto';
+  _renderChatMessages();
+  fetch(_chatUrl(),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(_chatMessages)}).catch(()=>{});
+}
+function _subscribeChatSSE(){
+  if(_chatSse){try{_chatSse.close();}catch(e){}}
+  _chatSse=new EventSource(_chatUrl());
+  _chatSse.addEventListener('put',e=>{
+    try{
+      const ev=JSON.parse(e.data);
+      if(!ev||ev.data===null){_chatMessages=[];_renderChatMessages();return;}
+      const incoming=Array.isArray(ev.data)?ev.data:[];
+      const prevIds=new Set(_chatMessages.map(m=>m.id));
+      const newMsgs=incoming.filter(m=>m&&m.id&&!prevIds.has(m.id)&&m.sessionId!==FIREBASE.sessionId);
+      _chatMessages=incoming;
+      if(!_chatOpen&&newMsgs.length>0){
+        _chatUnread+=newMsgs.length;_updateChatBadge();
+        const last=newMsgs[newMsgs.length-1];
+        showToast('💬 '+(last.name||'User')+': '+last.text.slice(0,50));
+      }
+      if(_chatOpen)_renderChatMessages();
+    }catch(err){console.warn('[Chat SSE]',err);}
+  });
+  _chatSse.onerror=()=>{try{_chatSse.close();}catch(e){}setTimeout(_subscribeChatSSE,5000);};
 }
 
 // ── Object-level merge for maps (collaborative drawing) ──────
@@ -4774,6 +4897,44 @@ function mapMM(e) {
       const dsy = (sy - MAP.dragStart.sy) / MAP.cam.zoom;
       const s = MAP.resizeObjStart;
       const h = MAP.resizeHandle;
+      // Special types: bbox-based resize (no rotation support for these)
+      const isSpecial=obj.type==='circle'||obj.type==='light'||obj.type==='arrow'||obj.type==='draw'||obj.type==='poly'||obj.type==='person'||obj.type==='enemy';
+      if (isSpecial) {
+        const bb0=_getObjBBox(s);
+        let nx=bb0.x,ny=bb0.y,nw=bb0.w,nh=bb0.h;
+        if (e.shiftKey&&bb0.w>0&&bb0.h>0) {
+          const ratio=bb0.w/bb0.h,useX=h.includes('e')||h.includes('w'),useY=h.includes('n')||h.includes('s');
+          let fw=bb0.w,fh=bb0.h;
+          if(useX&&useY){if(Math.abs(dsx)>=Math.abs(dsy)){fw=Math.max(8,snap(bb0.w+(h.includes('w')?-dsx:dsx)));fh=Math.max(8,snap(fw/ratio));}else{fh=Math.max(8,snap(bb0.h+(h.includes('n')?-dsy:dsy)));fw=Math.max(8,snap(fh*ratio));}}
+          else if(useX){fw=Math.max(8,snap(bb0.w+(h.includes('w')?-dsx:dsx)));fh=Math.max(8,snap(fw/ratio));}
+          else{fh=Math.max(8,snap(bb0.h+(h.includes('n')?-dsy:dsy)));fw=Math.max(8,snap(fh*ratio));}
+          nw=fw;nh=fh;
+          if(h.includes('w'))nx=bb0.x+bb0.w-fw;
+          if(h.includes('n'))ny=bb0.y+bb0.h-fh;
+        } else {
+          if(h.includes('e'))nw=Math.max(8,snap(bb0.w+dsx));
+          if(h.includes('s'))nh=Math.max(8,snap(bb0.h+dsy));
+          if(h.includes('w')){nx=snap(bb0.x+dsx);nw=Math.max(8,snap(bb0.w-dsx));}
+          if(h.includes('n')){ny=snap(bb0.y+dsy);nh=Math.max(8,snap(bb0.h-dsy));}
+        }
+        if(obj.type==='circle'||obj.type==='light'){
+          const nr=Math.max(4,snap(Math.max(nw,nh)/2));
+          obj.r=nr;obj.x=snap(nx+nr);obj.y=snap(ny+nr);
+        } else if(obj.type==='arrow'){
+          const scX=(nw||1)/(bb0.w||1),scY=(nh||1)/(bb0.h||1);
+          const ex0=s.x2!==undefined?s.x2:s.x+64,ey0=s.y2!==undefined?s.y2:s.y;
+          obj.x=snap(nx+(s.x-bb0.x)*scX);obj.y=snap(ny+(s.y-bb0.y)*scY);
+          obj.x2=snap(nx+(ex0-bb0.x)*scX);obj.y2=snap(ny+(ey0-bb0.y)*scY);
+        } else if((obj.type==='draw'||obj.type==='poly')&&s.points){
+          const scX=(nw||1)/(bb0.w||1),scY=(nh||1)/(bb0.h||1);
+          obj.points=s.points.map(p=>({x:snap(nx+(p.x-bb0.x)*scX),y:snap(ny+(p.y-bb0.y)*scY)}));
+          obj.x=nx;obj.y=ny;obj.w=nw;obj.h=nh;
+        } else {
+          obj.x=snap(nx);obj.y=snap(ny);obj.w=Math.max(8,snap(nw));obj.h=Math.max(8,snap(nh));
+        }
+        renderMap();renderMapProps();
+        return;
+      }
       const rot = s.rotation || 0;
 
       // Project mouse delta onto object's local axes (handles rotation)
@@ -5081,6 +5242,24 @@ function pointInPoly(x,y,pts){
   return inside;
 }
 
+// Compute world bounding box of a single object (any type) — returns {x,y,w,h} top-left
+function _getObjBBox(obj) {
+  if (obj.type==='circle'||obj.type==='light') {
+    const r=obj.r||32; return {x:obj.x-r,y:obj.y-r,w:r*2,h:r*2};
+  }
+  if (obj.type==='arrow') {
+    const x2=obj.x2!==undefined?obj.x2:obj.x+64, y2=obj.y2!==undefined?obj.y2:obj.y;
+    const minX=Math.min(obj.x,x2), minY=Math.min(obj.y,y2);
+    return {x:minX,y:minY,w:Math.max(8,Math.abs(x2-obj.x)),h:Math.max(8,Math.abs(y2-obj.y))};
+  }
+  if ((obj.type==='draw'||obj.type==='poly')&&obj.points&&obj.points.length) {
+    const xs=obj.points.map(p=>p.x),ys=obj.points.map(p=>p.y);
+    const minX=Math.min(...xs),minY=Math.min(...ys);
+    return {x:minX,y:minY,w:Math.max(8,Math.max(...xs)-minX),h:Math.max(8,Math.max(...ys)-minY)};
+  }
+  return {x:obj.x,y:obj.y,w:obj.w||64,h:obj.h||64};
+}
+
 // Compute world bounding box of all currently selected objects
 function _getGroupBBox(){
   const objs=MAP.objects.filter(o=>MAP.selectedIds.has(o.id)&&!o.hidden);
@@ -5136,7 +5315,19 @@ function getObjectsInMarquee(sx1,sy1,sx2,sy2){
 }
 
 function getResizeHandle(obj, sx, sy) {
-  if (obj.type==='circle'||obj.type==='text'||obj.type==='poly'||obj.type==='light'||obj.type==='arrow'||obj.type==='draw'||obj.type==='person'||obj.type==='enemy') return null;
+  if (obj.type==='text') return null;
+  // Special types: use virtual bbox for handle positions
+  if (obj.type==='circle'||obj.type==='light'||obj.type==='poly'||obj.type==='arrow'||obj.type==='draw'||obj.type==='person'||obj.type==='enemy') {
+    const bb=_getObjBBox(obj);
+    const bp=w2s(bb.x,bb.y),bq=w2s(bb.x+bb.w,bb.y+bb.h);
+    const CW=MAP.canvas.width,CH=MAP.canvas.height,HPAD=6,_c=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+    const cpx=_c(bp.x,HPAD,CW-HPAD),cpy=_c(bp.y,HPAD,CH-HPAD);
+    const cqx=_c(bq.x,HPAD,CW-HPAD),cqy=_c(bq.y,HPAD,CH-HPAD);
+    const cmx=(cpx+cqx)/2,cmy=(cpy+cqy)/2;
+    const handles=[{p:{x:cqx,y:cqy},h:'se'},{p:{x:cpx,y:cqy},h:'sw'},{p:{x:cqx,y:cpy},h:'ne'},{p:{x:cpx,y:cpy},h:'nw'},{p:{x:cmx,y:cpy},h:'n'},{p:{x:cmx,y:cqy},h:'s'},{p:{x:cpx,y:cmy},h:'w'},{p:{x:cqx,y:cmy},h:'e'}];
+    for(const {p,h} of handles){if(Math.hypot(sx-p.x,sy-p.y)<9)return h;}
+    return null;
+  }
   // Un-rotate screen point for rotated objects
   let lsx=sx, lsy=sy;
   if (obj.rotation) {
@@ -5186,6 +5377,26 @@ function updateStatusBar(sx, sy) {
   else document.getElementById('map-sel-name').textContent='';
 }
 
+// Draw resize handles + rotation circle from object bbox (used for special types)
+function _drawBBoxHandles(ctx, obj) {
+  const bb=_getObjBBox(obj);
+  const bp=w2s(bb.x,bb.y),bq=w2s(bb.x+bb.w,bb.y+bb.h);
+  const CW=MAP.canvas.width,CH=MAP.canvas.height,HPAD=6,_c=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  const cpx=_c(bp.x,HPAD,CW-HPAD),cpy=_c(bp.y,HPAD,CH-HPAD);
+  const cqx=_c(bq.x,HPAD,CW-HPAD),cqy=_c(bq.y,HPAD,CH-HPAD);
+  const cmx=(cpx+cqx)/2;
+  ctx.setLineDash([]);ctx.fillStyle='#c9a227';
+  [{x:cpx,y:cpy},{x:cqx,y:cpy},{x:cpx,y:cqy},{x:cqx,y:cqy},
+   {x:cmx,y:cpy},{x:cmx,y:cqy},{x:cpx,y:(cpy+cqy)/2},{x:cqx,y:(cpy+cqy)/2}]
+    .forEach(h=>ctx.fillRect(h.x-5,h.y-5,10,10));
+  const rotY=Math.max(14,cpy-25);
+  ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(cmx,cpy-4);ctx.lineTo(cmx,rotY+7);ctx.stroke();
+  ctx.beginPath();ctx.arc(cmx,rotY,7,0,Math.PI*2);ctx.stroke();
+  ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#c9a227';ctx.fillText('↻',cmx,rotY);
+}
+
 function renderMap() {
   if (!MAP.ctx) return;
   const canvas=MAP.canvas, ctx=MAP.ctx;
@@ -5229,18 +5440,22 @@ function renderMap() {
     if(obj.type==='circle'||obj.type==='light'){
       const p=w2s(obj.x,obj.y),r=(obj.r||32)*MAP.cam.zoom;
       ctx.beginPath();ctx.arc(p.x,p.y,r+3,0,Math.PI*2);ctx.stroke();
+      if(MAP.selectedIds.size===1&&MAP.tool!=='rotate'){_drawBBoxHandles(ctx,obj);}
     } else if(obj.type==='poly'){
       ctx.beginPath();
       const pts=obj.points.map(p=>w2s(p.x,p.y));
       ctx.moveTo(pts[0].x,pts[0].y);
       pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
       ctx.closePath();ctx.stroke();
+      if(MAP.selectedIds.size===1&&MAP.tool!=='rotate'){_drawBBoxHandles(ctx,obj);}
     } else if(obj.type==='arrow'){
       const p=w2s(obj.x,obj.y),p2=w2s(obj.x2!==undefined?obj.x2:obj.x+64,obj.y2!==undefined?obj.y2:obj.y);
       ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p2.x,p2.y);ctx.stroke();
+      if(MAP.selectedIds.size===1&&MAP.tool!=='rotate'){_drawBBoxHandles(ctx,obj);}
     } else if(obj.type==='draw'||obj.type==='person'||obj.type==='enemy'){
       const p=w2s(obj.x,obj.y),q=w2s(obj.x+(obj.w||24),obj.y+(obj.h||32));
       ctx.strokeRect(p.x-3,p.y-3,q.x-p.x+6,q.y-p.y+6);
+      if(MAP.selectedIds.size===1&&MAP.tool!=='rotate'){_drawBBoxHandles(ctx,obj);}
     } else {
       const p=w2s(obj.x,obj.y),q=w2s(obj.x+obj.w,obj.y+obj.h);
       // Apply rotation for selection outline
