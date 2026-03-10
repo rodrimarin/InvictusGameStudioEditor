@@ -4781,6 +4781,18 @@ function mapMD(e) {
     renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); return;
   }
 
+  // Smart switch: clicking an existing object with any drawing tool → select it
+  const _drawHit = getObjectAt(w.x, w.y);
+  if (_drawHit) {
+    setTool('select');
+    MAP.selectedIds.clear(); MAP.selectedIds.add(_drawHit.id);
+    MAP.isDragging = true;
+    MAP.dragStart = {wx: w.x, wy: w.y};
+    MAP.dragObjStarts = {[_drawHit.id]: {x: _drawHit.x, y: _drawHit.y, x2: _drawHit.x2, y2: _drawHit.y2}};
+    renderMap(); renderMapProps(); renderMapLayers();
+    return;
+  }
+
   // Freehand draw start
   if (MAP.tool === 'draw') {
     MAP.isDrawing = true;
