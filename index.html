@@ -4932,35 +4932,36 @@ function mapMM(e) {
       if (isSpecial) {
         const bb0=_getObjBBox(s);
         let nx=bb0.x,ny=bb0.y,nw=bb0.w,nh=bb0.h;
+        const _r=v=>Math.round(v);
         if (e.shiftKey&&bb0.w>0&&bb0.h>0) {
           const ratio=bb0.w/bb0.h,useX=h.includes('e')||h.includes('w'),useY=h.includes('n')||h.includes('s');
           let fw=bb0.w,fh=bb0.h;
-          if(useX&&useY){if(Math.abs(dsx)>=Math.abs(dsy)){fw=Math.max(8,snap(bb0.w+(h.includes('w')?-dsx:dsx)));fh=Math.max(8,snap(fw/ratio));}else{fh=Math.max(8,snap(bb0.h+(h.includes('n')?-dsy:dsy)));fw=Math.max(8,snap(fh*ratio));}}
-          else if(useX){fw=Math.max(8,snap(bb0.w+(h.includes('w')?-dsx:dsx)));fh=Math.max(8,snap(fw/ratio));}
-          else{fh=Math.max(8,snap(bb0.h+(h.includes('n')?-dsy:dsy)));fw=Math.max(8,snap(fh*ratio));}
+          if(useX&&useY){if(Math.abs(dsx)>=Math.abs(dsy)){fw=Math.max(8,_r(bb0.w+(h.includes('w')?-dsx:dsx)));fh=Math.max(8,_r(fw/ratio));}else{fh=Math.max(8,_r(bb0.h+(h.includes('n')?-dsy:dsy)));fw=Math.max(8,_r(fh*ratio));}}
+          else if(useX){fw=Math.max(8,_r(bb0.w+(h.includes('w')?-dsx:dsx)));fh=Math.max(8,_r(fw/ratio));}
+          else{fh=Math.max(8,_r(bb0.h+(h.includes('n')?-dsy:dsy)));fw=Math.max(8,_r(fh*ratio));}
           nw=fw;nh=fh;
           if(h.includes('w'))nx=bb0.x+bb0.w-fw;
           if(h.includes('n'))ny=bb0.y+bb0.h-fh;
         } else {
-          if(h.includes('e'))nw=Math.max(8,snap(bb0.w+dsx));
-          if(h.includes('s'))nh=Math.max(8,snap(bb0.h+dsy));
-          if(h.includes('w')){nx=snap(bb0.x+dsx);nw=Math.max(8,snap(bb0.w-dsx));}
-          if(h.includes('n')){ny=snap(bb0.y+dsy);nh=Math.max(8,snap(bb0.h-dsy));}
+          if(h.includes('e'))nw=Math.max(8,_r(bb0.w+dsx));
+          if(h.includes('s'))nh=Math.max(8,_r(bb0.h+dsy));
+          if(h.includes('w')){nx=_r(bb0.x+dsx);nw=Math.max(8,_r(bb0.w-dsx));}
+          if(h.includes('n')){ny=_r(bb0.y+dsy);nh=Math.max(8,_r(bb0.h-dsy));}
         }
         if(obj.type==='circle'||obj.type==='light'){
-          const nr=Math.max(4,snap(Math.max(nw,nh)/2));
-          obj.r=nr;obj.x=snap(nx+nr);obj.y=snap(ny+nr);
+          const nr=Math.max(4,_r(Math.max(nw,nh)/2));
+          obj.r=nr;obj.x=_r(nx+nr);obj.y=_r(ny+nr);
         } else if(obj.type==='arrow'){
           const scX=(nw||1)/(bb0.w||1),scY=(nh||1)/(bb0.h||1);
           const ex0=s.x2!==undefined?s.x2:s.x+64,ey0=s.y2!==undefined?s.y2:s.y;
-          obj.x=snap(nx+(s.x-bb0.x)*scX);obj.y=snap(ny+(s.y-bb0.y)*scY);
-          obj.x2=snap(nx+(ex0-bb0.x)*scX);obj.y2=snap(ny+(ey0-bb0.y)*scY);
+          obj.x=_r(nx+(s.x-bb0.x)*scX);obj.y=_r(ny+(s.y-bb0.y)*scY);
+          obj.x2=_r(nx+(ex0-bb0.x)*scX);obj.y2=_r(ny+(ey0-bb0.y)*scY);
         } else if((obj.type==='draw'||obj.type==='poly')&&s.points){
           const scX=(nw||1)/(bb0.w||1),scY=(nh||1)/(bb0.h||1);
-          obj.points=s.points.map(p=>({x:snap(nx+(p.x-bb0.x)*scX),y:snap(ny+(p.y-bb0.y)*scY)}));
+          obj.points=s.points.map(p=>({x:_r(nx+(p.x-bb0.x)*scX),y:_r(ny+(p.y-bb0.y)*scY)}));
           obj.x=nx;obj.y=ny;obj.w=nw;obj.h=nh;
         } else {
-          obj.x=snap(nx);obj.y=snap(ny);obj.w=Math.max(8,snap(nw));obj.h=Math.max(8,snap(nh));
+          obj.x=_r(nx);obj.y=_r(ny);obj.w=Math.max(8,_r(nw));obj.h=Math.max(8,_r(nh));
         }
         renderMap();renderMapProps();
         return;
@@ -4974,21 +4975,22 @@ function mapMM(e) {
         ldx =  dsx * cos + dsy * sin;
         ldy = -dsx * sin + dsy * cos;
       }
-      // Compute new size
+      // Compute new size — pixel-precise (no grid snap during resize)
+      const _rr = v => Math.round(v);
       let nw = s.w, nh = s.h;
       if (e.shiftKey && s.w > 0 && s.h > 0) {
         const ratio = s.w / s.h;
         const useX = h.includes('e') || h.includes('w'), useY = h.includes('n') || h.includes('s');
         if (useX && useY) {
-          if (Math.abs(ldx) >= Math.abs(ldy)) { nw = Math.max(8, snap(s.w + (h.includes('w') ? -ldx : ldx))); nh = Math.max(8, snap(nw / ratio)); }
-          else { nh = Math.max(8, snap(s.h + (h.includes('n') ? -ldy : ldy))); nw = Math.max(8, snap(nh * ratio)); }
-        } else if (useX) { nw = Math.max(8, snap(s.w + (h.includes('w') ? -ldx : ldx))); nh = Math.max(8, snap(nw / ratio)); }
-        else { nh = Math.max(8, snap(s.h + (h.includes('n') ? -ldy : ldy))); nw = Math.max(8, snap(nh * ratio)); }
+          if (Math.abs(ldx) >= Math.abs(ldy)) { nw = Math.max(8, _rr(s.w + (h.includes('w') ? -ldx : ldx))); nh = Math.max(8, _rr(nw / ratio)); }
+          else { nh = Math.max(8, _rr(s.h + (h.includes('n') ? -ldy : ldy))); nw = Math.max(8, _rr(nh * ratio)); }
+        } else if (useX) { nw = Math.max(8, _rr(s.w + (h.includes('w') ? -ldx : ldx))); nh = Math.max(8, _rr(nw / ratio)); }
+        else { nh = Math.max(8, _rr(s.h + (h.includes('n') ? -ldy : ldy))); nw = Math.max(8, _rr(nh * ratio)); }
       } else {
-        if (h.includes('e')) nw = Math.max(8, snap(s.w + ldx));
-        if (h.includes('w')) nw = Math.max(8, snap(s.w - ldx));
-        if (h.includes('s')) nh = Math.max(8, snap(s.h + ldy));
-        if (h.includes('n')) nh = Math.max(8, snap(s.h - ldy));
+        if (h.includes('e')) nw = Math.max(8, _rr(s.w + ldx));
+        if (h.includes('w')) nw = Math.max(8, _rr(s.w - ldx));
+        if (h.includes('s')) nh = Math.max(8, _rr(s.h + ldy));
+        if (h.includes('n')) nh = Math.max(8, _rr(s.h - ldy));
       }
       // Anchor: the corner/edge opposite the handle stays fixed in visual space.
       // ax/ay: direction from center to anchor (+1 or -1 or 0)
