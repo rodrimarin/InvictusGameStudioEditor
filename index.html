@@ -430,6 +430,8 @@ body.focus-mode #focus-btn{display:flex}
 #update-banner{display:none;padding:0 16px;height:32px;align-items:center;gap:10px;font-size:11px;font-family:var(--fm);flex-shrink:0;border-bottom:1px solid;transition:all .2s}
 #update-banner.ub-info{background:rgba(78,203,113,.07);border-color:rgba(78,203,113,.25);color:var(--green)}
 #update-banner.ub-warn{background:rgba(201,162,39,.09);border-color:rgba(201,162,39,.35);color:var(--gold)}
+#update-banner.ub-conflict{background:rgba(220,50,50,.18);border-color:rgba(220,50,50,.6);color:#ff6b6b}
+#update-banner.ub-conflict .ub-apply{background:#e03232;color:#fff;border-color:#e03232}
 #update-banner .ub-msg{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #update-banner button{font-family:var(--fm);font-size:10px;border-radius:3px;padding:2px 10px;cursor:pointer;border:1px solid;transition:all .12s}
 #update-banner .ub-apply{background:var(--gold);color:#000;border-color:var(--gold)}
@@ -2581,7 +2583,7 @@ function _showUpdateBanner(sender, changedSecs, conflicts) {
   const secNames = changedSecs.map(s => (_MOD_LABEL[s] || s)).join(', ');
   if (conflicts.length > 0) {
     // Conflict: user has unsaved edits on same section
-    banner.className = 'ub-warn';
+    banner.className = 'ub-conflict';
     icon.textContent = '⚠';
     msg.textContent  = sender + ' also edited ' + secNames + ' — your edits are protected. Apply their version or keep yours.';
     applyBtn.style.display = 'inline-block';
