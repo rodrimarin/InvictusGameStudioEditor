@@ -1442,6 +1442,7 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
           <button class="ia-tool"        id="ia-t-text"   title="Text  T"   onclick="IA.setTool('text')" style="font-weight:700">T</button>
           <button class="ia-tool"        id="ia-t-eraser" title="Eraser  E" onclick="IA.setTool('eraser')">⌫</button>
           <button class="ia-tool"        id="ia-t-pan"    title="Pan  H · or hold Space" onclick="IA.setTool('pan')" style="font-size:16px">✋</button>
+          <button class="ia-tool"        id="ia-t-select" title="Select &amp; Move  S · Del=delete" onclick="IA.setTool('select')" style="font-size:13px;font-weight:700">⊹</button>
           <div class="ia-div"></div>
           <span class="ia-lbl">Color</span>
           <div class="ia-color-swatch active" id="ia-sw-0" style="background:#FFD700" title="Yellow" onclick="IA.setColor('#FFD700',0)"></div>
@@ -1465,6 +1466,11 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
           <div class="ia-div"></div>
           <button class="ia-tool" onclick="IA.undo()" title="Undo  Ctrl+Z" style="width:34px;font-size:13px">↩</button>
           <button class="ia-tool" onclick="IA.redo()" title="Redo  Ctrl+Y" style="width:34px;font-size:13px">↪</button>
+          <div class="ia-div"></div>
+          <button class="ia-tool" onclick="IA.zoomOut()" title="Zoom Out  Ctrl+−" style="font-size:16px;width:28px">−</button>
+          <span id="ia-zoom-lbl" style="font-family:var(--fm);font-size:10px;color:var(--text-secondary);min-width:34px;text-align:center">100%</span>
+          <button class="ia-tool" onclick="IA.zoomIn()"  title="Zoom In  Ctrl+=" style="font-size:16px;width:28px">+</button>
+          <button class="ia-tool" onclick="IA.zoomReset()" title="Reset Zoom  Ctrl+0" style="font-size:9px;width:34px">1:1</button>
         </div>
 
         <!-- SCROLLABLE CANVAS AREA -->
@@ -1489,7 +1495,7 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
           <span id="ia-status-tool" style="color:var(--gold);font-family:var(--fu);font-size:10px;letter-spacing:.5px;text-transform:uppercase">Pen</span>
           <span id="ia-status-color" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFD700;flex-shrink:0"></span>
           <span id="ia-status-xy" style="font-family:var(--fm)">x:0 y:0</span>
-          <span style="color:rgba(255,255,255,.15);font-size:9px">P L R A T E H · Space+drag pan · Ctrl+V paste</span>
+          <span style="color:rgba(255,255,255,.15);font-size:9px">P L R A T E H S · S=select/move · Del=delete · Ctrl+Wheel zoom · Ctrl+Z/Y undo/redo</span>
           <span id="ia-status-strokes" style="margin-left:auto;font-family:var(--fm)">0 strokes</span>
         </div>
       </div>
@@ -8751,63 +8757,105 @@ function _initNavResize(navId){
 // ════════════════════════════════════════════════════════════
 const IA = (() => {
   // ── State ─────────────────────────────────────────────────
-  let tool      = 'pen';
-  let color     = '#FFD700';
-  let size      = 3;
-  let dashed    = false;
-  let opacity   = 1;
-  let drawing   = false;
-  let panning   = false;
-  let spaceDown = false;
-  let hasImage  = false;
-  let strokes   = [];
-  let redoStack = [];
-  let curStroke = null;
-  let textPend  = null;
-  let panRef    = null;   // {x,y,sl,st}
+  let tool        = 'pen';
+  let color       = '#FFD700';
+  let size        = 3;
+  let dashed      = false;
+  let opacity     = 1;
+  let zoom        = 1;
+  let logicalW    = 2400, logicalH = 1600;
+  let drawing     = false;
+  let panning     = false;
+  let spaceDown   = false;
+  let hasImage    = false;
+  let strokes     = [];
+  let curStroke   = null;
+  let textPend    = null;
+  let panRef      = null;
+  let selectedIdx = -1;
+  let moveRef     = null;   // {startX, startY, origStroke, moved}
+  let history     = [];
+  let historyPos  = -1;
 
   const BLANK_W = 2400, BLANK_H = 1600;
 
   // ── DOM helpers ───────────────────────────────────────────
-  const $ = id => document.getElementById(id);
-  const _c    = () => $('ia-canvas');
-  const _bg   = () => $('ia-bg');
-  const _ctx  = () => { const c = _c(); return c ? c.getContext('2d') : null; };
-  const _wrap = () => $('ia-canvas-wrap');
-  const _scene= () => $('ia-scene');
+  const $      = id => document.getElementById(id);
+  const _c     = () => $('ia-canvas');
+  const _bg    = () => $('ia-bg');
+  const _ctx   = () => { const c = _c(); return c ? c.getContext('2d') : null; };
+  const _wrap  = () => $('ia-canvas-wrap');
+  const _scene = () => $('ia-scene');
 
-  // ── Resize canvas + scene together (canvas is position:absolute) ─
-  function _resize(w, h) {
+  // ── History ───────────────────────────────────────────────
+  function _pushHistory() {
+    history = history.slice(0, historyPos + 1);
+    history.push(JSON.stringify(strokes));
+    historyPos = history.length - 1;
+    if (history.length > 60) { history.shift(); historyPos--; }
+  }
+
+  // ── Apply zoom: resize canvas + scene + bg image ──────────
+  function _applyZoom() {
+    const w = Math.round(logicalW * zoom), h = Math.round(logicalH * zoom);
     const cv = _c(), sc = _scene(); if (!cv || !sc) return;
     cv.width = w; cv.height = h;
     cv.style.width  = w + 'px'; cv.style.height = h + 'px';
-    // Scene must be sized explicitly because all children are absolute
     sc.style.width  = w + 'px'; sc.style.height = h + 'px';
+    const img = _bg();
+    if (img.naturalWidth) { img.style.width = w + 'px'; img.style.height = h + 'px'; }
+    _redraw();
+  }
+
+  // ── Resize logical canvas ─────────────────────────────────
+  function _resize(lw, lh) {
+    logicalW = lw; logicalH = lh;
+    _applyZoom();
+  }
+
+  // ── Zoom centered on a client point ──────────────────────
+  function _zoomAt(newZoom, cx, cy) {
+    const w = _wrap(); if (!w) return;
+    const wRect = w.getBoundingClientRect();
+    const mx = cx - wRect.left;
+    const my = cy - wRect.top;
+    const lx = (mx + w.scrollLeft) / zoom;
+    const ly = (my + w.scrollTop)  / zoom;
+    zoom = Math.min(6, Math.max(0.1, newZoom));
+    _applyZoom();
+    w.scrollLeft = lx * zoom - mx;
+    w.scrollTop  = ly * zoom - my;
+    _updateZoomLbl();
+  }
+
+  function _updateZoomLbl() {
+    const el = $('ia-zoom-lbl'); if (el) el.textContent = Math.round(zoom * 100) + '%';
   }
 
   // ── Blank canvas ──────────────────────────────────────────
   function _sizeBlank() {
-    _resize(BLANK_W, BLANK_H);
+    logicalW = BLANK_W; logicalH = BLANK_H;
+    _applyZoom();
     _bg().style.display = 'none';
     $('ia-drop-hint').classList.remove('ia-hidden');
-    _redraw();
     requestAnimationFrame(() => {
       const w = _wrap(); if (!w) return;
-      w.scrollLeft = Math.max(0, (BLANK_W + 40 - w.clientWidth)  / 2);
-      w.scrollTop  = Math.max(0, (BLANK_H + 40 - w.clientHeight) / 2);
+      const pw = Math.round(BLANK_W * zoom), ph = Math.round(BLANK_H * zoom);
+      w.scrollLeft = Math.max(0, (pw + 40 - w.clientWidth)  / 2);
+      w.scrollTop  = Math.max(0, (ph + 40 - w.clientHeight) / 2);
     });
   }
 
   // ── Image mode ────────────────────────────────────────────
   function _sizeForImage(img) {
     const iw = img.naturalWidth, ih = img.naturalHeight;
-    _resize(iw, ih);
-    img.style.width = iw + 'px'; img.style.height = ih + 'px';
     img.style.display = 'block';
+    _resize(iw, ih);
     requestAnimationFrame(() => {
       const w = _wrap(); if (!w) return;
-      w.scrollLeft = Math.max(0, (iw + 40 - w.clientWidth)  / 2);
-      w.scrollTop  = Math.max(0, (ih + 40 - w.clientHeight) / 2);
+      const pw = Math.round(iw * zoom), ph = Math.round(ih * zoom);
+      w.scrollLeft = Math.max(0, (pw + 40 - w.clientWidth)  / 2);
+      w.scrollTop  = Math.max(0, (ph + 40 - w.clientHeight) / 2);
     });
   }
 
@@ -8815,7 +8863,8 @@ const IA = (() => {
     const url = URL.createObjectURL(file);
     const img = _bg();
     img.onload = () => {
-      hasImage = true; strokes = []; redoStack = [];
+      hasImage = true; strokes = []; selectedIdx = -1;
+      _pushHistory();
       _sizeForImage(img);
       $('ia-drop-hint').classList.add('ia-hidden');
       $('ia-download-btn').style.display = '';
@@ -8826,16 +8875,14 @@ const IA = (() => {
     img.src = url;
   }
 
-  // ── Coordinates: event → canvas pixels ───────────────────
-  // scene.getBoundingClientRect() accounts for scroll automatically
+  // ── Coordinates: event → logical pixels ──────────────────
   function _xy(e) {
     const sr = _scene().getBoundingClientRect();
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: cx - sr.left, y: cy - sr.top };
+    return { x: (cx - sr.left) / zoom, y: (cy - sr.top) / zoom };
   }
 
-  // Is event within the scene bounds?
   function _inScene(e) {
     const sr = _scene().getBoundingClientRect();
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
@@ -8848,7 +8895,8 @@ const IA = (() => {
   function _cursor() {
     const w = _wrap(); if (!w) return;
     if (panning) { w.style.cursor = 'grabbing'; return; }
-    const map = { pan:'grab', text:'text', eraser:'cell' };
+    if (moveRef && moveRef.moved) { w.style.cursor = 'grabbing'; return; }
+    const map = { pan:'grab', text:'text', eraser:'cell', select:'default' };
     w.style.cursor = map[_at()] || 'crosshair';
   }
 
@@ -8857,13 +8905,21 @@ const IA = (() => {
     const ctx = _ctx(); if (!ctx) return;
     const c = _c();
     ctx.clearRect(0, 0, c.width, c.height);
-    strokes.forEach(s => _paint(ctx, s));
+    ctx.save();
+    ctx.scale(zoom, zoom);
+    strokes.forEach((s, i) => {
+      _paint(ctx, s);
+      if (i === selectedIdx) _paintSelection(ctx, s);
+    });
     if (curStroke) _paint(ctx, curStroke);
-    // Render collaborators' live in-progress strokes
+    ctx.restore();
+    // Collaborators' live strokes
     const _iaCutoff = Date.now() - 3000;
     Object.values(_fbLive).forEach(u => {
       if (!u || u.ts < _iaCutoff || u.sessionId === FIREBASE.sessionId || !u.iaStroke) return;
+      ctx.save(); ctx.scale(zoom, zoom);
       _paint(ctx, u.iaStroke);
+      ctx.restore();
     });
   }
   function redrawLive() { _redraw(); }
@@ -8907,6 +8963,60 @@ const IA = (() => {
     ctx.restore();
   }
 
+  // ── Selection bounding box (logical coords) ───────────────
+  function _getBounds(s) {
+    const pad = Math.max(6, s.size * 2);
+    switch (s.type) {
+      case 'pen': {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        s.points.forEach(p => { minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y); });
+        return { x: minX-pad, y: minY-pad, w: maxX-minX+pad*2, h: maxY-minY+pad*2 };
+      }
+      case 'text': {
+        const fs = Math.max(14, s.size * 5);
+        const tw = s.text ? s.text.length * fs * 0.55 : 60;
+        return { x: s.x1 - pad, y: s.y1 - fs - pad, w: tw + pad*2, h: fs + pad*2 };
+      }
+      default: {
+        const x = Math.min(s.x1, s.x2) - pad, y = Math.min(s.y1, s.y2) - pad;
+        const w = Math.abs(s.x2 - s.x1) + pad*2, h = Math.abs(s.y2 - s.y1) + pad*2;
+        return { x, y, w: Math.max(w, pad*2), h: Math.max(h, pad*2) };
+      }
+    }
+  }
+
+  function _paintSelection(ctx, s) {
+    const b = _getBounds(s);
+    const lw = 1.5 / zoom;
+    ctx.save();
+    ctx.strokeStyle = '#00CFFF'; ctx.lineWidth = lw;
+    ctx.setLineDash([4/zoom, 3/zoom]); ctx.globalAlpha = 0.9;
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    const hs = 5 / zoom;
+    ctx.fillStyle = '#00CFFF'; ctx.setLineDash([]);
+    [[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]].forEach(([hx,hy]) => ctx.fillRect(hx-hs/2, hy-hs/2, hs, hs));
+    ctx.restore();
+  }
+
+  // ── Hit test: returns topmost stroke index at logical point p ──
+  function _hitTest(p) {
+    for (let i = strokes.length - 1; i >= 0; i--) {
+      const b = _getBounds(strokes[i]);
+      if (p.x >= b.x && p.x <= b.x+b.w && p.y >= b.y && p.y <= b.y+b.h) return i;
+    }
+    return -1;
+  }
+
+  // ── Translate stroke by delta ─────────────────────────────
+  function _translateStroke(s, dx, dy) {
+    if (s.type === 'pen') {
+      s.points = s.points.map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
+    } else {
+      s.x1 += dx; s.y1 += dy;
+      if (s.x2 !== undefined) { s.x2 += dx; s.y2 += dy; }
+    }
+  }
+
   // ── Erase ─────────────────────────────────────────────────
   function _erase(p) {
     const r = Math.max(size * 6, 20), prev = strokes.length;
@@ -8914,39 +9024,61 @@ const IA = (() => {
       if (s.type === 'pen') return !s.points.some(pt => Math.hypot(pt.x-p.x, pt.y-p.y) < r);
       return Math.hypot(((s.x1||0)+(s.x2||0))/2-p.x, ((s.y1||0)+(s.y2||0))/2-p.y) > r;
     });
-    if (strokes.length !== prev) { _redraw(); _updateStatus(); }
+    if (strokes.length !== prev) {
+      if (selectedIdx >= strokes.length) selectedIdx = -1;
+      _redraw(); _updateStatus();
+    }
   }
 
-  // ── Mouse events (all attached to wrap or document) ───────
+  // ── Mouse events ──────────────────────────────────────────
   function _md(e) {
     if (e.button !== 0) return;
-    if (!_inScene(e)) return;     // ignore clicks on scroll margin
+    if (!_inScene(e)) return;
     e.preventDefault();
     const at = _at(), w = _wrap();
+
     if (at === 'pan') {
       panning = true;
-      panRef  = { x: e.clientX, y: e.clientY, sl: w.scrollLeft, st: w.scrollTop };
+      panRef = { x: e.clientX, y: e.clientY, sl: w.scrollLeft, st: w.scrollTop };
       _cursor(); return;
     }
+
+    if (at === 'select') {
+      const p = _xy(e);
+      const idx = _hitTest(p);
+      selectedIdx = idx;
+      moveRef = idx >= 0
+        ? { startX: p.x, startY: p.y, origStroke: JSON.parse(JSON.stringify(strokes[idx])), moved: false }
+        : null;
+      _redraw(); return;
+    }
+
     if (at === 'text') { _placeText(e); return; }
     drawing = true;
     const p = _xy(e);
     if      (at === 'eraser') { _erase(p); }
     else if (at === 'pen')    { curStroke = { type:'pen', color, size, dashed, opacity, points:[{...p}] }; }
-    else                      { curStroke = { type:at,  color, size, dashed, opacity, x1:p.x, y1:p.y, x2:p.x, y2:p.y }; }
+    else                      { curStroke = { type:at, color, size, dashed, opacity, x1:p.x, y1:p.y, x2:p.x, y2:p.y }; }
   }
 
   function _mm(e) {
-    // Pan: works anywhere on document while panning is true
     if (panning && panRef) {
       const w = _wrap();
       w.scrollLeft = panRef.sl - (e.clientX - panRef.x);
       w.scrollTop  = panRef.st - (e.clientY - panRef.y);
       return;
     }
-    // Draw: only process if actively drawing
+    if (moveRef && selectedIdx >= 0) {
+      const p = _xy(e);
+      const dx = p.x - moveRef.startX, dy = p.y - moveRef.startY;
+      if (!moveRef.moved && Math.hypot(dx, dy) < 3) return;
+      // Reset stroke to original, then apply accumulated delta
+      Object.assign(strokes[selectedIdx], JSON.parse(JSON.stringify(moveRef.origStroke)));
+      _translateStroke(strokes[selectedIdx], dx, dy);
+      moveRef.moved = true;
+      _cursor(); _redraw(); return;
+    }
     if (!drawing || !curStroke) {
-      // Still update coordinates display if over scene
       if (_inScene(e)) { const p = _xy(e); _setXY(p); }
       return;
     }
@@ -8957,18 +9089,21 @@ const IA = (() => {
     if (at === 'pen') curStroke.points.push({...p});
     else              { curStroke.x2 = p.x; curStroke.y2 = p.y; }
     _redraw();
-    // Broadcast live stroke preview to collaborators
     if (FIREBASE._ready) FIREBASE._pushLiveIA(curStroke);
   }
 
   function _mu() {
     if (panning) { panning = false; panRef = null; _cursor(); return; }
+    if (moveRef) {
+      if (moveRef.moved) { _pushHistory(); _syncToData(); }
+      moveRef = null; _cursor(); _redraw(); return;
+    }
     if (!drawing) return;
     drawing = false;
     if (curStroke) {
-      strokes.push(curStroke); redoStack = []; curStroke = null;
+      strokes.push(curStroke); curStroke = null;
       $('ia-drop-hint').classList.add('ia-hidden');
-      _syncToData();
+      _pushHistory(); _syncToData();
       if (FIREBASE._ready) FIREBASE._pushLiveIA(null);
     }
     _redraw(); _updateStatus();
@@ -8987,24 +9122,25 @@ const IA = (() => {
   function _setXY(p) { const el=$('ia-status-xy'); if(el) el.textContent=`x:${Math.round(p.x)} y:${Math.round(p.y)}`; }
   function _updateStatus() { const el=$('ia-status-strokes'); if(el) el.textContent=strokes.length+(strokes.length!==1?' strokes':' stroke'); }
 
-  // ── Persistence: save strokes to PS.data so Firebase can sync them ──
+  // ── Persistence ───────────────────────────────────────────
   function _syncToData() {
     if (!PS.data.ia) PS.data.ia = {};
     PS.data.ia.strokes = JSON.parse(JSON.stringify(strokes));
     autoSave();
   }
 
-  // ── Load strokes from PS.data and redraw (called by _fbApply on remote update) ──
   function syncFromData() {
     const saved = PS.data?.ia?.strokes;
     if (!Array.isArray(saved)) return;
     strokes = JSON.parse(JSON.stringify(saved));
+    history = [JSON.stringify(strokes)]; historyPos = 0;
     _redraw(); _updateStatus();
   }
 
   // ── Public API ────────────────────────────────────────────
   function setTool(t) {
     tool = t;
+    if (t !== 'select') { selectedIdx = -1; _redraw(); }
     document.querySelectorAll('.ia-tool[id^="ia-t-"]').forEach(b => b.classList.remove('active'));
     $('ia-t-'+t)?.classList.add('active');
     const lbl = $('ia-status-tool'); if(lbl) lbl.textContent = t[0].toUpperCase()+t.slice(1);
@@ -9013,6 +9149,11 @@ const IA = (() => {
 
   function setColor(c, idx) {
     color = c;
+    // Also recolor a selected stroke
+    if (selectedIdx >= 0 && selectedIdx < strokes.length) {
+      strokes[selectedIdx].color = c;
+      _pushHistory(); _syncToData(); _redraw();
+    }
     document.querySelectorAll('.ia-color-swatch').forEach(s => s.classList.remove('active'));
     if (typeof idx === 'number') $('ia-sw-'+idx)?.classList.add('active');
     const dot = $('ia-status-color'); if(dot) dot.style.background = c;
@@ -9021,15 +9162,38 @@ const IA = (() => {
   function setSize(v)    { size = v; const l=$('ia-size-lbl'); if(l) l.textContent=v; }
   function setDash(v)    { dashed=v; $('ia-solid-btn')?.classList.toggle('active',!v); $('ia-dash-btn')?.classList.toggle('active',v); }
   function setOpacity(v) { opacity = v / 100; }
-  function undo()        { if(!strokes.length) return; redoStack.push(strokes.pop()); _redraw(); _updateStatus(); _syncToData(); }
-  function redo()        { if(!redoStack.length) return; strokes.push(redoStack.pop()); _redraw(); _updateStatus(); _syncToData(); }
+
+  function undo() {
+    if (historyPos <= 0) return;
+    historyPos--;
+    strokes = JSON.parse(history[historyPos]);
+    selectedIdx = -1; _redraw(); _updateStatus(); _syncToData();
+  }
+
+  function redo() {
+    if (historyPos >= history.length - 1) return;
+    historyPos++;
+    strokes = JSON.parse(history[historyPos]);
+    selectedIdx = -1; _redraw(); _updateStatus(); _syncToData();
+  }
+
+  function deleteSelected() {
+    if (selectedIdx < 0 || selectedIdx >= strokes.length) return;
+    strokes.splice(selectedIdx, 1);
+    selectedIdx = -1;
+    _pushHistory(); _syncToData(); _redraw(); _updateStatus();
+  }
 
   function clear() {
     if (!strokes.length) return;
     if (!confirm('Clear all annotations?')) return;
-    redoStack = [...strokes, ...redoStack]; strokes = [];
-    _redraw(); _updateStatus(); _syncToData();
+    strokes = []; selectedIdx = -1;
+    _pushHistory(); _redraw(); _updateStatus(); _syncToData();
   }
+
+  function zoomIn()    { _zoomAt(zoom * 1.25, window.innerWidth/2, window.innerHeight/2); }
+  function zoomOut()   { _zoomAt(zoom / 1.25, window.innerWidth/2, window.innerHeight/2); }
+  function zoomReset() { _zoomAt(1,            window.innerWidth/2, window.innerHeight/2); }
 
   function loadFile()      { $('ia-file-input').click(); }
   function onFileInput(ev) { const f=ev.target.files[0]; if(f) _loadImage(f); ev.target.value=''; }
@@ -9045,38 +9209,46 @@ const IA = (() => {
       const val = ev.target.value.trim();
       if (val && textPend) {
         strokes.push({ type:'text', color, size, dashed:false, opacity, text:val, x1:textPend.x, y1:textPend.y });
-        redoStack = []; $('ia-drop-hint').classList.add('ia-hidden');
-        _redraw(); _updateStatus(); _syncToData();
+        $('ia-drop-hint').classList.add('ia-hidden');
+        _pushHistory(); _redraw(); _updateStatus(); _syncToData();
       }
       ev.target.style.display = 'none'; textPend = null;
     } else if (ev.key === 'Escape') { ev.target.style.display = 'none'; textPend = null; }
   }
 
   function download() {
-    const cv = _c(); if (!cv?.width) return;
-    const m = document.createElement('canvas'); m.width = cv.width; m.height = cv.height;
+    if (!logicalW) return;
+    const m = document.createElement('canvas'); m.width = logicalW; m.height = logicalH;
     const mx = m.getContext('2d');
-    if (!hasImage) { mx.fillStyle = '#1a1a1a'; mx.fillRect(0,0,cv.width,cv.height); }
-    const img = _bg(); if (img.naturalWidth) mx.drawImage(img,0,0,cv.width,cv.height);
-    mx.drawImage(cv,0,0);
+    if (!hasImage) { mx.fillStyle = '#1a1a1a'; mx.fillRect(0,0,logicalW,logicalH); }
+    const img = _bg(); if (img.naturalWidth) mx.drawImage(img,0,0,logicalW,logicalH);
+    strokes.forEach(s => _paint(mx, s));
     const lnk = document.createElement('a'); lnk.download='annotation.png'; lnk.href=m.toDataURL('image/png'); lnk.click();
   }
 
   function onShow() {
     syncFromData();
-    requestAnimationFrame(() => { if (!hasImage) _sizeBlank(); else _redraw(); });
+    _updateZoomLbl();
+    requestAnimationFrame(() => { if (!hasImage) _sizeBlank(); else _applyZoom(); });
   }
 
   function init() {
     const w = _wrap(); if (!w) return;
+    _pushHistory(); // initial empty state
 
-    // ── All mouse events on WRAP (more reliable than canvas) ──
     w.addEventListener('mousedown', _md);
-    // mousemove + mouseup on document so they fire outside the wrap during drag
     document.addEventListener('mousemove', _mm);
     document.addEventListener('mouseup',   _mu);
 
-    // ── Touch ─────────────────────────────────────────────────
+    // Ctrl+Wheel to zoom
+    w.addEventListener('wheel', e => {
+      if (!$('module-annotator')?.classList.contains('active')) return;
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      _zoomAt(zoom * (e.deltaY > 0 ? 0.9 : 1.1), e.clientX, e.clientY);
+    }, { passive: false });
+
+    // Touch
     w.addEventListener('touchstart', e => {
       if (!_inScene(e)) return;
       const t = e.touches[0];
@@ -9090,7 +9262,7 @@ const IA = (() => {
     w.addEventListener('touchend',    _mu);
     w.addEventListener('touchcancel', _mu);
 
-    // ── Ctrl+V paste image ────────────────────────────────────
+    // Ctrl+V paste image
     document.addEventListener('paste', e => {
       if (!$('module-annotator')?.classList.contains('active')) return;
       for (const item of (e.clipboardData?.items || [])) {
@@ -9098,16 +9270,21 @@ const IA = (() => {
       }
     });
 
-    // ── Keyboard shortcuts ────────────────────────────────────
+    // Keyboard
     document.addEventListener('keydown', e => {
       if (!$('module-annotator')?.classList.contains('active')) return;
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.code === 'Space' && !spaceDown) { e.preventDefault(); spaceDown = true; _cursor(); return; }
-      if (e.ctrlKey && e.key === 'z')                     { e.preventDefault(); undo(); return; }
-      if (e.ctrlKey && (e.key === 'y' || e.key === 'Y'))  { e.preventDefault(); redo(); return; }
+      if (e.ctrlKey && e.key === 'z')                    { e.preventDefault(); undo(); return; }
+      if (e.ctrlKey && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
+      if (e.ctrlKey && e.key === '=')                    { e.preventDefault(); zoomIn(); return; }
+      if (e.ctrlKey && e.key === '-')                    { e.preventDefault(); zoomOut(); return; }
+      if (e.ctrlKey && e.key === '0')                    { e.preventDefault(); zoomReset(); return; }
       if (e.ctrlKey) return;
-      const map = { p:'pen', l:'line', r:'rect', a:'arrow', t:'text', e:'eraser', h:'pan' };
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIdx >= 0) { e.preventDefault(); deleteSelected(); return; }
+      if (e.key === 'Escape') { selectedIdx = -1; _redraw(); return; }
+      const map = { p:'pen', l:'line', r:'rect', a:'arrow', t:'text', e:'eraser', h:'pan', s:'select', v:'select' };
       const k = map[e.key.toLowerCase()]; if (k) setTool(k);
     });
     document.addEventListener('keyup', e => {
@@ -9115,7 +9292,7 @@ const IA = (() => {
     });
   }
 
-  return { setTool, setColor, setSize, setDash, setOpacity, undo, redo, clear, loadFile, onFileInput, onDrop, onTextKey, download, onShow, init, syncFromData, redrawLive };
+  return { setTool, setColor, setSize, setDash, setOpacity, undo, redo, deleteSelected, clear, zoomIn, zoomOut, zoomReset, loadFile, onFileInput, onDrop, onTextKey, download, onShow, init, syncFromData, redrawLive };
 })();
 
 
