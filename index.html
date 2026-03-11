@@ -4714,7 +4714,12 @@ function mapMD(e) {
     // Check hit — cycle through overlapping objects
     const hit = getObjectAt(w.x, w.y);
     if (hit) {
-      if (!e.shiftKey && MAP.selectedIds.size > 1 && MAP.selectedIds.has(hit.id)) {
+      if (e.shiftKey && MAP.selectedIds.has(hit.id)) {
+        // Shift+click on already-selected → toggle off
+        MAP.selectedIds.delete(hit.id);
+        if (!MAP.selectedIds.size) _stopMarchingAnts();
+        renderMap(); renderMapProps(); renderMapLayers(); return;
+      } else if (!e.shiftKey && MAP.selectedIds.size > 1 && MAP.selectedIds.has(hit.id)) {
         // Clicking inside a multi-selection → keep the whole group, just start drag
       } else if (!e.shiftKey && MAP.selectedIds.size===1 && MAP.selectedIds.has(hit.id)) {
         // Clicking same single object → cycle to one below
@@ -4819,7 +4824,7 @@ function mapMD(e) {
   // Only fires on already-selected objects so it never blocks fresh drawing on empty/unselected areas
   const _drawHit = (!MAP.shapePreset && MAP.selectedIds.size > 0)
     ? getObjectAt(w.x, w.y) : null;
-  if (_drawHit && MAP.selectedIds.has(_drawHit.id) && MAP.tool !== 'draw') {
+  if (_drawHit && MAP.selectedIds.has(_drawHit.id) && MAP.tool !== 'draw' && MAP.tool !== 'select') {
     setTool('select');
     MAP.selectedIds.clear(); MAP.selectedIds.add(_drawHit.id);
     // If click lands on a resize handle, start resizing immediately
@@ -5259,6 +5264,25 @@ function mapRC(e) {
   // Cancel shift-click path
   if(MAP.shiftLinePath){MAP.shiftLinePath=null;renderMap();return;}
   const hit=getObjectAt(w.x,w.y);
+  // Multi-select right-click: show group/ungroup + bulk actions
+  if(MAP.selectedIds.size>1&&hit&&MAP.selectedIds.has(hit.id)){
+    const menu=document.getElementById('layer-ctx-menu');
+    const selIds=[...MAP.selectedIds];
+    const parentGrp=MAP.groups.find(g=>selIds.every(id=>g.childIds.includes(id)));
+    let html='';
+    if(parentGrp){
+      html+=`<button onclick="_closeCtxMenu();ungroupSelected('${parentGrp.id}')">📤 Ungroup</button>`;
+    } else {
+      html+=`<button onclick="_closeCtxMenu();groupSelected()">📁 Group Selected</button>`;
+    }
+    html+=`<hr><button onclick="_closeCtxMenu();duplicateSelected()">⧉ Duplicate All</button>`;
+    html+=`<button class="danger" onclick="_closeCtxMenu();deleteSelected()">🗑 Delete All</button>`;
+    menu.innerHTML=html;
+    menu.style.left=Math.min(e.clientX,window.innerWidth-180)+'px';
+    menu.style.top=Math.min(e.clientY,window.innerHeight-150)+'px';
+    menu.classList.add('open');
+    return;
+  }
   if(!hit) return;
   // Show layer-order context menu
   MAP.selectedIds.clear(); MAP.selectedIds.add(hit.id);
@@ -5968,7 +5992,7 @@ function drawObj(obj,ctx) {
       ctx.beginPath();ctx.moveTo(p.x,p.y+sh*i/steps);ctx.lineTo(p.x+sw,p.y+sh*i/steps);ctx.stroke();
     }
     ctx.setLineDash([]);
-    if(obj.name&&MAP.cam.zoom>0.3){const mx2=(p.x+q.x)/2,my2=(p.y+q.y)/2;ctx.font=`${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(201,162,39,0.7)';ctx.fillText(obj.name,mx2,my2);ctx.textAlign='left';ctx.textBaseline='alphabetic';}
+    {const _dl=obj.label||obj.name;if(_dl&&MAP.cam.zoom>0.3){const mx2=(p.x+q.x)/2,my2=(p.y+q.y)/2;ctx.font=`${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(201,162,39,0.7)';ctx.fillText(_dl,mx2,my2);ctx.textAlign='left';ctx.textBaseline='alphabetic';}}
   } else if(obj.type==='light'){
     const lr=(obj.r||48)*MAP.cam.zoom;
     const grad=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,lr);
@@ -5976,7 +6000,7 @@ function drawObj(obj,ctx) {
     grad.addColorStop(0,fc+'bb');grad.addColorStop(0.45,fc+'44');grad.addColorStop(1,fc+'00');
     ctx.beginPath();ctx.arc(p.x,p.y,lr,0,Math.PI*2);ctx.fillStyle=grad;ctx.fill();
     ctx.beginPath();ctx.arc(p.x,p.y,Math.max(3,5*MAP.cam.zoom),0,Math.PI*2);ctx.fillStyle=fc;ctx.fill();
-    if(obj.name&&MAP.cam.zoom>0.3){ctx.font=`${Math.max(7,9*MAP.cam.zoom)}px Barlow`;ctx.fillStyle=fc;ctx.fillText(obj.name,p.x+6,p.y-lr*.6);}
+    {const _dl=obj.label||obj.name;if(_dl&&MAP.cam.zoom>0.3){ctx.font=`${Math.max(7,9*MAP.cam.zoom)}px Barlow`;ctx.fillStyle=fc;ctx.fillText(_dl,p.x+6,p.y-lr*.6);}}
   } else if(obj.type==='person'){
     const sz=Math.max(3,10*MAP.cam.zoom);
     const fc=obj.fill||'#4a9eff';
@@ -5986,7 +6010,7 @@ function drawObj(obj,ctx) {
     ctx.moveTo(p.x+sz*.6,p.y+sz*2.4);ctx.lineTo(p.x+sz*.1,p.y+sz*3.2);
     ctx.moveTo(p.x+sz*.6,p.y+sz*2.4);ctx.lineTo(p.x+sz*1.1,p.y+sz*3.2);
     ctx.strokeStyle=fc;ctx.lineWidth=Math.max(1,1.5*MAP.cam.zoom);ctx.stroke();
-    if(obj.name&&MAP.cam.zoom>0.4){const px2=w2s(obj.x+((obj.w||24))/2,obj.y+((obj.h||32))/2);ctx.font=`bold ${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=fc;ctx.fillText(obj.name,px2.x,px2.y);ctx.textAlign='left';ctx.textBaseline='alphabetic';}
+    {const _dl=obj.label||obj.name;if(_dl&&MAP.cam.zoom>0.4){const px2=w2s(obj.x+((obj.w||24))/2,obj.y+((obj.h||32))/2);ctx.font=`bold ${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=fc;ctx.fillText(_dl,px2.x,px2.y);ctx.textAlign='left';ctx.textBaseline='alphabetic';}}
   } else if(obj.type==='enemy'){
     const sz=Math.max(3,9*MAP.cam.zoom);
     const fc=obj.fill||'#e05252';
@@ -5995,7 +6019,7 @@ function drawObj(obj,ctx) {
     ctx.beginPath();ctx.moveTo(p.x+sz*.25,p.y+sz*.45);ctx.lineTo(p.x+sz*1.75,p.y+sz*1.95);
     ctx.moveTo(p.x+sz*1.75,p.y+sz*.45);ctx.lineTo(p.x+sz*.25,p.y+sz*1.95);
     ctx.strokeStyle=fc;ctx.lineWidth=Math.max(1,2*MAP.cam.zoom);ctx.stroke();
-    if(obj.name&&MAP.cam.zoom>0.4){const px3=w2s(obj.x+((obj.w||24))/2,obj.y+((obj.h||24))/2);ctx.font=`bold ${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=fc;ctx.fillText(obj.name,px3.x,px3.y);ctx.textAlign='left';ctx.textBaseline='alphabetic';}
+    {const _dl=obj.label||obj.name;if(_dl&&MAP.cam.zoom>0.4){const px3=w2s(obj.x+((obj.w||24))/2,obj.y+((obj.h||24))/2);ctx.font=`bold ${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=fc;ctx.fillText(_dl,px3.x,px3.y);ctx.textAlign='left';ctx.textBaseline='alphabetic';}}
   } else if(obj.type==='arrow'){
     const p2=w2s(obj.x2!==undefined?obj.x2:obj.x+64,obj.y2!==undefined?obj.y2:obj.y);
     const fc=obj.fill||'#c9a227';
@@ -6003,7 +6027,7 @@ function drawObj(obj,ctx) {
     ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p2.x,p2.y);ctx.stroke();
     const ang=Math.atan2(p2.y-p.y,p2.x-p.x),al=Math.max(10,14*MAP.cam.zoom);
     ctx.beginPath();ctx.moveTo(p2.x,p2.y);ctx.lineTo(p2.x-al*Math.cos(ang-.45),p2.y-al*Math.sin(ang-.45));ctx.lineTo(p2.x-al*Math.cos(ang+.45),p2.y-al*Math.sin(ang+.45));ctx.closePath();ctx.fillStyle=fc;ctx.fill();
-    if(obj.name&&MAP.cam.zoom>0.4){ctx.font=`${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.fillStyle=fc;ctx.fillText(obj.name,(p.x+p2.x)/2+2,(p.y+p2.y)/2-4);}
+    {const _dl=obj.label||obj.name;if(_dl&&MAP.cam.zoom>0.4){ctx.font=`${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=fc;ctx.fillText(_dl,(p.x+p2.x)/2,(p.y+p2.y)/2);ctx.textAlign='left';ctx.textBaseline='alphabetic';}}
   } else if(obj.type==='draw'){
     if(!obj.points||obj.points.length<2){ctx.restore();return;}
     const dpts=obj.points.map(pt=>w2s(pt.x,pt.y));
@@ -6036,13 +6060,13 @@ function drawObj(obj,ctx) {
         ctx.strokeStyle='rgba(201,162,39,.4)';ctx.lineWidth=1;ctx.strokeRect(p.x,p.y,iw,ih);
       }
     }
-    if(obj.name&&MAP.cam.zoom>0.3){
+    {const _dl=obj.label||obj.name;if(_dl&&MAP.cam.zoom>0.3){
       const bb2=_getObjBBox(obj);const bc=w2s(bb2.x+bb2.w/2,bb2.y+bb2.h/2);
       ctx.font=`${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillStyle='rgba(232,224,204,0.55)';
-      ctx.fillText(obj.name,bc.x,bc.y);
+      ctx.fillText(_dl,bc.x,bc.y);
       ctx.textAlign='left';ctx.textBaseline='alphabetic';
-    }
+    }}
   } else {
     const q=w2s(obj.x+obj.w,obj.y+obj.h);
     const w=q.x-p.x, h=q.y-p.y;
@@ -6160,12 +6184,12 @@ function drawObj(obj,ctx) {
     }
     ctx.restore();
     // Object label — centered inside the object
-    if(obj.name && z>0.3){
+    {const _dl=obj.label||obj.name;if(_dl && z>0.3){
       ctx.font=`${Math.max(8,10*z)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillStyle='rgba(232,224,204,0.45)';
-      ctx.fillText(obj.name, p.x+w/2, p.y+h/2);
+      ctx.fillText(_dl, p.x+w/2, p.y+h/2);
       ctx.textAlign='left';ctx.textBaseline='alphabetic';
-    }
+    }}
   }
   // ── Locked indicator (small padlock at top-right, non-obtrusive) ──
   if(obj.locked && MAP.cam.zoom>0.28){
@@ -6814,6 +6838,7 @@ function renderMapProps() {
     <div class="mp-section">
       <div class="mp-section-title">Identity</div>
       <div class="mp-row"><span class="mp-label">Name</span><input class="mp-input" value="${obj.name||''}" oninput="updateMapObj('${id}','name',this.value)"></div>
+      <div class="mp-row"><span class="mp-label">Label</span><input class="mp-input" value="${obj.label||''}" placeholder="Center text (blank = name)" oninput="updateMapObj('${id}','label',this.value)"></div>
       <div class="mp-row"><span class="mp-label">Layer</span><select class="mp-input" onchange="updateMapObj('${id}','layer',this.value)">${MAP.layers.map(l=>`<option ${obj.layer===l?'selected':''}>${l}</option>`).join('')}</select></div>
       <div class="mp-row"><span class="mp-label">Type</span><span style="font-family:var(--fm);font-size:11px;color:var(--text-secondary)">${obj.type}</span></div>
     </div>
