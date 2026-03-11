@@ -4730,7 +4730,7 @@ function mapMD(e) {
       MAP.dragObjStarts = {};
       MAP.selectedIds.forEach(id=>{
         const obj=MAP.objects.find(o=>o.id===id);
-        if(obj) MAP.dragObjStarts[id]={x:obj.x,y:obj.y,x2:obj.x2,y2:obj.y2};
+        if(obj) MAP.dragObjStarts[id]={x:obj.x,y:obj.y,x2:obj.x2,y2:obj.y2,points:obj.points?JSON.parse(JSON.stringify(obj.points)):null};
       });
       _startMarchingAnts();
       renderMap(); renderMapProps(); renderMapLayers();
@@ -4819,7 +4819,7 @@ function mapMD(e) {
   // Only fires on already-selected objects so it never blocks fresh drawing on empty/unselected areas
   const _drawHit = (!MAP.shapePreset && MAP.selectedIds.size > 0)
     ? getObjectAt(w.x, w.y) : null;
-  if (_drawHit && MAP.selectedIds.has(_drawHit.id)) {
+  if (_drawHit && MAP.selectedIds.has(_drawHit.id) && MAP.tool !== 'draw') {
     setTool('select');
     MAP.selectedIds.clear(); MAP.selectedIds.add(_drawHit.id);
     // If click lands on a resize handle, start resizing immediately
@@ -4832,7 +4832,7 @@ function mapMD(e) {
     } else {
       MAP.isDragging = true;
       MAP.dragStart = {wx: w.x, wy: w.y};
-      MAP.dragObjStarts = {[_drawHit.id]: {x: _drawHit.x, y: _drawHit.y, x2: _drawHit.x2, y2: _drawHit.y2}};
+      MAP.dragObjStarts = {[_drawHit.id]: {x: _drawHit.x, y: _drawHit.y, x2: _drawHit.x2, y2: _drawHit.y2, points: _drawHit.points?JSON.parse(JSON.stringify(_drawHit.points)):null}};
     }
     renderMap(); renderMapProps(); renderMapLayers();
     return;
@@ -4896,6 +4896,7 @@ function mapMM(e) {
         obj.x = Math.round(start.x + dx);
         obj.y = Math.round(start.y + dy);
         if(obj.type==='arrow'&&start.x2!==undefined){obj.x2=Math.round(start.x2+dx);obj.y2=Math.round(start.y2+dy);}
+        if((obj.type==='draw'||obj.type==='poly')&&start.points){obj.points=start.points.map(p=>({x:Math.round(p.x+dx),y:Math.round(p.y+dy)}));}
       }
     });
     renderMap(); renderMapProps(); return;
@@ -5255,8 +5256,52 @@ function mapRC(e) {
   const rect=MAP.canvas.getBoundingClientRect();
   const w=s2w(e.clientX-rect.left,e.clientY-rect.top);
   if(MAP.tool==='poly'){MAP.polyPoints=[];MAP.isDrawing=false;renderMap();return;}
+  // Cancel shift-click path
+  if(MAP.shiftLinePath){MAP.shiftLinePath=null;renderMap();return;}
   const hit=getObjectAt(w.x,w.y);
-  if(hit){mapPushHistory();MAP.objects=MAP.objects.filter(o=>o.id!==hit.id);MAP.selectedIds.delete(hit.id);renderMap();renderMapProps();autoSave();mapSaveCurrent();}
+  if(!hit) return;
+  // Show layer-order context menu
+  MAP.selectedIds.clear(); MAP.selectedIds.add(hit.id);
+  renderMap(); renderMapProps();
+  const menu=document.getElementById('layer-ctx-menu');
+  const id=hit.id;
+  // Find object overlapping this one (for "bring above covering object")
+  const overlapping=MAP.objects.filter(o=>o.id!==id&&_objHitTest(o,w.x,w.y));
+  const coveringObj=overlapping.length?overlapping[overlapping.length-1]:null;
+  let html=`<button onclick="_closeCtxMenu();_layerOrder('${id}','front')">⬆ Bring to Front</button>`;
+  html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','up')">↑ Bring Forward</button>`;
+  if(coveringObj) html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','above','${coveringObj.id}')">⤴ Bring Above Covering</button>`;
+  html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','down')">↓ Send Backward</button>`;
+  html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','back')">⬇ Send to Back</button>`;
+  html+=`<hr><button onclick="_closeCtxMenu();_layerOrder('${id}','dup')">⧉ Duplicate</button>`;
+  html+=`<button class="danger" onclick="_closeCtxMenu();mapPushHistory();MAP.objects=MAP.objects.filter(o=>o.id!=='${id}');MAP.selectedIds.clear();renderMap();renderMapProps();renderMapLayers();autoSave();mapSaveCurrent()">🗑 Delete</button>`;
+  menu.innerHTML=html;
+  menu.style.left=Math.min(e.clientX,window.innerWidth-180)+'px';
+  menu.style.top=Math.min(e.clientY,window.innerHeight-200)+'px';
+  menu.classList.add('open');
+}
+function _layerOrder(id, action, refId) {
+  mapPushHistory();
+  const idx=MAP.objects.findIndex(o=>o.id===id);
+  if(idx<0) return;
+  const obj=MAP.objects.splice(idx,1)[0];
+  if(action==='front')      { MAP.objects.push(obj); }
+  else if(action==='back')  { MAP.objects.unshift(obj); }
+  else if(action==='up')    { MAP.objects.splice(Math.min(idx+1,MAP.objects.length),0,obj); }
+  else if(action==='down')  { MAP.objects.splice(Math.max(0,idx-1),0,obj); }
+  else if(action==='above'&&refId) {
+    const ri=MAP.objects.findIndex(o=>o.id===refId);
+    MAP.objects.splice(ri>=0?ri+1:MAP.objects.length,0,obj);
+  } else if(action==='dup') {
+    const clone=JSON.parse(JSON.stringify(obj));
+    clone.id='obj_'+Date.now(); clone.x+=16; clone.y+=16;
+    if(clone.points) clone.points=clone.points.map(p=>({x:p.x+16,y:p.y+16}));
+    MAP.objects.splice(idx,0,obj); // put original back
+    MAP.objects.push(clone);
+    MAP.selectedIds.clear(); MAP.selectedIds.add(clone.id);
+    renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); return;
+  }
+  renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent();
 }
 
 // Returns the screen position of the rotate handle for a selected object
@@ -5607,23 +5652,23 @@ function renderMap() {
           const mids=[{x:(p.x+q.x)/2,y:p.y},{x:(p.x+q.x)/2,y:q.y},{x:p.x,y:(p.y+q.y)/2},{x:q.x,y:(p.y+q.y)/2}];
           mids.forEach(h=>{if(!_vis(h.x,h.y))return;ctx.beginPath();ctx.arc(h.x,h.y,4,0,Math.PI*2);ctx.fillStyle='rgba(201,162,39,0.4)';ctx.fill();ctx.strokeStyle='#c9a227';ctx.lineWidth=1;ctx.stroke();});
         } else {
-          // Select mode: resize squares + ↻ circle above
-          ctx.fillStyle='#c9a227';
+          // Select mode: resize squares + ↻ circle — draw in CLEAN screen space (reset any rotation transform)
+          ctx.save();
+          ctx.setTransform(1,0,0,1,0,0);
+          ctx.setLineDash([]);
+          const _drawHandle=(hx,hy,hot)=>{
+            const hs=hot?7:5;
+            ctx.fillStyle='#1a1a1a'; ctx.fillRect(hx-hs-1,hy-hs-1,(hs+1)*2,(hs+1)*2);
+            ctx.fillStyle=hot?'#fff':'#c9a227'; ctx.fillRect(hx-hs,hy-hs,hs*2,hs*2);
+          };
           if (!obj.rotation) {
-            // Non-rotated: clamp to canvas so handles always visible even at extreme zoom
             const HPAD=6, _c=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
             const cpx=_c(p.x,HPAD,CW-HPAD), cpy=_c(p.y,HPAD,CH-HPAD);
             const cqx=_c(q.x,HPAD,CW-HPAD), cqy=_c(q.y,HPAD,CH-HPAD);
             const cmx=(cpx+cqx)/2, cmy=(cpy+cqy)/2;
             const _hmap=[{x:cpx,y:cpy,h:'nw'},{x:cqx,y:cpy,h:'ne'},{x:cpx,y:cqy,h:'sw'},{x:cqx,y:cqy,h:'se'},
              {x:cmx,y:cpy,h:'n'},{x:cmx,y:cqy,h:'s'},{x:cpx,y:cmy,h:'w'},{x:cqx,y:cmy,h:'e'}];
-            _hmap.forEach(hh=>{
-              const hot = MAP.hoverHandle === hh.h;
-              const hs = hot ? 7 : 5;
-              if (hot) { ctx.fillStyle='#fff'; } else { ctx.fillStyle='#c9a227'; }
-              ctx.fillRect(hh.x-hs,hh.y-hs,hs*2,hs*2);
-              ctx.fillStyle='#c9a227';
-            });
+            _hmap.forEach(hh=>_drawHandle(hh.x,hh.y,MAP.hoverHandle===hh.h));
             const rotY=Math.max(14,cpy-25);
             ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;
             ctx.beginPath();ctx.moveTo(cmx,cpy-4);ctx.lineTo(cmx,rotY+7);ctx.stroke();
@@ -5633,7 +5678,7 @@ function renderMap() {
           } else {
             const handles=[{x:p.x,y:p.y},{x:q.x,y:p.y},{x:p.x,y:q.y},{x:q.x,y:q.y},
               {x:(p.x+q.x)/2,y:p.y},{x:(p.x+q.x)/2,y:q.y},{x:p.x,y:(p.y+q.y)/2},{x:q.x,y:(p.y+q.y)/2}];
-            handles.forEach(h=>{if(_vis(h.x,h.y)) ctx.fillRect(h.x-5,h.y-5,10,10);});
+            handles.forEach(h=>{if(_vis(h.x,h.y)) _drawHandle(h.x,h.y,false);});
             const rmx=(p.x+q.x)/2;
             if(_vis(rmx,p.y-25)){
               ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;
@@ -5643,6 +5688,7 @@ function renderMap() {
               ctx.fillStyle='#c9a227';ctx.fillText('↻',rmx,p.y-25);
             }
           }
+          ctx.restore();
         }
       }
     }
