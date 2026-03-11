@@ -4492,7 +4492,7 @@ const MAP = {
   drawPoints: null, // freehand draw
   drawColor: '#c9a227',
   drawSize: 3,
-  shiftLineStart: null, // Shift+click straight-line anchor
+  shiftLinePath: null, // Illustrator-style shift+click path (array of world points, committed on Enter/dbl-click)
   cursorW: null, // last known world-space cursor position
   shapePreset: null, // active shape preset from shapes panel
   assetPreset: null, // active image asset from shapes panel
@@ -4841,27 +4841,20 @@ function mapMD(e) {
   // Freehand draw start
   if (MAP.tool === 'draw') {
     if (e.shiftKey) {
-      // Shift+click: place waypoints for straight line segments
+      // Illustrator-style shift+click: accumulate vertices, Enter/dbl-click commits
       const pt = {x:snap(w.x), y:snap(w.y)};
-      if (!MAP.shiftLineStart) {
-        MAP.shiftLineStart = pt;
+      if (!MAP.shiftLinePath) {
+        MAP.shiftLinePath = [pt];
         renderMap();
       } else {
-        // Snap to 45° increments and commit the line
-        const s = MAP.shiftLineStart;
-        const dx = pt.x-s.x, dy = pt.y-s.y;
-        const ang = Math.round(Math.atan2(dy,dx)/(Math.PI/4))*(Math.PI/4);
-        const dist = Math.hypot(dx,dy);
-        const end = {x:Math.round(s.x+dist*Math.cos(ang)), y:Math.round(s.y+dist*Math.sin(ang))};
-        mapPushHistory();
-        MAP.objects.push({id:'obj_'+Date.now(),type:'draw',layer:MAP.activeLayer||'Ground',points:[s,end],fill:'transparent',stroke:MAP.drawColor||'#c9a227',lineWidth:MAP.drawSize||3,opacity:1,visible:true,locked:false});
-        MAP.shiftLineStart = {...end}; // chain: next line starts from here
-        renderMap(); renderMapLayers(); autoSave(); mapSaveCurrent();
+        MAP.shiftLinePath.push(pt);
+        if (e.detail >= 2) _commitMapShiftPath(); // double-click = commit
+        else renderMap();
       }
       return;
     }
-    // Normal freehand — cancel any pending shift-line
-    MAP.shiftLineStart = null;
+    // Normal freehand — cancel any pending shift-line path
+    MAP.shiftLinePath = null;
     MAP.isDrawing = true;
     MAP.drawPoints = [{x:snap(w.x), y:snap(w.y)}];
     return;
@@ -4878,7 +4871,7 @@ function mapMM(e) {
   const w = s2w(sx, sy);
   updateStatusBar(sx, sy);
   MAP.cursorW = {x:w.x, y:w.y};
-  if (MAP.shiftLineStart) renderMap(); // live preview line
+  if (MAP.shiftLinePath) renderMap(); // live preview line
   // Broadcast live cursor position to collaborators (throttled inside _pushLive)
   if (FIREBASE._ready && MAP.currentMapId) FIREBASE._pushLive(w.x, w.y);
 
@@ -5282,7 +5275,7 @@ function _getRotateHandlePos(obj) {
 }
 
 function _objHitTest(obj,wx,wy){
-  if(obj.hidden||obj.locked) return false;
+  if(obj.hidden||obj.locked||obj.visible===false) return false;
   // Un-rotate test point for rotated rect-like objects
   if(obj.rotation && obj.w && obj.h){
     const cx=obj.x+obj.w/2, cy=obj.y+obj.h/2;
@@ -5749,17 +5742,30 @@ function renderMap() {
     else ctx.strokeRect(s.x,s.y,c.x-s.x,c.y-s.y);
     ctx.restore();
   }
-  // Shift+click straight-line preview
-  if(MAP.tool==='draw'&&MAP.shiftLineStart&&MAP.cursorW){
-    const sp=w2s(MAP.shiftLineStart.x,MAP.shiftLineStart.y);
-    const dx=MAP.cursorW.x-MAP.shiftLineStart.x, dy=MAP.cursorW.y-MAP.shiftLineStart.y;
-    const ang=Math.round(Math.atan2(dy,dx)/(Math.PI/4))*(Math.PI/4);
-    const dist=Math.hypot(dx,dy);
-    const ep=w2s(Math.round(MAP.shiftLineStart.x+dist*Math.cos(ang)),Math.round(MAP.shiftLineStart.y+dist*Math.sin(ang)));
-    ctx.save();ctx.strokeStyle=MAP.drawColor||'#c9a227';ctx.lineWidth=Math.max(1,(MAP.drawSize||3)*MAP.cam.zoom);ctx.globalAlpha=.7;ctx.setLineDash([6,4]);ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(sp.x,sp.y);ctx.lineTo(ep.x,ep.y);ctx.stroke();
-    ctx.setLineDash([]);ctx.fillStyle=MAP.drawColor||'#c9a227';ctx.globalAlpha=1;
-    ctx.beginPath();ctx.arc(sp.x,sp.y,5,0,Math.PI*2);ctx.fill(); // anchor dot
+  // Illustrator-style shift+click path preview
+  if(MAP.tool==='draw'&&MAP.shiftLinePath&&MAP.shiftLinePath.length>0){
+    const c=MAP.drawColor||'#c9a227';
+    const lw=Math.max(1,(MAP.drawSize||3)*MAP.cam.zoom);
+    ctx.save();ctx.strokeStyle=c;ctx.lineWidth=lw;ctx.lineCap='round';ctx.lineJoin='round';
+    // Committed segments
+    if(MAP.shiftLinePath.length>=2){
+      const pts=MAP.shiftLinePath.map(p=>w2s(p.x,p.y));
+      ctx.globalAlpha=.9;ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+      for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);
+      ctx.stroke();
+    }
+    // Vertex dots
+    ctx.setLineDash([]);ctx.fillStyle=c;ctx.globalAlpha=1;
+    MAP.shiftLinePath.forEach(p=>{const sp=w2s(p.x,p.y);ctx.beginPath();ctx.arc(sp.x,sp.y,4,0,Math.PI*2);ctx.fill();});
+    // Preview segment to cursor (free angle)
+    if(MAP.cursorW){
+      const last=MAP.shiftLinePath[MAP.shiftLinePath.length-1];
+      const ep=w2s(MAP.cursorW.x,MAP.cursorW.y);
+      const sp=w2s(last.x,last.y);
+      ctx.globalAlpha=.5;ctx.setLineDash([6,4]);
+      ctx.beginPath();ctx.moveTo(sp.x,sp.y);ctx.lineTo(ep.x,ep.y);ctx.stroke();
+    }
     ctx.restore();
   }
   // Freehand draw preview (smooth bezier)
@@ -5955,8 +5961,13 @@ function drawObj(obj,ctx) {
     const dpts=obj.points.map(pt=>w2s(pt.x,pt.y));
     ctx.strokeStyle=obj.stroke||'#c9a227';ctx.lineWidth=Math.max(0.5,(obj.lineWidth||3)*MAP.cam.zoom);ctx.lineCap='round';ctx.lineJoin='round';ctx.setLineDash([]);
     ctx.beginPath();ctx.moveTo(dpts[0].x,dpts[0].y);
-    for(let i=1;i<dpts.length;i++){const mx=(dpts[i-1].x+dpts[i].x)/2,my=(dpts[i-1].y+dpts[i].y)/2;ctx.quadraticCurveTo(dpts[i-1].x,dpts[i-1].y,mx,my);}
-    ctx.lineTo(dpts[dpts.length-1].x,dpts[dpts.length-1].y);ctx.stroke();
+    if(obj.straight){
+      for(let i=1;i<dpts.length;i++)ctx.lineTo(dpts[i].x,dpts[i].y);
+    } else {
+      for(let i=1;i<dpts.length;i++){const mx=(dpts[i-1].x+dpts[i].x)/2,my=(dpts[i-1].y+dpts[i].y)/2;ctx.quadraticCurveTo(dpts[i-1].x,dpts[i-1].y,mx,my);}
+      ctx.lineTo(dpts[dpts.length-1].x,dpts[dpts.length-1].y);
+    }
+    ctx.stroke();
   } else if(obj.type==='asset'){
     const q=w2s(obj.x+obj.w,obj.y+obj.h);
     const iw=q.x-p.x, ih=q.y-p.y;
@@ -6161,9 +6172,16 @@ function mapPushHistoryOnce(){if(!MAP._histOnce){mapPushHistory();MAP._histOnce=
 function mapUndo(){if(!MAP.history.length)return;MAP.future.push(JSON.stringify(MAP.objects));MAP.objects=JSON.parse(MAP.history.pop());MAP.selectedIds.clear();_stopMarchingAnts();renderMap();renderMapProps();autoSave();mapSaveCurrent();}
 function mapRedo(){if(!MAP.future.length)return;MAP.history.push(JSON.stringify(MAP.objects));MAP.objects=JSON.parse(MAP.future.pop());MAP.selectedIds.clear();renderMap();renderMapProps();autoSave();mapSaveCurrent();}
 
+function _commitMapShiftPath() {
+  if (!MAP.shiftLinePath || MAP.shiftLinePath.length < 2) { MAP.shiftLinePath=null; renderMap(); return; }
+  mapPushHistory();
+  MAP.objects.push({id:'obj_'+Date.now(),type:'draw',layer:MAP.activeLayer||'Ground',points:[...MAP.shiftLinePath],straight:true,fill:'transparent',stroke:MAP.drawColor||'#c9a227',lineWidth:MAP.drawSize||3,opacity:1,visible:true,locked:false});
+  MAP.shiftLinePath = null;
+  renderMap(); renderMapLayers(); autoSave(); mapSaveCurrent();
+}
 function setTool(tool) {
   MAP.tool=tool;
-  MAP.polyPoints=[];MAP.isDrawing=false;MAP.drawPoints=null;
+  MAP.polyPoints=[];MAP.isDrawing=false;MAP.drawPoints=null;MAP.shiftLinePath=null;
   // Clear preset when switching to a non-drawing tool
   if (['select','erase','rotate','pan'].includes(tool)) {
     MAP.shapePreset=null; MAP.assetPreset=null;
@@ -8481,6 +8499,10 @@ document.addEventListener('keyup',e=>{
   if(e.code==='Space'&&MAP._prevSpaceTool){
     setTool(MAP._prevSpaceTool);MAP._prevSpaceTool=null;
   }
+  // Releasing Shift commits the shift+click path (map editor)
+  if(e.key==='Shift'&&MAP.tool==='draw'&&MAP.shiftLinePath&&MAP.shiftLinePath.length>=2){
+    _commitMapShiftPath();
+  }
 });
 document.addEventListener('keydown', e => {
   if(e.ctrlKey||e.metaKey){
@@ -8504,7 +8526,7 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  if(e.key==='Escape'){closeModal();if(document.body.classList.contains('map-expand'))toggleMapFocus();if(MAP.polyPoints){MAP.polyPoints=[];MAP.isDrawing=false;renderMap();}if(MAP.shiftLineStart){MAP.shiftLineStart=null;renderMap();}FC.connectFrom=null;FC.selectedNode=null;renderFlowNodes();}
+  if(e.key==='Escape'){closeModal();if(document.body.classList.contains('map-expand'))toggleMapFocus();if(MAP.polyPoints){MAP.polyPoints=[];MAP.isDrawing=false;renderMap();}if(MAP.shiftLinePath){MAP.shiftLinePath=null;renderMap();}FC.connectFrom=null;FC.selectedNode=null;renderFlowNodes();}
   const tag=document.activeElement.tagName;
   if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||document.activeElement.contentEditable==='true') return;
   // Prevent Alt key from stealing focus away from map canvas
@@ -8512,6 +8534,12 @@ document.addEventListener('keydown', e => {
     const mod=document.querySelector('.sb-item.active')?.dataset?.mod;
     if(mod==='map') e.preventDefault();
     return;
+  }
+  // Enter = commit Illustrator shift-click path (map or annotator)
+  if(e.key==='Enter'){
+    const _aMod=document.querySelector('.sb-item.active')?.dataset?.mod;
+    if(_aMod==='map'&&MAP.shiftLinePath&&MAP.shiftLinePath.length>=2){e.preventDefault();_commitMapShiftPath();return;}
+    if(_aMod==='annotator'&&typeof IA!=='undefined'){IA.commitShiftPath&&IA.commitShiftPath();return;}
   }
   const toolKeys={v:'select',w:'select',h:'pan',m:'pan',r:'rect',b:'wall',p:'poly',c:'circle',t:'text',e:'rotate',g:'grid',f:'fit',s:'stair',l:'light',y:'person',x:'enemy',a:'arrow',d:'draw'};
   if(toolKeys[e.key]) {
@@ -8866,7 +8894,7 @@ const IA = (() => {
   let panRef      = null;
   let selectedIdx = -1;
   let moveRef        = null;   // {startX, startY, origStroke, moved}
-  let shiftLineStart = null;   // Shift+click straight-line anchor {x,y}
+  let shiftLinePath  = null;   // Illustrator-style shift+click path (array of {x,y}, committed on Enter/dbl-click)
   let cursorPos      = null;   // last known logical cursor position
   let history        = [];
   let historyPos     = -1;
@@ -9006,18 +9034,26 @@ const IA = (() => {
       if (i === selectedIdx) _paintSelection(ctx, s);
     });
     if (curStroke) _paint(ctx, curStroke);
-    // Shift+click preview line
-    if (shiftLineStart && cursorPos) {
-      const dx=cursorPos.x-shiftLineStart.x, dy=cursorPos.y-shiftLineStart.y;
-      const ang=Math.round(Math.atan2(dy,dx)/(Math.PI/4))*(Math.PI/4);
-      const dist=Math.hypot(dx,dy);
-      const ex=shiftLineStart.x+dist*Math.cos(ang), ey=shiftLineStart.y+dist*Math.sin(ang);
+    // Illustrator-style shift+click path preview
+    if (shiftLinePath && shiftLinePath.length > 0) {
       ctx.save();
-      ctx.globalAlpha=0.7; ctx.strokeStyle=color; ctx.lineWidth=size; ctx.lineCap='round';
-      ctx.setLineDash([size*3, size*2]);
-      ctx.beginPath(); ctx.moveTo(shiftLineStart.x, shiftLineStart.y); ctx.lineTo(ex,ey); ctx.stroke();
+      ctx.strokeStyle=color; ctx.lineWidth=size; ctx.lineCap='round'; ctx.lineJoin='round';
+      // Committed segments
+      if (shiftLinePath.length >= 2) {
+        ctx.globalAlpha=0.9; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(shiftLinePath[0].x, shiftLinePath[0].y);
+        for(let i=1;i<shiftLinePath.length;i++) ctx.lineTo(shiftLinePath[i].x, shiftLinePath[i].y);
+        ctx.stroke();
+      }
+      // Vertex dots
       ctx.setLineDash([]); ctx.fillStyle=color; ctx.globalAlpha=1;
-      ctx.beginPath(); ctx.arc(shiftLineStart.x, shiftLineStart.y, Math.max(3,size), 0, Math.PI*2); ctx.fill();
+      shiftLinePath.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,Math.max(3,size),0,Math.PI*2);ctx.fill();});
+      // Preview segment to cursor (free angle)
+      if (cursorPos) {
+        const last=shiftLinePath[shiftLinePath.length-1];
+        ctx.globalAlpha=0.5; ctx.setLineDash([size*3, size*2]);
+        ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(cursorPos.x,cursorPos.y); ctx.stroke();
+      }
       ctx.restore();
     }
     ctx.restore();
@@ -9043,11 +9079,16 @@ const IA = (() => {
         if (!pts?.length) break;
         if (pts.length === 1) { ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, Math.max(1, s.size/2), 0, Math.PI*2); ctx.fill(); break; }
         ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
-        for (let i = 1; i < pts.length; i++) {
-          const mx = (pts[i-1].x + pts[i].x) / 2, my = (pts[i-1].y + pts[i].y) / 2;
-          ctx.quadraticCurveTo(pts[i-1].x, pts[i-1].y, mx, my);
+        if (s.straight) {
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        } else {
+          for (let i = 1; i < pts.length; i++) {
+            const mx = (pts[i-1].x + pts[i].x) / 2, my = (pts[i-1].y + pts[i].y) / 2;
+            ctx.quadraticCurveTo(pts[i-1].x, pts[i-1].y, mx, my);
+          }
+          ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
         }
-        ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y); ctx.stroke(); break;
+        ctx.stroke(); break;
       }
       case 'line':  ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke(); break;
       case 'rect':  ctx.beginPath(); ctx.rect(s.x1,s.y1,s.x2-s.x1,s.y2-s.y1); ctx.stroke(); break;
@@ -9162,27 +9203,19 @@ const IA = (() => {
     }
 
     if (at === 'text') { _placeText(e); return; }
-    // Shift+click: place straight-line waypoints
+    // Illustrator-style shift+click: accumulate vertices, Enter/dbl-click commits
     if (e.shiftKey && at === 'pen') {
       const p = _xy(e);
-      if (!shiftLineStart) {
-        shiftLineStart = {...p};
+      if (!shiftLinePath) {
+        shiftLinePath = [{...p}];
       } else {
-        // Snap to 45° and commit line stroke
-        const dx = p.x-shiftLineStart.x, dy = p.y-shiftLineStart.y;
-        const ang = Math.round(Math.atan2(dy,dx)/(Math.PI/4))*(Math.PI/4);
-        const dist = Math.hypot(dx,dy);
-        const end = {x: shiftLineStart.x+dist*Math.cos(ang), y: shiftLineStart.y+dist*Math.sin(ang)};
-        strokes.push({type:'line', color, size, dashed, opacity, x1:shiftLineStart.x, y1:shiftLineStart.y, x2:end.x, y2:end.y});
-        shiftLineStart = {...end}; // chain: next segment starts here
-        $('ia-drop-hint').classList.add('ia-hidden');
-        _pushHistory(); _syncToData();
-        if (FIREBASE._ready) FIREBASE._pushLiveIA(null);
+        shiftLinePath.push({...p}); // free angle, no snapping
+        if (e.detail >= 2) _commitIAShiftPath(); // double-click = commit
       }
       _redraw(); return;
     }
-    // Normal stroke start — cancel any pending shift-line
-    shiftLineStart = null;
+    // Normal stroke start — cancel any pending shift-line path
+    shiftLinePath = null;
     drawing = true;
     const p = _xy(e);
     if      (at === 'eraser') { _erase(p); }
@@ -9208,7 +9241,7 @@ const IA = (() => {
       _cursor(); _redraw(); return;
     }
     if (!drawing || !curStroke) {
-      if (_inScene(e)) { const p = _xy(e); _setXY(p); cursorPos = p; if (shiftLineStart) _redraw(); }
+      if (_inScene(e)) { const p = _xy(e); _setXY(p); cursorPos = p; if (shiftLinePath) _redraw(); }
       return;
     }
     const p = _xy(e);
@@ -9267,9 +9300,18 @@ const IA = (() => {
   }
 
   // ── Public API ────────────────────────────────────────────
+  function _commitIAShiftPath() {
+    if (!shiftLinePath || shiftLinePath.length < 2) { shiftLinePath=null; _redraw(); return; }
+    strokes.push({type:'pen', color, size, dashed, opacity, points:shiftLinePath.map(p=>({...p})), straight:true});
+    shiftLinePath = null;
+    $('ia-drop-hint')?.classList.add('ia-hidden');
+    _pushHistory(); _syncToData();
+    if (FIREBASE._ready) FIREBASE._pushLiveIA(null);
+    _redraw(); _updateStatus();
+  }
   function setTool(t) {
     tool = t;
-    shiftLineStart = null; // cancel any pending shift+click line
+    shiftLinePath = null; // cancel any pending shift+click path
     if (t !== 'select') { selectedIdx = -1; _redraw(); }
     document.querySelectorAll('.ia-tool[id^="ia-t-"]').forEach(b => b.classList.remove('active'));
     $('ia-t-'+t)?.classList.add('active');
@@ -9413,16 +9455,22 @@ const IA = (() => {
       if (e.ctrlKey && e.key === '0')                    { e.preventDefault(); zoomReset(); return; }
       if (e.ctrlKey) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIdx >= 0) { e.preventDefault(); deleteSelected(); return; }
-      if (e.key === 'Escape') { selectedIdx = -1; shiftLineStart = null; _redraw(); return; }
+      if (e.key === 'Escape') { selectedIdx = -1; shiftLinePath = null; _redraw(); return; }
+      if (e.key === 'Enter' && shiftLinePath && shiftLinePath.length >= 2) { e.preventDefault(); _commitIAShiftPath(); return; }
       const map = { p:'pen', l:'line', r:'rect', a:'arrow', t:'text', e:'eraser', h:'pan', s:'select', v:'select' };
       const k = map[e.key.toLowerCase()]; if (k) setTool(k);
     });
     document.addEventListener('keyup', e => {
       if (e.code === 'Space') { spaceDown = false; _cursor(); }
+      // Releasing Shift commits the shift+click path
+      if (e.key === 'Shift' && tool === 'pen' && shiftLinePath && shiftLinePath.length >= 2) {
+        if (!$('module-annotator')?.classList.contains('active')) return;
+        _commitIAShiftPath();
+      }
     });
   }
 
-  return { setTool, setColor, setSize, setDash, setOpacity, undo, redo, deleteSelected, clear, zoomIn, zoomOut, zoomReset, loadFile, onFileInput, onDrop, onTextKey, download, onShow, init, syncFromData, redrawLive };
+  return { setTool, setColor, setSize, setDash, setOpacity, undo, redo, deleteSelected, clear, zoomIn, zoomOut, zoomReset, loadFile, onFileInput, onDrop, onTextKey, download, onShow, init, syncFromData, redrawLive, commitShiftPath: _commitIAShiftPath };
 })();
 
 
