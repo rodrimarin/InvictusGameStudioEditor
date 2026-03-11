@@ -8772,8 +8772,24 @@ const IA = (() => {
   let curStroke   = null;
   let textPend    = null;
   let panRef      = null;
-  let selectedIdx = -1;
-  let moveRef     = null;   // {startX, startY, origStroke, moved}
+  // Select tool state
+  let selectedSet   = new Set();   // Set of stroke object references
+  let isDragging    = false;
+  let dragStart     = null;        // {x, y} logical
+  let dragObjStarts = new Map();   // stroke → JSON string snapshot
+  let dragMoved     = false;
+  let isResizing    = false;
+  let resizeHandle  = null;
+  let resizeStart   = null;        // {stroke, origStroke, origBounds, pushed}
+  let isMarquee     = false;
+  let marqueeStart  = null;        // {x, y} logical
+  let marqueeCur    = null;
+  let hoverObj      = null;
+  let hoverHandle   = null;
+  let _marchRaf     = null;
+  let _dashOffset   = 0;
+  let _eraseHistPushed = false;
+  // History
   let history     = [];
   let historyPos  = -1;
 
@@ -8863,7 +8879,7 @@ const IA = (() => {
     const url = URL.createObjectURL(file);
     const img = _bg();
     img.onload = () => {
-      hasImage = true; strokes = []; selectedIdx = -1;
+      hasImage = true; strokes = []; selectedSet.clear(); _stopMarch();
       _pushHistory();
       _sizeForImage(img);
       $('ia-drop-hint').classList.add('ia-hidden');
@@ -8892,142 +8908,246 @@ const IA = (() => {
 
   function _at() { return spaceDown ? 'pan' : tool; }
 
+  // ── Marching ants ─────────────────────────────────────────
+  function _startMarch() {
+    if (_marchRaf) return;
+    function _step() {
+      if (!selectedSet.size || !$('module-annotator')?.classList.contains('active')) { _marchRaf = null; return; }
+      _dashOffset = (_dashOffset + 0.5) % 16;
+      _redraw();
+      _marchRaf = requestAnimationFrame(_step);
+    }
+    _marchRaf = requestAnimationFrame(_step);
+  }
+  function _stopMarch() {
+    if (_marchRaf) { cancelAnimationFrame(_marchRaf); _marchRaf = null; }
+    _dashOffset = 0;
+  }
+
+  const _resizeCursor = h => ({ n:'ns-resize', s:'ns-resize', e:'ew-resize', w:'ew-resize', ne:'nesw-resize', sw:'nesw-resize', nw:'nwse-resize', se:'nwse-resize' }[h] || 'default');
+
   function _cursor() {
     const w = _wrap(); if (!w) return;
     if (panning) { w.style.cursor = 'grabbing'; return; }
-    if (moveRef && moveRef.moved) { w.style.cursor = 'grabbing'; return; }
-    const map = { pan:'grab', text:'text', eraser:'cell', select:'default' };
-    w.style.cursor = map[_at()] || 'crosshair';
+    const at = _at();
+    if (at !== 'select') { w.style.cursor = { pan:'grab', text:'text', eraser:'cell' }[at] || 'crosshair'; return; }
+    if (hoverHandle) { w.style.cursor = _resizeCursor(hoverHandle); return; }
+    if (hoverObj)    { w.style.cursor = 'move'; return; }
+    w.style.cursor = 'default';
+  }
+
+  // ── Bounds helpers ─────────────────────────────────────────
+  function _getTightBounds(s) {
+    switch (s.type) {
+      case 'pen': {
+        if (!s.points?.length) return { x:0, y:0, w:1, h:1 };
+        let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+        s.points.forEach(p => { minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y); });
+        return { x:minX, y:minY, w:Math.max(1,maxX-minX), h:Math.max(1,maxY-minY) };
+      }
+      case 'text': {
+        const fs = Math.max(14, s.size*5);
+        return { x:s.x1, y:s.y1-fs, w:(s.text?s.text.length*fs*0.55:60), h:fs };
+      }
+      default:
+        return { x:Math.min(s.x1,s.x2), y:Math.min(s.y1,s.y2), w:Math.max(1,Math.abs(s.x2-s.x1)), h:Math.max(1,Math.abs(s.y2-s.y1)) };
+    }
+  }
+
+  function _getBounds(s) {
+    const b = _getTightBounds(s), pad = Math.max(6, s.size*2);
+    return { x:b.x-pad, y:b.y-pad, w:b.w+pad*2, h:b.h+pad*2 };
+  }
+
+  function _getUnionBounds(sArr) {
+    let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+    sArr.forEach(s => { const b=_getTightBounds(s); minX=Math.min(minX,b.x); minY=Math.min(minY,b.y); maxX=Math.max(maxX,b.x+b.w); maxY=Math.max(maxY,b.y+b.h); });
+    return { x:minX, y:minY, w:maxX-minX, h:maxY-minY };
+  }
+
+  // ── Resize handle detection/computation ───────────────────
+  function _getResizeHandle(b, p) {
+    const HIT = 9/zoom;
+    const checks = [
+      {x:b.x,      y:b.y,      h:'nw'}, {x:b.x+b.w/2, y:b.y,      h:'n'}, {x:b.x+b.w, y:b.y,      h:'ne'},
+      {x:b.x,      y:b.y+b.h/2,h:'w' },                                     {x:b.x+b.w, y:b.y+b.h/2,h:'e' },
+      {x:b.x,      y:b.y+b.h,  h:'sw'}, {x:b.x+b.w/2, y:b.y+b.h,  h:'s'}, {x:b.x+b.w, y:b.y+b.h,  h:'se'},
+    ];
+    for (const c of checks) { if (Math.hypot(p.x-c.x, p.y-c.y) < HIT) return c.h; }
+    return null;
+  }
+
+  function _visualBounds(s) {
+    const b = _getTightBounds(s), pad = 6/zoom;
+    return { x:b.x-pad, y:b.y-pad, w:b.w+pad*2, h:b.h+pad*2 };
+  }
+
+  function _newBoundsFromHandle(origB, handle, dp) {
+    const MIN = 10;
+    let {x, y, w, h} = origB;
+    if (handle.includes('e')) { w = Math.max(MIN, origB.w + dp.x); }
+    if (handle.includes('s')) { h = Math.max(MIN, origB.h + dp.y); }
+    if (handle.includes('w')) { const nw=Math.max(MIN,origB.w-dp.x); x=origB.x+origB.w-nw; w=nw; }
+    if (handle.includes('n')) { const nh=Math.max(MIN,origB.h-dp.y); y=origB.y+origB.h-nh; h=nh; }
+    return { x, y, w, h };
+  }
+
+  function _applyBoundsToStroke(s, origS, origB, newB) {
+    if (origB.w < 1 || origB.h < 1) return;
+    const scaleX = newB.w/origB.w, scaleY = newB.h/origB.h;
+    if (s.type === 'pen') {
+      s.points = origS.points.map(pt => ({ x: newB.x+(pt.x-origB.x)*scaleX, y: newB.y+(pt.y-origB.y)*scaleY }));
+    } else if (s.type === 'text') {
+      s.x1 = origS.x1+(newB.x-origB.x); s.y1 = origS.y1+(newB.y-origB.y);
+    } else {
+      s.x1 = newB.x+(origS.x1-origB.x)*scaleX; s.y1 = newB.y+(origS.y1-origB.y)*scaleY;
+      s.x2 = newB.x+(origS.x2-origB.x)*scaleX; s.y2 = newB.y+(origS.y2-origB.y)*scaleY;
+    }
+  }
+
+  // ── Hit test ──────────────────────────────────────────────
+  function _hitTest(p) {
+    for (let i = strokes.length-1; i >= 0; i--) {
+      const b = _getBounds(strokes[i]);
+      if (p.x >= b.x && p.x <= b.x+b.w && p.y >= b.y && p.y <= b.y+b.h) return strokes[i];
+    }
+    return null;
+  }
+
+  function _hitTestBelow(p, skip) {
+    let found = false;
+    for (let i = strokes.length-1; i >= 0; i--) {
+      if (strokes[i] === skip) { found = true; continue; }
+      if (!found) continue;
+      const b = _getBounds(strokes[i]);
+      if (p.x >= b.x && p.x <= b.x+b.w && p.y >= b.y && p.y <= b.y+b.h) return strokes[i];
+    }
+    return null;
+  }
+
+  function _strokesInMarquee(p1, p2) {
+    const mx=Math.min(p1.x,p2.x), my=Math.min(p1.y,p2.y), mw=Math.abs(p2.x-p1.x), mh=Math.abs(p2.y-p1.y);
+    return strokes.filter(s => { const b=_getTightBounds(s); return b.x<mx+mw && b.x+b.w>mx && b.y<my+mh && b.y+b.h>my; });
+  }
+
+  // ── Translate stroke ──────────────────────────────────────
+  function _translateStroke(s, dx, dy) {
+    if (s.type === 'pen') s.points.forEach(p => { p.x += dx; p.y += dy; });
+    else { s.x1 += dx; s.y1 += dy; if (s.x2 !== undefined) { s.x2 += dx; s.y2 += dy; } }
+  }
+
+  // ── Erase ─────────────────────────────────────────────────
+  function _erase(p) {
+    const r = Math.max(size*6, 20);
+    const toRemove = new Set();
+    strokes.forEach(s => {
+      const hit = s.type==='pen' ? s.points.some(pt=>Math.hypot(pt.x-p.x,pt.y-p.y)<r)
+                                 : Math.hypot(((s.x1||0)+(s.x2||0))/2-p.x,((s.y1||0)+(s.y2||0))/2-p.y)<r;
+      if (hit) toRemove.add(s);
+    });
+    if (toRemove.size) {
+      if (!_eraseHistPushed) { _pushHistory(); _eraseHistPushed = true; }
+      strokes = strokes.filter(s => !toRemove.has(s));
+      toRemove.forEach(s => selectedSet.delete(s));
+      _syncToData(); _redraw(); _updateStatus();
+    }
   }
 
   // ── Redraw ────────────────────────────────────────────────
   function _redraw() {
     const ctx = _ctx(); if (!ctx) return;
-    const c = _c();
-    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.clearRect(0, 0, _c().width, _c().height);
     ctx.save();
     ctx.scale(zoom, zoom);
-    strokes.forEach((s, i) => {
-      _paint(ctx, s);
-      if (i === selectedIdx) _paintSelection(ctx, s);
-    });
+
+    strokes.forEach(s => _paint(ctx, s));
     if (curStroke) _paint(ctx, curStroke);
-    ctx.restore();
-    // Collaborators' live strokes
-    const _iaCutoff = Date.now() - 3000;
-    Object.values(_fbLive).forEach(u => {
-      if (!u || u.ts < _iaCutoff || u.sessionId === FIREBASE.sessionId || !u.iaStroke) return;
-      ctx.save(); ctx.scale(zoom, zoom);
-      _paint(ctx, u.iaStroke);
+
+    // Selection overlays
+    const sel = [...selectedSet].filter(s => strokes.includes(s));
+    if (sel.length === 1) {
+      const vb = _visualBounds(sel[0]);
+      _paintSelBox(ctx, vb);
+      _paintHandles(ctx, vb);
+    } else if (sel.length > 1) {
+      const ub = _getUnionBounds(sel);
+      const pad = 6/zoom;
+      _paintSelBox(ctx, { x:ub.x-pad, y:ub.y-pad, w:ub.w+pad*2, h:ub.h+pad*2 });
+    }
+
+    // Marquee rubber-band
+    if (isMarquee && marqueeStart && marqueeCur) {
+      const mx=Math.min(marqueeStart.x,marqueeCur.x), my=Math.min(marqueeStart.y,marqueeCur.y);
+      const mw=Math.abs(marqueeCur.x-marqueeStart.x), mh=Math.abs(marqueeCur.y-marqueeStart.y);
+      ctx.save();
+      ctx.strokeStyle='#c9a227'; ctx.lineWidth=1/zoom; ctx.setLineDash([3/zoom,2/zoom]); ctx.globalAlpha=0.7;
+      ctx.strokeRect(mx,my,mw,mh);
+      ctx.fillStyle='rgba(201,162,39,0.05)'; ctx.fillRect(mx,my,mw,mh);
       ctx.restore();
+    }
+
+    ctx.restore();
+
+    // Collaborators' live strokes
+    const _iaCutoff = Date.now()-3000;
+    Object.values(_fbLive).forEach(u => {
+      if (!u||u.ts<_iaCutoff||u.sessionId===FIREBASE.sessionId||!u.iaStroke) return;
+      ctx.save(); ctx.scale(zoom,zoom); _paint(ctx,u.iaStroke); ctx.restore();
     });
   }
   function redrawLive() { _redraw(); }
 
+  function _paintSelBox(ctx, b) {
+    ctx.save();
+    ctx.strokeStyle='#c9a227'; ctx.lineWidth=1.5/zoom;
+    ctx.setLineDash([4/zoom,3/zoom]); ctx.lineDashOffset=-_dashOffset/zoom; ctx.globalAlpha=0.95;
+    ctx.strokeRect(b.x,b.y,b.w,b.h);
+    ctx.restore();
+  }
+
+  function _paintHandles(ctx, b) {
+    const hs = 5/zoom;
+    ctx.save(); ctx.fillStyle='#c9a227'; ctx.setLineDash([]);
+    [[b.x,b.y],[b.x+b.w/2,b.y],[b.x+b.w,b.y],
+     [b.x,b.y+b.h/2],             [b.x+b.w,b.y+b.h/2],
+     [b.x,b.y+b.h],[b.x+b.w/2,b.y+b.h],[b.x+b.w,b.y+b.h]]
+      .forEach(([hx,hy])=>ctx.fillRect(hx-hs/2,hy-hs/2,hs,hs));
+    ctx.restore();
+  }
+
   function _paint(ctx, s) {
     ctx.save();
-    ctx.globalAlpha = s.opacity; ctx.strokeStyle = s.color; ctx.fillStyle = s.color;
-    ctx.lineWidth = s.size; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.setLineDash(s.dashed ? [s.size * 3, s.size * 2] : []);
+    ctx.globalAlpha=s.opacity; ctx.strokeStyle=s.color; ctx.fillStyle=s.color;
+    ctx.lineWidth=s.size; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.setLineDash(s.dashed?[s.size*3,s.size*2]:[]);
     switch (s.type) {
       case 'pen': {
-        const pts = s.points;
-        if (!pts?.length) break;
-        if (pts.length === 1) { ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, Math.max(1, s.size/2), 0, Math.PI*2); ctx.fill(); break; }
-        ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
-        for (let i = 1; i < pts.length; i++) {
-          const mx = (pts[i-1].x + pts[i].x) / 2, my = (pts[i-1].y + pts[i].y) / 2;
-          ctx.quadraticCurveTo(pts[i-1].x, pts[i-1].y, mx, my);
-        }
-        ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y); ctx.stroke(); break;
+        const pts=s.points; if(!pts?.length)break;
+        if(pts.length===1){ctx.beginPath();ctx.arc(pts[0].x,pts[0].y,Math.max(1,s.size/2),0,Math.PI*2);ctx.fill();break;}
+        ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+        for(let i=1;i<pts.length;i++){const mx=(pts[i-1].x+pts[i].x)/2,my=(pts[i-1].y+pts[i].y)/2;ctx.quadraticCurveTo(pts[i-1].x,pts[i-1].y,mx,my);}
+        ctx.lineTo(pts[pts.length-1].x,pts[pts.length-1].y); ctx.stroke(); break;
       }
-      case 'line':  ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke(); break;
-      case 'rect':  ctx.beginPath(); ctx.rect(s.x1,s.y1,s.x2-s.x1,s.y2-s.y1); ctx.stroke(); break;
+      case 'line':  ctx.beginPath();ctx.moveTo(s.x1,s.y1);ctx.lineTo(s.x2,s.y2);ctx.stroke();break;
+      case 'rect':  ctx.beginPath();ctx.rect(s.x1,s.y1,s.x2-s.x1,s.y2-s.y1);ctx.stroke();break;
       case 'arrow': {
-        const dx=s.x2-s.x1, dy=s.y2-s.y1, ang=Math.atan2(dy,dx), hd=Math.max(14,s.size*5);
+        const dx=s.x2-s.x1,dy=s.y2-s.y1,ang=Math.atan2(dy,dx),hd=Math.max(14,s.size*5);
         ctx.setLineDash([]);
-        ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(s.x2,s.y2);
-        ctx.lineTo(s.x2-hd*Math.cos(ang-Math.PI/7), s.y2-hd*Math.sin(ang-Math.PI/7));
-        ctx.lineTo(s.x2-hd*Math.cos(ang+Math.PI/7), s.y2-hd*Math.sin(ang+Math.PI/7));
-        ctx.closePath(); ctx.fill(); break;
+        ctx.beginPath();ctx.moveTo(s.x1,s.y1);ctx.lineTo(s.x2,s.y2);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(s.x2,s.y2);
+        ctx.lineTo(s.x2-hd*Math.cos(ang-Math.PI/7),s.y2-hd*Math.sin(ang-Math.PI/7));
+        ctx.lineTo(s.x2-hd*Math.cos(ang+Math.PI/7),s.y2-hd*Math.sin(ang+Math.PI/7));
+        ctx.closePath();ctx.fill();break;
       }
       case 'text': {
-        const fs = Math.max(14, s.size * 5);
-        ctx.setLineDash([]);
-        ctx.font = `bold ${fs}px Rajdhani,sans-serif`;
-        ctx.lineWidth = Math.max(2, fs/7); ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-        ctx.strokeText(s.text, s.x1, s.y1); ctx.fillStyle = s.color; ctx.fillText(s.text, s.x1, s.y1); break;
+        const fs=Math.max(14,s.size*5);
+        ctx.setLineDash();
+        ctx.font=`bold ${fs}px Rajdhani,sans-serif`;
+        ctx.lineWidth=Math.max(2,fs/7);ctx.strokeStyle='rgba(0,0,0,0.85)';
+        ctx.strokeText(s.text,s.x1,s.y1);ctx.fillStyle=s.color;ctx.fillText(s.text,s.x1,s.y1);break;
       }
     }
     ctx.restore();
-  }
-
-  // ── Selection bounding box (logical coords) ───────────────
-  function _getBounds(s) {
-    const pad = Math.max(6, s.size * 2);
-    switch (s.type) {
-      case 'pen': {
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        s.points.forEach(p => { minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y); });
-        return { x: minX-pad, y: minY-pad, w: maxX-minX+pad*2, h: maxY-minY+pad*2 };
-      }
-      case 'text': {
-        const fs = Math.max(14, s.size * 5);
-        const tw = s.text ? s.text.length * fs * 0.55 : 60;
-        return { x: s.x1 - pad, y: s.y1 - fs - pad, w: tw + pad*2, h: fs + pad*2 };
-      }
-      default: {
-        const x = Math.min(s.x1, s.x2) - pad, y = Math.min(s.y1, s.y2) - pad;
-        const w = Math.abs(s.x2 - s.x1) + pad*2, h = Math.abs(s.y2 - s.y1) + pad*2;
-        return { x, y, w: Math.max(w, pad*2), h: Math.max(h, pad*2) };
-      }
-    }
-  }
-
-  function _paintSelection(ctx, s) {
-    const b = _getBounds(s);
-    const lw = 1.5 / zoom;
-    ctx.save();
-    ctx.strokeStyle = '#00CFFF'; ctx.lineWidth = lw;
-    ctx.setLineDash([4/zoom, 3/zoom]); ctx.globalAlpha = 0.9;
-    ctx.strokeRect(b.x, b.y, b.w, b.h);
-    const hs = 5 / zoom;
-    ctx.fillStyle = '#00CFFF'; ctx.setLineDash([]);
-    [[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]].forEach(([hx,hy]) => ctx.fillRect(hx-hs/2, hy-hs/2, hs, hs));
-    ctx.restore();
-  }
-
-  // ── Hit test: returns topmost stroke index at logical point p ──
-  function _hitTest(p) {
-    for (let i = strokes.length - 1; i >= 0; i--) {
-      const b = _getBounds(strokes[i]);
-      if (p.x >= b.x && p.x <= b.x+b.w && p.y >= b.y && p.y <= b.y+b.h) return i;
-    }
-    return -1;
-  }
-
-  // ── Translate stroke by delta ─────────────────────────────
-  function _translateStroke(s, dx, dy) {
-    if (s.type === 'pen') {
-      s.points = s.points.map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
-    } else {
-      s.x1 += dx; s.y1 += dy;
-      if (s.x2 !== undefined) { s.x2 += dx; s.y2 += dy; }
-    }
-  }
-
-  // ── Erase ─────────────────────────────────────────────────
-  function _erase(p) {
-    const r = Math.max(size * 6, 20), prev = strokes.length;
-    strokes = strokes.filter(s => {
-      if (s.type === 'pen') return !s.points.some(pt => Math.hypot(pt.x-p.x, pt.y-p.y) < r);
-      return Math.hypot(((s.x1||0)+(s.x2||0))/2-p.x, ((s.y1||0)+(s.y2||0))/2-p.y) > r;
-    });
-    if (strokes.length !== prev) {
-      if (selectedIdx >= strokes.length) selectedIdx = -1;
-      _redraw(); _updateStatus();
-    }
   }
 
   // ── Mouse events ──────────────────────────────────────────
@@ -9039,69 +9159,163 @@ const IA = (() => {
 
     if (at === 'pan') {
       panning = true;
-      panRef = { x: e.clientX, y: e.clientY, sl: w.scrollLeft, st: w.scrollTop };
+      panRef = { x:e.clientX, y:e.clientY, sl:w.scrollLeft, st:w.scrollTop };
       _cursor(); return;
     }
 
     if (at === 'select') {
       const p = _xy(e);
-      const idx = _hitTest(p);
-      selectedIdx = idx;
-      moveRef = idx >= 0
-        ? { startX: p.x, startY: p.y, origStroke: JSON.parse(JSON.stringify(strokes[idx])), moved: false }
-        : null;
+
+      // Alt+click: duplicate selection
+      if (e.altKey && selectedSet.size > 0) {
+        e.preventDefault();
+        _pushHistory();
+        const clones = [...selectedSet].map(s => JSON.parse(JSON.stringify(s)));
+        clones.forEach(c => {
+          if (c.type==='pen') c.points=c.points.map(pt=>({x:pt.x+10,y:pt.y+10}));
+          else { c.x1+=10; c.y1+=10; if(c.x2!==undefined){c.x2+=10;c.y2+=10;} }
+          strokes.push(c);
+        });
+        selectedSet.clear(); clones.forEach(c=>selectedSet.add(c));
+        isDragging=true; dragStart={...p}; dragMoved=false;
+        dragObjStarts.clear(); clones.forEach(c=>dragObjStarts.set(c,JSON.stringify(c)));
+        _startMarch(); _redraw(); return;
+      }
+
+      // Check resize handle (single select only)
+      if (selectedSet.size === 1) {
+        const sel = [...selectedSet][0];
+        const vb = _visualBounds(sel);
+        const h = _getResizeHandle(vb, p);
+        if (h) {
+          isResizing=true; resizeHandle=h;
+          resizeStart={ stroke:sel, origStroke:JSON.parse(JSON.stringify(sel)), origBounds:_getTightBounds(sel), startP:{...p}, pushed:false };
+          return;
+        }
+      }
+
+      // Hit test
+      const hit = _hitTest(p);
+      if (hit) {
+        if (e.shiftKey) {
+          if (selectedSet.has(hit)) selectedSet.delete(hit); else selectedSet.add(hit);
+        } else if (!e.shiftKey && selectedSet.size===1 && selectedSet.has(hit)) {
+          // Cycle to next object below
+          const below = _hitTestBelow(p, hit);
+          if (below) { selectedSet.clear(); selectedSet.add(below); }
+        } else {
+          if (!selectedSet.has(hit)) { selectedSet.clear(); selectedSet.add(hit); }
+        }
+        isDragging=true; dragStart={...p}; dragMoved=false;
+        dragObjStarts.clear(); selectedSet.forEach(s=>dragObjStarts.set(s,JSON.stringify(s)));
+        if (selectedSet.size) _startMarch(); else _stopMarch();
+        _redraw(); return;
+      }
+
+      // Empty click → deselect + marquee
+      if (!e.shiftKey) { selectedSet.clear(); _stopMarch(); }
+      isMarquee=true; marqueeStart={...p}; marqueeCur={...p};
       _redraw(); return;
     }
 
     if (at === 'text') { _placeText(e); return; }
+    _eraseHistPushed = false;
     drawing = true;
     const p = _xy(e);
     if      (at === 'eraser') { _erase(p); }
-    else if (at === 'pen')    { curStroke = { type:'pen', color, size, dashed, opacity, points:[{...p}] }; }
-    else                      { curStroke = { type:at, color, size, dashed, opacity, x1:p.x, y1:p.y, x2:p.x, y2:p.y }; }
+    else if (at === 'pen')    { curStroke={ type:'pen', color, size, dashed, opacity, points:[{...p}] }; }
+    else                      { curStroke={ type:at, color, size, dashed, opacity, x1:p.x, y1:p.y, x2:p.x, y2:p.y }; }
   }
 
   function _mm(e) {
     if (panning && panRef) {
       const w = _wrap();
-      w.scrollLeft = panRef.sl - (e.clientX - panRef.x);
-      w.scrollTop  = panRef.st - (e.clientY - panRef.y);
+      w.scrollLeft = panRef.sl-(e.clientX-panRef.x);
+      w.scrollTop  = panRef.st-(e.clientY-panRef.y);
       return;
     }
-    if (moveRef && selectedIdx >= 0) {
+
+    if (isResizing && resizeStart) {
+      if (!resizeStart.pushed) { _pushHistory(); resizeStart.pushed=true; }
       const p = _xy(e);
-      const dx = p.x - moveRef.startX, dy = p.y - moveRef.startY;
-      if (!moveRef.moved && Math.hypot(dx, dy) < 3) return;
-      // Reset stroke to original, then apply accumulated delta
-      Object.assign(strokes[selectedIdx], JSON.parse(JSON.stringify(moveRef.origStroke)));
-      _translateStroke(strokes[selectedIdx], dx, dy);
-      moveRef.moved = true;
-      _cursor(); _redraw(); return;
+      const dp = { x:p.x-resizeStart.startP.x, y:p.y-resizeStart.startP.y };
+      const newB = _newBoundsFromHandle(resizeStart.origBounds, resizeHandle, dp);
+      _applyBoundsToStroke(resizeStart.stroke, resizeStart.origStroke, resizeStart.origBounds, newB);
+      _redraw(); return;
     }
+
+    if (isDragging && dragStart) {
+      const p = _xy(e);
+      const dx = p.x-dragStart.x, dy = p.y-dragStart.y;
+      if (!dragMoved) {
+        if (Math.hypot(dx,dy) < 3/zoom) return;
+        _pushHistory(); dragMoved = true;
+      }
+      selectedSet.forEach(s => {
+        const orig = JSON.parse(dragObjStarts.get(s));
+        if (s.type==='pen') s.points=orig.points.map(pt=>({x:pt.x+dx,y:pt.y+dy}));
+        else { s.x1=orig.x1+dx; s.y1=orig.y1+dy; if(orig.x2!==undefined){s.x2=orig.x2+dx;s.y2=orig.y2+dy;} }
+      });
+      _redraw(); return;
+    }
+
+    if (isMarquee && marqueeStart) {
+      marqueeCur = _xy(e); _redraw(); return;
+    }
+
     if (!drawing || !curStroke) {
-      if (_inScene(e)) { const p = _xy(e); _setXY(p); }
+      if (_inScene(e)) {
+        const p = _xy(e); _setXY(p);
+        if (_at() === 'select') {
+          const newHover = _hitTest(p);
+          let newHandle = null;
+          if (selectedSet.size === 1) {
+            const vb = _visualBounds([...selectedSet][0]);
+            newHandle = _getResizeHandle(vb, p);
+          }
+          if (newHover !== hoverObj || newHandle !== hoverHandle) { hoverObj=newHover; hoverHandle=newHandle; _cursor(); }
+        }
+      }
       return;
     }
-    const p = _xy(e);
-    _setXY(p);
+    const p = _xy(e); _setXY(p);
     const at = _at();
     if (at === 'eraser') { _erase(p); return; }
     if (at === 'pen') curStroke.points.push({...p});
-    else              { curStroke.x2 = p.x; curStroke.y2 = p.y; }
+    else              { curStroke.x2=p.x; curStroke.y2=p.y; }
     _redraw();
     if (FIREBASE._ready) FIREBASE._pushLiveIA(curStroke);
   }
 
   function _mu() {
-    if (panning) { panning = false; panRef = null; _cursor(); return; }
-    if (moveRef) {
-      if (moveRef.moved) { _pushHistory(); _syncToData(); }
-      moveRef = null; _cursor(); _redraw(); return;
+    if (panning) { panning=false; panRef=null; _cursor(); return; }
+
+    if (isResizing) {
+      isResizing=false;
+      if (resizeStart?.pushed) _syncToData();
+      resizeHandle=null; resizeStart=null; _redraw(); return;
     }
+
+    if (isDragging) {
+      isDragging=false;
+      if (dragMoved) _syncToData();
+      dragObjStarts.clear(); dragMoved=false; _cursor(); return;
+    }
+
+    if (isMarquee) {
+      isMarquee=false;
+      if (marqueeStart && marqueeCur) {
+        const hits = _strokesInMarquee(marqueeStart, marqueeCur);
+        hits.forEach(s => selectedSet.add(s));
+        if (selectedSet.size) _startMarch();
+      }
+      marqueeStart=null; marqueeCur=null; _redraw(); _updateStatus(); return;
+    }
+
     if (!drawing) return;
     drawing = false;
     if (curStroke) {
-      strokes.push(curStroke); curStroke = null;
+      strokes.push(curStroke); curStroke=null;
       $('ia-drop-hint').classList.add('ia-hidden');
       _pushHistory(); _syncToData();
       if (FIREBASE._ready) FIREBASE._pushLiveIA(null);
@@ -9120,7 +9334,10 @@ const IA = (() => {
 
   // ── Status ────────────────────────────────────────────────
   function _setXY(p) { const el=$('ia-status-xy'); if(el) el.textContent=`x:${Math.round(p.x)} y:${Math.round(p.y)}`; }
-  function _updateStatus() { const el=$('ia-status-strokes'); if(el) el.textContent=strokes.length+(strokes.length!==1?' strokes':' stroke'); }
+  function _updateStatus() {
+    const el=$('ia-status-strokes'); if(!el) return;
+    el.textContent = strokes.length+(strokes.length!==1?' strokes':' stroke')+(selectedSet.size?' · '+selectedSet.size+' sel':'');
+  }
 
   // ── Persistence ───────────────────────────────────────────
   function _syncToData() {
@@ -9133,6 +9350,7 @@ const IA = (() => {
     const saved = PS.data?.ia?.strokes;
     if (!Array.isArray(saved)) return;
     strokes = JSON.parse(JSON.stringify(saved));
+    selectedSet.clear(); _stopMarch();
     history = [JSON.stringify(strokes)]; historyPos = 0;
     _redraw(); _updateStatus();
   }
@@ -9140,7 +9358,7 @@ const IA = (() => {
   // ── Public API ────────────────────────────────────────────
   function setTool(t) {
     tool = t;
-    if (t !== 'select') { selectedIdx = -1; _redraw(); }
+    if (t !== 'select') { selectedSet.clear(); _stopMarch(); hoverObj=null; hoverHandle=null; _redraw(); }
     document.querySelectorAll('.ia-tool[id^="ia-t-"]').forEach(b => b.classList.remove('active'));
     $('ia-t-'+t)?.classList.add('active');
     const lbl = $('ia-status-tool'); if(lbl) lbl.textContent = t[0].toUpperCase()+t.slice(1);
@@ -9149,9 +9367,8 @@ const IA = (() => {
 
   function setColor(c, idx) {
     color = c;
-    // Also recolor a selected stroke
-    if (selectedIdx >= 0 && selectedIdx < strokes.length) {
-      strokes[selectedIdx].color = c;
+    if (selectedSet.size > 0) {
+      selectedSet.forEach(s => { if (strokes.includes(s)) s.color = c; });
       _pushHistory(); _syncToData(); _redraw();
     }
     document.querySelectorAll('.ia-color-swatch').forEach(s => s.classList.remove('active'));
@@ -9167,27 +9384,27 @@ const IA = (() => {
     if (historyPos <= 0) return;
     historyPos--;
     strokes = JSON.parse(history[historyPos]);
-    selectedIdx = -1; _redraw(); _updateStatus(); _syncToData();
+    selectedSet.clear(); _stopMarch(); _redraw(); _updateStatus(); _syncToData();
   }
 
   function redo() {
-    if (historyPos >= history.length - 1) return;
+    if (historyPos >= history.length-1) return;
     historyPos++;
     strokes = JSON.parse(history[historyPos]);
-    selectedIdx = -1; _redraw(); _updateStatus(); _syncToData();
+    selectedSet.clear(); _stopMarch(); _redraw(); _updateStatus(); _syncToData();
   }
 
   function deleteSelected() {
-    if (selectedIdx < 0 || selectedIdx >= strokes.length) return;
-    strokes.splice(selectedIdx, 1);
-    selectedIdx = -1;
+    if (!selectedSet.size) return;
+    strokes = strokes.filter(s => !selectedSet.has(s));
+    selectedSet.clear(); _stopMarch();
     _pushHistory(); _syncToData(); _redraw(); _updateStatus();
   }
 
   function clear() {
     if (!strokes.length) return;
     if (!confirm('Clear all annotations?')) return;
-    strokes = []; selectedIdx = -1;
+    strokes = []; selectedSet.clear(); _stopMarch();
     _pushHistory(); _redraw(); _updateStatus(); _syncToData();
   }
 
@@ -9280,10 +9497,17 @@ const IA = (() => {
       if (e.ctrlKey && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
       if (e.ctrlKey && e.key === '=')                    { e.preventDefault(); zoomIn(); return; }
       if (e.ctrlKey && e.key === '-')                    { e.preventDefault(); zoomOut(); return; }
-      if (e.ctrlKey && e.key === '0')                    { e.preventDefault(); zoomReset(); return; }
+      if (e.ctrlKey && e.key === '0')                        { e.preventDefault(); zoomReset(); return; }
+      if (e.ctrlKey && (e.key==='a'||e.key==='A'))           { e.preventDefault(); selectedSet.clear(); strokes.forEach(s=>selectedSet.add(s)); if(selectedSet.size)_startMarch(); _redraw(); _updateStatus(); return; }
       if (e.ctrlKey) return;
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIdx >= 0) { e.preventDefault(); deleteSelected(); return; }
-      if (e.key === 'Escape') { selectedIdx = -1; _redraw(); return; }
+      if ((e.key==='Delete'||e.key==='Backspace') && selectedSet.size) { e.preventDefault(); deleteSelected(); return; }
+      if (e.key==='Escape') { selectedSet.clear(); _stopMarch(); _redraw(); return; }
+      if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key) && selectedSet.size && _at()==='select') {
+        e.preventDefault();
+        const d=e.shiftKey?10:1, dx=e.key==='ArrowLeft'?-d:e.key==='ArrowRight'?d:0, dy=e.key==='ArrowUp'?-d:e.key==='ArrowDown'?d:0;
+        selectedSet.forEach(s=>_translateStroke(s,dx,dy));
+        _pushHistory(); _syncToData(); _redraw(); return;
+      }
       const map = { p:'pen', l:'line', r:'rect', a:'arrow', t:'text', e:'eraser', h:'pan', s:'select', v:'select' };
       const k = map[e.key.toLowerCase()]; if (k) setTool(k);
     });
