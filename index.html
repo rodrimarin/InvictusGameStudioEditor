@@ -286,6 +286,9 @@ body.focus-mode #focus-btn{display:flex}
 ═══════════════════════════════ */
 #map-editor-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
 #map-toolbar-top{height:44px;background:#0a0a0a;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:4px;flex-shrink:0}
+.map-draw-sw{width:18px;height:18px;border-radius:3px;border:2px solid transparent;cursor:pointer;flex-shrink:0;transition:all .12s}
+.map-draw-sw:hover{transform:scale(1.15)}
+.map-draw-sw.active{border-color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.3)}
 .map-tool-group{display:flex;gap:2px;padding:0 6px;border-right:1px solid var(--border)}
 .map-tool-group:last-child{border-right:none}
 .mt{width:32px;height:32px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .12s;font-family:var(--fm);position:relative;flex-shrink:0}
@@ -1191,6 +1194,18 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
             <button class="mt" id="tool-enemy" title="Enemy (X)" onclick="setTool('enemy')" style="font-size:12px">☠</button>
             <button class="mt" id="tool-arrow" title="Arrow (A)" onclick="setTool('arrow')" style="font-size:13px">➤</button>
             <button class="mt" id="tool-draw" title="Freehand Draw (D)" onclick="setTool('draw')" style="font-size:13px">✏</button>
+          </div>
+          <!-- Draw options — shown only when draw tool active -->
+          <div id="map-draw-opts" style="display:none;align-items:center;gap:5px;padding:0 4px;border-left:1px solid var(--border);margin-left:2px">
+            <div class="map-draw-sw active" style="background:#c9a227" onclick="setDrawColor('#c9a227',this)" title="Gold"></div>
+            <div class="map-draw-sw" style="background:#4ecb71" onclick="setDrawColor('#4ecb71',this)" title="Green"></div>
+            <div class="map-draw-sw" style="background:#FF3333" onclick="setDrawColor('#FF3333',this)" title="Red"></div>
+            <div class="map-draw-sw" style="background:#00CFFF" onclick="setDrawColor('#00CFFF',this)" title="Cyan"></div>
+            <div class="map-draw-sw" style="background:#FFFFFF" onclick="setDrawColor('#FFFFFF',this)" title="White"></div>
+            <div class="map-draw-sw" style="background:#a855f7" onclick="setDrawColor('#a855f7',this)" title="Purple"></div>
+            <input type="color" id="map-draw-custom-color" value="#c9a227" oninput="setDrawColor(this.value,null)" title="Custom color" style="width:20px;height:20px;border-radius:3px;border:1px solid var(--border);padding:1px;cursor:pointer;background:none;flex-shrink:0">
+            <input type="range" id="map-draw-size-range" min="1" max="40" value="3" oninput="MAP.drawSize=+this.value;document.getElementById('map-draw-size-lbl').textContent=this.value" style="accent-color:var(--gold);width:60px;flex-shrink:0">
+            <span id="map-draw-size-lbl" style="font-family:var(--fm);font-size:10px;color:var(--text-secondary);min-width:16px">3</span>
           </div>
           <div class="map-tool-group">
             <button class="mt" title="Undo (Ctrl+Z)" onclick="mapUndo()">↩</button>
@@ -4473,6 +4488,8 @@ const MAP = {
   drawCurrent: null,
   polyPoints: [],
   drawPoints: null, // freehand draw
+  drawColor: '#c9a227',
+  drawSize: 3,
   shapePreset: null, // active shape preset from shapes panel
   assetPreset: null, // active image asset from shapes panel
   _imgCache: {}, // cached Image objects keyed by assetId
@@ -5036,7 +5053,7 @@ function mapMM(e) {
   if (MAP.isDrawing && MAP.tool === 'draw' && MAP.drawPoints) {
     const pt = {x:snap(w.x), y:snap(w.y)};
     const last = MAP.drawPoints[MAP.drawPoints.length-1];
-    if (Math.hypot(pt.x-last.x, pt.y-last.y) > 6) { MAP.drawPoints.push(pt); renderMap(); }
+    if (Math.hypot(pt.x-last.x, pt.y-last.y) > 3) { MAP.drawPoints.push(pt); renderMap(); }
     return;
   }
 
@@ -5137,7 +5154,7 @@ function mapMU(e) {
         x:Math.min(...pts.map(p=>p.x)),y:Math.min(...pts.map(p=>p.y)),
         w:Math.max(...pts.map(p=>p.x))-Math.min(...pts.map(p=>p.x)),
         h:Math.max(...pts.map(p=>p.y))-Math.min(...pts.map(p=>p.y)),
-        fill:'transparent',stroke:'#4ecb71',opacity:1};
+        fill:'transparent',stroke:MAP.drawColor||'#c9a227',lineWidth:MAP.drawSize||3,opacity:1};
       MAP.objects.push(obj); MAP.drawPoints=null;
       MAP.selectedIds.clear(); MAP.selectedIds.add(id);
       renderMap(); renderMapProps(); autoSave(); mapSaveCurrent();
@@ -5693,10 +5710,13 @@ function renderMap() {
     else ctx.strokeRect(s.x,s.y,c.x-s.x,c.y-s.y);
     ctx.restore();
   }
-  // Freehand draw preview
+  // Freehand draw preview (smooth bezier)
   if(MAP.tool==='draw'&&MAP.isDrawing&&MAP.drawPoints&&MAP.drawPoints.length>1){
-    ctx.save();ctx.strokeStyle='#4ecb71';ctx.lineWidth=2;ctx.globalAlpha=.8;ctx.setLineDash([]);
-    ctx.beginPath();const dps=MAP.drawPoints.map(p=>w2s(p.x,p.y));ctx.moveTo(dps[0].x,dps[0].y);dps.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();ctx.restore();
+    ctx.save();ctx.strokeStyle=MAP.drawColor||'#c9a227';ctx.lineWidth=Math.max(1,(MAP.drawSize||3)*MAP.cam.zoom);ctx.globalAlpha=.9;ctx.setLineDash([]);ctx.lineCap='round';ctx.lineJoin='round';
+    const dps=MAP.drawPoints.map(p=>w2s(p.x,p.y));
+    ctx.beginPath();ctx.moveTo(dps[0].x,dps[0].y);
+    for(let i=1;i<dps.length;i++){const mx=(dps[i-1].x+dps[i].x)/2,my=(dps[i-1].y+dps[i].y)/2;ctx.quadraticCurveTo(dps[i-1].x,dps[i-1].y,mx,my);}
+    ctx.lineTo(dps[dps.length-1].x,dps[dps.length-1].y);ctx.stroke();ctx.restore();
   }
 
   // Polygon in progress
@@ -5749,12 +5769,11 @@ function renderMap() {
       ctx.save();
       ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.globalAlpha = 0.65; ctx.setLineDash([5, 3]);
       if (dp.type === 'draw' && dp.points?.length > 1) {
-        ctx.setLineDash([]);
-        ctx.beginPath();
+        ctx.setLineDash([]); ctx.lineCap='round'; ctx.lineJoin='round';
         const dps = dp.points.map(p => w2s(p.x, p.y));
-        ctx.moveTo(dps[0].x, dps[0].y);
-        dps.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(dps[0].x, dps[0].y);
+        for(let i=1;i<dps.length;i++){const mx=(dps[i-1].x+dps[i].x)/2,my=(dps[i-1].y+dps[i].y)/2;ctx.quadraticCurveTo(dps[i-1].x,dps[i-1].y,mx,my);}
+        ctx.lineTo(dps[dps.length-1].x,dps[dps.length-1].y); ctx.stroke();
       } else if (dp.start && dp.end) {
         const ps = w2s(dp.start.x, dp.start.y), pe = w2s(dp.end.x, dp.end.y);
         if (dp.type === 'circle') {
@@ -5882,8 +5901,10 @@ function drawObj(obj,ctx) {
   } else if(obj.type==='draw'){
     if(!obj.points||obj.points.length<2){ctx.restore();return;}
     const dpts=obj.points.map(pt=>w2s(pt.x,pt.y));
-    ctx.beginPath();ctx.moveTo(dpts[0].x,dpts[0].y);dpts.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y));
-    ctx.strokeStyle=obj.stroke||'#4ecb71';ctx.lineWidth=Math.max(1,2*MAP.cam.zoom);ctx.stroke();
+    ctx.strokeStyle=obj.stroke||'#c9a227';ctx.lineWidth=Math.max(0.5,(obj.lineWidth||3)*MAP.cam.zoom);ctx.lineCap='round';ctx.lineJoin='round';ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(dpts[0].x,dpts[0].y);
+    for(let i=1;i<dpts.length;i++){const mx=(dpts[i-1].x+dpts[i].x)/2,my=(dpts[i-1].y+dpts[i].y)/2;ctx.quadraticCurveTo(dpts[i-1].x,dpts[i-1].y,mx,my);}
+    ctx.lineTo(dpts[dpts.length-1].x,dpts[dpts.length-1].y);ctx.stroke();
   } else if(obj.type==='asset'){
     const q=w2s(obj.x+obj.w,obj.y+obj.h);
     const iw=q.x-p.x, ih=q.y-p.y;
@@ -6102,6 +6123,16 @@ function setTool(tool) {
   if(btn) btn.classList.add('active');
   const hintEl=document.getElementById('map-tool-hint');
   if(hintEl) hintEl.textContent=HINTS[tool]||'';
+  const drawOpts=document.getElementById('map-draw-opts');
+  if(drawOpts) drawOpts.style.display=(tool==='draw')?'flex':'none';
+}
+
+function setDrawColor(c, el) {
+  MAP.drawColor = c;
+  document.querySelectorAll('.map-draw-sw').forEach(s=>s.classList.remove('active'));
+  if(el) el.classList.add('active');
+  const custom=document.getElementById('map-draw-custom-color');
+  if(custom) custom.value=c;
 }
 
 function toggleGrid(){MAP.showGrid=!MAP.showGrid;document.getElementById('btn-grid').classList.toggle('toggled',MAP.showGrid);document.getElementById('sb-grid').textContent=MAP.showGrid?'ON':'OFF';renderMap();}
