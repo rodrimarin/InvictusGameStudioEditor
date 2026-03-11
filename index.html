@@ -5463,37 +5463,33 @@ function getResizeHandle(obj, sx, sy) {
     for(const {p,h} of handles){if(Math.hypot(sx-p.x,sy-p.y)<9)return h;}
     return null;
   }
-  // Un-rotate screen point for rotated objects
-  let lsx=sx, lsy=sy;
-  if (obj.rotation) {
-    const cp=w2s(obj.x+obj.w/2, obj.y+obj.h/2);
-    const r=-obj.rotation*Math.PI/180;
-    const cos=Math.cos(r),sin=Math.sin(r);
-    const dx=sx-cp.x, dy=sy-cp.y;
-    lsx=cp.x+dx*cos-dy*sin; lsy=cp.y+dx*sin+dy*cos;
-  }
-  const s = w2s(obj.x, obj.y);
+  const sp = w2s(obj.x, obj.y);
   const ex = obj.x+obj.w, ey = obj.y+obj.h;
   const se = w2s(ex, ey);
-  // Non-rotated: clamp handle positions to canvas bounds so they're hittable even at extreme zoom
-  if (!obj.rotation) {
-    const CW=MAP.canvas.width, CH=MAP.canvas.height, HPAD=6;
-    const _c=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
-    const cpx=_c(s.x,HPAD,CW-HPAD), cpy=_c(s.y,HPAD,CH-HPAD);
-    const cqx=_c(se.x,HPAD,CW-HPAD), cqy=_c(se.y,HPAD,CH-HPAD);
-    const cmx=(cpx+cqx)/2, cmy=(cpy+cqy)/2;
-    const handles=[{p:{x:cqx,y:cqy},h:'se'},{p:{x:cpx,y:cqy},h:'sw'},{p:{x:cqx,y:cpy},h:'ne'},{p:{x:cpx,y:cpy},h:'nw'},{p:{x:cmx,y:cpy},h:'n'},{p:{x:cmx,y:cqy},h:'s'},{p:{x:cpx,y:cmy},h:'w'},{p:{x:cqx,y:cmy},h:'e'}];
-    for(const {p,h} of handles){if(Math.hypot(lsx-p.x,lsy-p.y)<9)return h;}
-    return null;
-  }
   const sw = w2s(obj.x, ey);
   const ne = w2s(ex, obj.y);
-  const nc = w2s((obj.x+obj.w/2), obj.y);
-  const sc = w2s((obj.x+obj.w/2), ey);
-  const wc = w2s(obj.x, (obj.y+obj.h/2));
-  const ec = w2s(ex, (obj.y+obj.h/2));
-  const handles = [{p:se,h:'se'},{p:sw,h:'sw'},{p:ne,h:'ne'},{p:s,h:'nw'},{p:nc,h:'n'},{p:sc,h:'s'},{p:wc,h:'w'},{p:ec,h:'e'}];
-  for(const {p,h} of handles){if(Math.hypot(lsx-p.x,lsy-p.y)<9)return h;}
+  const nc = w2s(obj.x+obj.w/2, obj.y);
+  const sc = w2s(obj.x+obj.w/2, ey);
+  const wc = w2s(obj.x, obj.y+obj.h/2);
+  const ec = w2s(ex, obj.y+obj.h/2);
+  let handles = [{p:sp,h:'nw'},{p:ne,h:'ne'},{p:sw,h:'sw'},{p:se,h:'se'},{p:nc,h:'n'},{p:sc,h:'s'},{p:wc,h:'w'},{p:ec,h:'e'}];
+  if (obj.rotation) {
+    // Rotate handle positions around object screen-center to match visual rendering
+    const cp=w2s(obj.x+obj.w/2, obj.y+obj.h/2);
+    const r=obj.rotation*Math.PI/180, cos=Math.cos(r), sin=Math.sin(r);
+    const rpt=({x,y})=>{const dx=x-cp.x,dy=y-cp.y;return{x:cp.x+dx*cos-dy*sin,y:cp.y+dx*sin+dy*cos};};
+    handles=handles.map(({p,h})=>({p:rpt(p),h}));
+    for(const {p,h} of handles){if(Math.hypot(sx-p.x,sy-p.y)<9)return h;}
+    return null;
+  }
+  // Non-rotated: clamp handle positions to canvas bounds so they're hittable even at extreme zoom
+  const CW=MAP.canvas.width, CH=MAP.canvas.height, HPAD=6;
+  const _c=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  const cpx=_c(sp.x,HPAD,CW-HPAD), cpy=_c(sp.y,HPAD,CH-HPAD);
+  const cqx=_c(se.x,HPAD,CW-HPAD), cqy=_c(se.y,HPAD,CH-HPAD);
+  const cmx=(cpx+cqx)/2, cmy=(cpy+cqy)/2;
+  const clamped=[{p:{x:cpx,y:cpy},h:'nw'},{p:{x:cqx,y:cpy},h:'ne'},{p:{x:cpx,y:cqy},h:'sw'},{p:{x:cqx,y:cqy},h:'se'},{p:{x:cmx,y:cpy},h:'n'},{p:{x:cmx,y:cqy},h:'s'},{p:{x:cpx,y:cmy},h:'w'},{p:{x:cqx,y:cmy},h:'e'}];
+  for(const {p,h} of clamped){if(Math.hypot(sx-p.x,sy-p.y)<9)return h;}
   return null;
 }
 function resizeCursor(h){const c={n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',ne:'ne-resize',sw:'sw-resize',nw:'nw-resize',se:'se-resize'};return c[h]||'default';}
@@ -5676,16 +5672,22 @@ function renderMap() {
             ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
             ctx.fillStyle='#c9a227';ctx.fillText('↻',cmx,rotY);
           } else {
-            const handles=[{x:p.x,y:p.y},{x:q.x,y:p.y},{x:p.x,y:q.y},{x:q.x,y:q.y},
-              {x:(p.x+q.x)/2,y:p.y},{x:(p.x+q.x)/2,y:q.y},{x:p.x,y:(p.y+q.y)/2},{x:q.x,y:(p.y+q.y)/2}];
-            handles.forEach(h=>{if(_vis(h.x,h.y)) _drawHandle(h.x,h.y,false);});
-            const rmx=(p.x+q.x)/2;
-            if(_vis(rmx,p.y-25)){
+            // Rotated: compute actual rotated screen positions of handles
+            const rcp=w2s(obj.x+obj.w/2,obj.y+obj.h/2);
+            const rr=obj.rotation*Math.PI/180,rcos=Math.cos(rr),rsin=Math.sin(rr);
+            const rpt=(hx,hy)=>{const dx=hx-rcp.x,dy=hy-rcp.y;return{x:rcp.x+dx*rcos-dy*rsin,y:rcp.y+dx*rsin+dy*rcos};};
+            const rHandles=[rpt(p.x,p.y),rpt(q.x,p.y),rpt(p.x,q.y),rpt(q.x,q.y),
+              rpt((p.x+q.x)/2,p.y),rpt((p.x+q.x)/2,q.y),rpt(p.x,(p.y+q.y)/2),rpt(q.x,(p.y+q.y)/2)];
+            rHandles.forEach(h=>{if(_vis(h.x,h.y)) _drawHandle(h.x,h.y,false);});
+            // Rotation handle: rotate the point 25px above top-center
+            const rStem=rpt((p.x+q.x)/2,p.y);
+            const rRot=rpt((p.x+q.x)/2,p.y-25);
+            if(_vis(rRot.x,rRot.y)){
               ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;
-              ctx.beginPath();ctx.moveTo(rmx,p.y-4);ctx.lineTo(rmx,p.y-18);ctx.stroke();
-              ctx.beginPath();ctx.arc(rmx,p.y-25,7,0,Math.PI*2);ctx.stroke();
+              ctx.beginPath();ctx.moveTo(rStem.x,rStem.y);ctx.lineTo(rRot.x,rRot.y);ctx.stroke();
+              ctx.beginPath();ctx.arc(rRot.x,rRot.y,7,0,Math.PI*2);ctx.stroke();
               ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-              ctx.fillStyle='#c9a227';ctx.fillText('↻',rmx,p.y-25);
+              ctx.fillStyle='#c9a227';ctx.fillText('↻',rRot.x,rRot.y);
             }
           }
           ctx.restore();
