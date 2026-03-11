@@ -312,7 +312,12 @@ body.focus-mode #focus-btn{display:flex}
 #map-canvas-area{flex:1;overflow:hidden;position:relative;background:#080808}
 #map-canvas{display:block;position:absolute;top:0;left:0}
 /* ── RIGHT PANEL (Properties + Layers) ── */
-#map-right-panel{width:220px;border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+#map-right-panel{width:220px;border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;transition:width .18s}
+#map-right-panel.collapsed{width:18px;overflow:visible}
+#map-right-panel.collapsed #map-props-panel,
+#map-right-panel.collapsed #map-layers-panel{display:none!important}
+#map-panel-toggle{position:absolute;left:-18px;top:50%;transform:translateY(-50%);width:18px;height:48px;background:var(--bg-card);border:1px solid var(--border);border-right:none;border-radius:4px 0 0 4px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:10px;z-index:20;transition:color .12s,background .12s}
+#map-panel-toggle:hover{color:var(--gold);background:var(--bg-panel)}
 #map-props-panel{background:var(--bg-panel);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;border-bottom:1px solid var(--border);max-height:46%}
 /* ── LAYERS PANEL (now part of right panel) ── */
 #map-layers-panel{background:var(--bg-panel);display:flex;flex-direction:column;flex:1;overflow:hidden}
@@ -1247,7 +1252,8 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
             </div>
           </div>
           <!-- RIGHT: PROPERTIES + LAYERS -->
-          <div id="map-right-panel">
+          <div id="map-right-panel" style="position:relative">
+            <button id="map-panel-toggle" title="Toggle panel (P)" onclick="_toggleMapPanel()">◀</button>
             <div id="map-props-panel">
               <div id="map-props-hdr">Properties</div>
               <div id="map-props-body">
@@ -4625,6 +4631,11 @@ function mapMD(e) {
   const rect = MAP.canvas.getBoundingClientRect();
   const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
   const w = s2w(sx, sy);
+  // Double-click on text object → inline edit
+  if (e.detail >= 2 && e.button === 0) {
+    const dblHit = getObjectAt(w.x, w.y);
+    if (dblHit && dblHit.type === 'text') { _mapInlineEditText(dblHit, e.clientX, e.clientY); return; }
+  }
 
   if (MAP.tool === 'pan' || e.button === 1) {
     e.preventDefault(); // prevent middle-click browser auto-scroll / focus loss
@@ -4870,6 +4881,30 @@ function mapMD(e) {
   MAP.drawCurrent = {x: snap(w.x), y: snap(w.y)};
 }
 
+function _mapInlineEditText(obj, cx, cy) {
+  const sp = w2s(obj.x, obj.y);
+  const cRect = MAP.canvas.getBoundingClientRect();
+  const inp = document.createElement('input');
+  const fs = Math.max(10, (obj.fontSize||14) * MAP.cam.zoom);
+  Object.assign(inp.style, {
+    position:'fixed', left:(cRect.left+sp.x)+'px', top:(cRect.top+sp.y-4)+'px',
+    fontSize:fs+'px', fontFamily:'Rajdhani,sans-serif', fontWeight:'bold',
+    color:obj.fill||'#c9a227', background:'rgba(10,10,10,0.85)',
+    border:'1px solid #c9a227', borderRadius:'3px', padding:'2px 6px',
+    minWidth:'60px', outline:'none', zIndex:99999
+  });
+  inp.value = obj.text||'';
+  document.body.appendChild(inp);
+  inp.focus(); inp.select();
+  const commit = () => {
+    const val = inp.value.trim();
+    if (val !== null) { mapPushHistory(); obj.text=val; obj.name=val; renderMap(); renderMapProps(); autoSave(); mapSaveCurrent(); }
+    inp.remove();
+  };
+  inp.addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();commit();} if(e.key==='Escape'){inp.remove();} });
+  inp.addEventListener('blur', commit);
+}
+
 function mapMM(e) {
   const rect = MAP.canvas.getBoundingClientRect();
   const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
@@ -5072,6 +5107,7 @@ function mapMM(e) {
       obj.y = newCy - nh / 2;
       obj.w = nw; obj.h = nh;
       if (obj.type === 'circle') obj.r = Math.max(4, snap(obj.w/2));
+      if (obj.type === 'text') obj.fontSize = Math.max(4, Math.round(nh / 1.4));
       renderMap(); renderMapProps();
     }
     return;
@@ -5474,7 +5510,6 @@ function getObjectsInMarquee(sx1,sy1,sx2,sy2){
 }
 
 function getResizeHandle(obj, sx, sy) {
-  if (obj.type==='text') return null;
   // Special types: use virtual bbox for handle positions
   if (obj.type==='circle'||obj.type==='light'||obj.type==='poly'||obj.type==='arrow'||obj.type==='draw'||obj.type==='person'||obj.type==='enemy') {
     const bb=_getObjBBox(obj);
@@ -6798,6 +6833,14 @@ function toggleLayerVis(l){MAP.hiddenLayers.has(l)?MAP.hiddenLayers.delete(l):MA
 function toggleLayerLock(l){MAP.lockedLayers.has(l)?MAP.lockedLayers.delete(l):MAP.lockedLayers.add(l);renderMapLayers();}
 function addLayer(){const name=prompt('Layer name:');if(!name||MAP.layers.includes(name))return;MAP.layers.push(name);renderMapLayers();}
 
+function _toggleMapPanel(){
+  const p=document.getElementById('map-right-panel');
+  const btn=document.getElementById('map-panel-toggle');
+  const collapsed=p.classList.toggle('collapsed');
+  btn.textContent=collapsed?'▶':'◀';
+  btn.title=collapsed?'Show panel':'Hide panel';
+  setTimeout(()=>{ if(MAP.canvas){ MAP.canvas.width=MAP.canvas.parentElement.clientWidth; MAP.canvas.height=MAP.canvas.parentElement.clientHeight; renderMap(); } },200);
+}
 function renderMapProps() {
   const body=document.getElementById('map-props-body');
   const hdr=document.getElementById('map-props-hdr');
@@ -6832,7 +6875,11 @@ function renderMapProps() {
   const id=[...MAP.selectedIds][0];
   const obj=MAP.objects.find(o=>o.id===id);
   if(!obj){body.innerHTML='';return;}
-  hdr.textContent=obj.name||'Object';
+  if(obj.type==='text'){
+    hdr.innerHTML=`<input id="mp-text-hdr-inp" style="background:none;border:none;border-bottom:1px solid var(--gold-dim);color:var(--gold);font-family:var(--fu);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;width:100%;outline:none;padding:0" value="${(obj.text||'').replace(/"/g,'&quot;')}" placeholder="Text content" oninput="updateMapObj('${id}','text',this.value);updateMapObj('${id}','name',this.value)">`;
+  } else {
+    hdr.textContent=obj.name||'Object';
+  }
   const numInput=(label,key,val)=>`<div class="mp-row"><span class="mp-label">${label}</span><input class="mp-input" type="number" value="${Math.round(val)}" oninput="updateMapObj('${id}','${key}',+this.value)"></div>`;
   body.innerHTML=`
     <div class="mp-section">
