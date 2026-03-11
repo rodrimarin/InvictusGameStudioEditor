@@ -5051,9 +5051,20 @@ function mapMM(e) {
   }
 
   if (MAP.isDrawing && MAP.tool === 'draw' && MAP.drawPoints) {
-    const pt = {x:snap(w.x), y:snap(w.y)};
-    const last = MAP.drawPoints[MAP.drawPoints.length-1];
-    if (Math.hypot(pt.x-last.x, pt.y-last.y) > 3) { MAP.drawPoints.push(pt); renderMap(); }
+    if (e.shiftKey && MAP.drawPoints.length >= 1) {
+      // Straight line constrained to 45° increments (Photoshop style)
+      const start = MAP.drawPoints[0];
+      const dx = w.x - start.x, dy = w.y - start.y;
+      const ang = Math.round(Math.atan2(dy, dx) / (Math.PI/4)) * (Math.PI/4);
+      const dist = Math.hypot(dx, dy);
+      const end = { x: Math.round(start.x + dist*Math.cos(ang)), y: Math.round(start.y + dist*Math.sin(ang)) };
+      MAP.drawPoints = [start, end];
+      renderMap();
+    } else {
+      const pt = {x:w.x, y:w.y};
+      const last = MAP.drawPoints[MAP.drawPoints.length-1];
+      if (Math.hypot(pt.x-last.x, pt.y-last.y) > 3) { MAP.drawPoints.push(pt); renderMap(); }
+    }
     return;
   }
 
