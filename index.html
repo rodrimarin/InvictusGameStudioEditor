@@ -8479,6 +8479,15 @@ document.addEventListener('keydown', e => {
     else setTool(toolKeys[e.key]);
     e.preventDefault();
   }
+  if(e.ctrlKey&&e.key==='a'){
+    const _aMod=document.querySelector('.sb-item.active')?.dataset?.mod;
+    if(_aMod==='map'&&MAP.currentMapId){
+      e.preventDefault();
+      MAP.objects.filter(o=>!o.locked&&o.visible!==false).forEach(o=>MAP.selectedIds.add(o.id));
+      renderMap();renderMapProps();
+    }
+    return;
+  }
   if(e.key==='Delete'||e.key==='Backspace'){
     const _aMod=document.querySelector('.sb-item.active')?.dataset?.mod;
     if(_aMod==='ldd'&&FC.selectedNode){deleteFlowNode(FC.selectedNode);return;}
