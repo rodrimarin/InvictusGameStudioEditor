@@ -5333,7 +5333,8 @@ function mapRC(e) {
   if(coveringObj) html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','above','${coveringObj.id}')">⤴ Bring Above Covering</button>`;
   html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','down')">↓ Send Backward</button>`;
   html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','back')">⬇ Send to Back</button>`;
-  html+=`<hr><button onclick="_closeCtxMenu();_layerOrder('${id}','dup')">⧉ Duplicate</button>`;
+  html+=`<hr><button onclick="_closeCtxMenu();toggleObjLock('${id}');renderMap();renderMapProps()">${hit.locked?'🔓 Unlock':'🔒 Lock'}</button>`;
+  html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','dup')">⧉ Duplicate</button>`;
   html+=`<button class="danger" onclick="_closeCtxMenu();mapPushHistory();MAP.objects=MAP.objects.filter(o=>o.id!=='${id}');MAP.selectedIds.clear();renderMap();renderMapProps();renderMapLayers();autoSave();mapSaveCurrent()">🗑 Delete</button>`;
   menu.innerHTML=html;
   menu.style.left=Math.min(e.clientX,window.innerWidth-180)+'px';
@@ -7191,8 +7192,9 @@ function renderMapProps() {
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" ${obj.blocksAI?'checked':''} onchange="updateMapObj('${id}','blocksAI',this.checked)" style="accent-color:var(--gold)"> Blocks AI</label>
     </div>
     <div style="display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-      <button class="btn btn-sm" onclick="duplicateMapObj('${id}')">Duplicate</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteMapObj('${id}')">Delete</button>
+      <button class="btn btn-sm" onclick="toggleObjLock('${id}');renderMap();renderMapProps()" style="flex:1">${obj.locked?'🔓 Unlock':'🔒 Lock'}</button>
+      <button class="btn btn-sm" onclick="duplicateMapObj('${id}')">Dup</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteMapObj('${id}')">Del</button>
     </div>`;
 }
 
