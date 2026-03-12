@@ -321,7 +321,10 @@ body.focus-mode #focus-btn{display:flex}
 #map-props-panel{background:var(--bg-panel);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;border-bottom:1px solid var(--border);max-height:46%}
 /* ── LAYERS PANEL (now part of right panel) ── */
 #map-layers-panel{background:var(--bg-panel);display:flex;flex-direction:column;flex:1;overflow:hidden}
-#map-layers-hdr{padding:8px 10px 6px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:4px}
+#map-layers-hdr{padding:8px 10px 4px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+#layer-search{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-family:var(--fm);font-size:10px;color:var(--text-primary);outline:none;margin-top:4px;flex-shrink:0}
+#layer-search::placeholder{color:var(--text-muted)}
+#layer-search:focus{border-color:var(--gold-dim)}
 #map-layers-list{flex:1;overflow-y:auto;padding:4px}
 .layer-row{display:flex;align-items:center;gap:3px;padding:5px 5px;border-radius:4px;cursor:pointer;border:1px solid transparent;border-top:2px solid transparent;border-bottom:2px solid transparent;transition:background .12s,border-color .12s,transform .1s,opacity .12s;margin-bottom:1px;position:relative}
 .layer-row:hover{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.05)}
@@ -345,6 +348,9 @@ body.focus-mode #focus-btn{display:flex}
 .layer-lock-closed{color:#c9a227!important;opacity:1!important}
 /* Hidden row */
 .layer-row.hidden-obj{opacity:.35}
+.layer-row.locked-obj{border-left:2px solid rgba(201,162,39,.6)!important;background:rgba(201,162,39,.04)}
+.layer-row.layer-flash{animation:layerFlash .5s ease 3}
+@keyframes layerFlash{0%,100%{background:rgba(201,162,39,.0)}50%{background:rgba(201,162,39,.28)}}
 /* Color swatch */
 .layer-color-swatch{width:8px;height:8px;border-radius:2px;flex-shrink:0;border:1px solid rgba(255,255,255,.18);margin-right:1px}
 /* Type badge for non-block types */
@@ -1266,6 +1272,7 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
                 <span style="font-family:var(--fm);font-size:9px;color:var(--text-muted)" id="layers-count"></span>
                 <button class="btn btn-sm" style="padding:2px 6px;font-size:10px;margin-left:4px" onclick="groupSelected()" title="Agrupar objetos seleccionados (2+)">📁 <span data-i18n="group">Group</span></button>
               </div>
+              <input id="layer-search" placeholder="🔍 Filter layers..." oninput="_filterLayers(this.value)">
               <div id="map-layers-list"></div>
             </div>
           </div>
@@ -4753,6 +4760,8 @@ function mapMD(e) {
     } else {
       // Start rubber-band marquee on empty canvas
       if (!e.shiftKey) { MAP.selectedIds.clear(); _stopMarchingAnts(); }
+      // Flash locked objects in layer panel when clicked
+      if(!e.shiftKey){ const _lh=getObjectAtAny(w.x,w.y); if(_lh&&_lh.locked) _flashLayerRow(_lh.id); }
       MAP.isMarquee = true;
       MAP.marqueeStart = {sx, sy};
       MAP.marqueeCurrent = {sx, sy};
@@ -5299,9 +5308,9 @@ function mapRC(e) {
   if(MAP.tool==='poly'){MAP.polyPoints=[];MAP.isDrawing=false;renderMap();return;}
   // Cancel shift-click path
   if(MAP.shiftLinePath){MAP.shiftLinePath=null;renderMap();return;}
-  const hit=getObjectAt(w.x,w.y);
   // Multi-select right-click: show group/ungroup + bulk actions
-  if(MAP.selectedIds.size>1&&hit&&MAP.selectedIds.has(hit.id)){
+  const hitMulti=getObjectAt(w.x,w.y);
+  if(MAP.selectedIds.size>1&&hitMulti&&MAP.selectedIds.has(hitMulti.id)){
     const menu=document.getElementById('layer-ctx-menu');
     const selIds=[...MAP.selectedIds];
     const parentGrp=MAP.groups.find(g=>selIds.every(id=>g.childIds.includes(id)));
@@ -5319,23 +5328,30 @@ function mapRC(e) {
     menu.classList.add('open');
     return;
   }
+  const hit=getObjectAtAny(w.x,w.y);
   if(!hit) return;
   // Show layer-order context menu
-  MAP.selectedIds.clear(); MAP.selectedIds.add(hit.id);
-  renderMap(); renderMapProps();
+  if(!hit.locked){ MAP.selectedIds.clear(); MAP.selectedIds.add(hit.id); renderMap(); renderMapProps(); }
+  else { _flashLayerRow(hit.id); }
   const menu=document.getElementById('layer-ctx-menu');
   const id=hit.id;
   // Find object overlapping this one (for "bring above covering object")
-  const overlapping=MAP.objects.filter(o=>o.id!==id&&_objHitTest(o,w.x,w.y));
+  const overlapping=MAP.objects.filter(o=>o.id!==id&&_objHitTest(o,w.x,w.y,true));
   const coveringObj=overlapping.length?overlapping[overlapping.length-1]:null;
-  let html=`<button onclick="_closeCtxMenu();_layerOrder('${id}','front')">⬆ Bring to Front</button>`;
-  html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','up')">↑ Bring Forward</button>`;
-  if(coveringObj) html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','above','${coveringObj.id}')">⤴ Bring Above Covering</button>`;
-  html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','down')">↓ Send Backward</button>`;
-  html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','back')">⬇ Send to Back</button>`;
-  html+=`<hr><button onclick="_closeCtxMenu();toggleObjLock('${id}');renderMap();renderMapProps()">${hit.locked?'🔓 Unlock':'🔒 Lock'}</button>`;
-  html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','dup')">⧉ Duplicate</button>`;
-  html+=`<button class="danger" onclick="_closeCtxMenu();mapPushHistory();MAP.objects=MAP.objects.filter(o=>o.id!=='${id}');MAP.selectedIds.clear();renderMap();renderMapProps();renderMapLayers();autoSave();mapSaveCurrent()">🗑 Delete</button>`;
+  let html='';
+  if(!hit.locked){
+    html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','front')">⬆ Bring to Front</button>`;
+    html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','up')">↑ Bring Forward</button>`;
+    if(coveringObj) html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','above','${coveringObj.id}')">⤴ Bring Above Covering</button>`;
+    html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','down')">↓ Send Backward</button>`;
+    html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','back')">⬇ Send to Back</button>`;
+    html+=`<hr>`;
+  }
+  html+=`<button onclick="_closeCtxMenu();toggleObjLock('${id}');renderMap();renderMapProps()">${hit.locked?'🔓 Unlock':'🔒 Lock'}</button>`;
+  if(!hit.locked){
+    html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','dup')">⧉ Duplicate</button>`;
+    html+=`<button class="danger" onclick="_closeCtxMenu();mapPushHistory();MAP.objects=MAP.objects.filter(o=>o.id!=='${id}');MAP.selectedIds.clear();renderMap();renderMapProps();renderMapLayers();autoSave();mapSaveCurrent()">🗑 Delete</button>`;
+  }
   menu.innerHTML=html;
   menu.style.left=Math.min(e.clientX,window.innerWidth-180)+'px';
   menu.style.top=Math.min(e.clientY,window.innerHeight-200)+'px';
@@ -5400,8 +5416,9 @@ function _getRotateHandlePos(obj) {
   return { x: rtx + ndx/len * 26, y: rty + ndy/len * 26 };
 }
 
-function _objHitTest(obj,wx,wy){
-  if(obj.hidden||obj.locked||obj.visible===false) return false;
+function _objHitTest(obj,wx,wy,allowLocked){
+  if(obj.hidden||obj.visible===false) return false;
+  if(!allowLocked && obj.locked) return false;
   // Un-rotate test point for rotated rect-like objects
   if(obj.rotation && obj.w && obj.h){
     const cx=obj.x+obj.w/2, cy=obj.y+obj.h/2;
@@ -5422,6 +5439,14 @@ function getObjectAt(wx, wy) {
   for(let i=MAP.objects.length-1;i>=0;i--){
     const obj=MAP.objects[i];
     if(_objHitTest(obj,wx,wy)) return obj;
+  }
+  return null;
+}
+function getObjectAtAny(wx, wy) {
+  // Like getObjectAt but includes locked objects (for right-click, layer highlight)
+  for(let i=MAP.objects.length-1;i>=0;i--){
+    const obj=MAP.objects[i];
+    if(_objHitTest(obj,wx,wy,true)) return obj;
   }
   return null;
 }
@@ -6611,15 +6636,15 @@ function renderMapLayers() {
   const EYE_OFF=`<svg width="11" height="11" viewBox="0 0 11 11" fill="none" style="display:block"><path d="M1 5.5C2.5 3 4 2 5.5 2s3 1 4.5 3.5C8.5 8 7 9 5.5 9S2.5 8 1 5.5Z" stroke="currentColor" stroke-width="1.2" opacity=".3"/><line x1="1.5" y1="1.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.3"/></svg>`;
   const DRAG_HANDLE=`<svg width="8" height="12" viewBox="0 0 8 12" fill="currentColor" style="display:block;opacity:.4"><circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/><circle cx="2" cy="6" r="1.2"/><circle cx="6" cy="6" r="1.2"/><circle cx="2" cy="10" r="1.2"/><circle cx="6" cy="10" r="1.2"/></svg>`;
 
-  const TYPE_ICONS={rect:'▭',wall:'▮',circle:'◯',poly:'⬡',stair:'⊟',light:'✦',person:'◉',enemy:'✕',arrow:'↗',draw:'~',asset:'⊞'};
-  const TYPE_COLORS={wall:'#c9a227',rect:'#5eaaff',circle:'#4ecb71',poly:'#cc7bdb',stair:'#d49a2a',light:'#ffcc55',person:'#4a9eff',enemy:'#e05252',arrow:'#c9a227aa',draw:'#4ecb71',text:'#c9a227',asset:'#ccaa77'};
+  const TYPE_ICONS={rect:'▭',wall:'▮',circle:'◯',poly:'⬡',stair:'⊟',light:'✦',person:'◉',enemy:'✕',arrow:'↗',draw:'~',asset:'⊞',gameprop:'⬡',text:'T'};
+  const TYPE_COLORS={wall:'#c9a227',rect:'#5eaaff',circle:'#4ecb71',poly:'#cc7bdb',stair:'#d49a2a',light:'#ffcc55',person:'#4a9eff',enemy:'#e05252',arrow:'#c9a227aa',draw:'#4ecb71',text:'#c9a227',asset:'#ccaa77',gameprop:'#4ecb71'};
 
   // ── Build a single layer row ────────────────────────────────
   function _mkRow(obj, indent) {
     const isSelected=MAP.selectedIds.has(obj.id);
     const isText=obj.type==='text';
     const row=document.createElement('div');
-    row.className='layer-row'+(isSelected?' active':'')+(obj.hidden?' hidden-obj':'');
+    row.className='layer-row'+(isSelected?' active':'')+(obj.hidden?' hidden-obj':'')+(obj.locked?' locked-obj':'');
     row.dataset.id=obj.id;
     if(indent) row.style.paddingLeft='20px';
 
@@ -6732,6 +6757,9 @@ function renderMapLayers() {
     });
     list.appendChild(row);
   });
+  // Scroll first selected row into view
+  const firstActive=list.querySelector('.active');
+  if(firstActive) firstActive.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
 
 function toggleObjVis(id){const obj=MAP.objects.find(o=>o.id===id);if(obj){obj.hidden=!obj.hidden;renderMap();renderMapLayers();mapSaveCurrent();}}
@@ -6827,6 +6855,27 @@ function removeFromGroup(objId,grpId){
   if(g) g.childIds=g.childIds.filter(id=>id!==objId);
   if(g&&g.childIds.length===0) MAP.groups=MAP.groups.filter(x=>x.id!==grpId);
   renderMapLayers();mapSaveCurrent();
+}
+
+function _flashLayerRow(id){
+  renderMapLayers();
+  requestAnimationFrame(()=>{
+    const row=document.querySelector(`#map-layers-list [data-id="${id}"]`);
+    if(!row) return;
+    row.scrollIntoView({block:'nearest',behavior:'smooth'});
+    row.classList.remove('layer-flash');
+    void row.offsetWidth; // force reflow
+    row.classList.add('layer-flash');
+    setTimeout(()=>row.classList.remove('layer-flash'),1600);
+  });
+}
+function _filterLayers(q){
+  const rows=document.querySelectorAll('#map-layers-list .layer-row');
+  const lq=q.toLowerCase().trim();
+  rows.forEach(row=>{
+    const name=(row.querySelector('.layer-name')||{}).textContent||'';
+    row.style.display=(!lq||name.toLowerCase().includes(lq))?'':'none';
+  });
 }
 
 // Right-click context menu for layers panel
