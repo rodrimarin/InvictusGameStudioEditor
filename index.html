@@ -5395,21 +5395,14 @@ function _objHitTest(obj,wx,wy){
   if(obj.type==='draw') return obj.points&&_ptNearPath(wx,wy,obj.points,8);
   return wx>=obj.x&&wx<=obj.x+(obj.w||0)&&wy>=obj.y&&wy<=obj.y+(obj.h||0);
 }
-function _objArea(obj){
-  if(obj.type==='circle'||obj.type==='light') return Math.PI*(obj.r||32)**2;
-  if(obj.type==='arrow'||obj.type==='draw') return 500; // lines always preferred
-  return (obj.w||64)*(obj.h||64);
-}
 function getObjectAt(wx, wy) {
-  // Collect all hits then return smallest-area (easier to select small objects over large)
-  const hits=[];
+  // Return topmost object: highest array index = drawn last = visually on top
+  // Click again on same object to cycle to the one below (getObjectAtBelow)
   for(let i=MAP.objects.length-1;i>=0;i--){
     const obj=MAP.objects[i];
-    if(_objHitTest(obj,wx,wy)) hits.push(obj);
+    if(_objHitTest(obj,wx,wy)) return obj;
   }
-  if(!hits.length) return null;
-  hits.sort((a,b)=>_objArea(a)-_objArea(b));
-  return hits[0];
+  return null;
 }
 function getObjectAtBelow(wx,wy,excludeId){
   let found=false;
