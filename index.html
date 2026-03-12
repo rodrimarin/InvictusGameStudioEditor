@@ -4732,8 +4732,8 @@ function mapMD(e) {
         renderMap(); renderMapProps(); renderMapLayers(); return;
       } else if (!e.shiftKey && MAP.selectedIds.size > 1 && MAP.selectedIds.has(hit.id)) {
         // Clicking inside a multi-selection → keep the whole group, just start drag
-      } else if (!e.shiftKey && MAP.selectedIds.size===1 && MAP.selectedIds.has(hit.id)) {
-        // Clicking same single object → cycle to one below
+      } else if (!e.shiftKey && e.altKey && MAP.selectedIds.size===1 && MAP.selectedIds.has(hit.id)) {
+        // Alt+click on same selected object → cycle to one below
         const below = getObjectAtBelow(w.x, w.y, hit.id);
         const next = below || hit;
         MAP.selectedIds.clear(); MAP.selectedIds.add(next.id);
@@ -5362,6 +5362,26 @@ function _layerOrder(id, action, refId) {
     renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); return;
   }
   renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent();
+}
+
+function flipMapObj(id, axis) {
+  const obj=MAP.objects.find(o=>o.id===id);
+  if(!obj) return;
+  mapPushHistory();
+  if(obj.type==='draw'||obj.type==='poly') {
+    const pts=obj.points||[];
+    if(axis==='x'){ const cx2=obj.x+(obj.w||0)/2; obj.points=pts.map(pt=>({x:2*cx2-pt.x,y:pt.y})); }
+    else           { const cy2=obj.y+(obj.h||0)/2; obj.points=pts.map(pt=>({x:pt.x,y:2*cy2-pt.y})); }
+    if(obj.points.length){obj.x=Math.min(...obj.points.map(p=>p.x));obj.y=Math.min(...obj.points.map(p=>p.y));obj.w=Math.max(...obj.points.map(p=>p.x))-obj.x;obj.h=Math.max(...obj.points.map(p=>p.y))-obj.y;}
+  } else if(obj.type==='arrow') {
+    const ax=obj.x,ay=obj.y,ax2=obj.x2||obj.x+64,ay2=obj.y2||obj.y;
+    if(axis==='x'){ const cx2=(ax+ax2)/2; obj.x=2*cx2-ax2; obj.x2=2*cx2-ax; }
+    else           { const cy2=(ay+ay2)/2; obj.y=2*cy2-ay2; obj.y2=2*cy2-ay; }
+  } else {
+    if(axis==='x') obj.flipX=!obj.flipX;
+    else           obj.flipY=!obj.flipY;
+  }
+  renderMap(); renderMapProps(); autoSave(); mapSaveCurrent();
 }
 
 // Returns the screen position of the rotate handle for a selected object
@@ -6195,12 +6215,17 @@ function drawObj(obj,ctx) {
   ctx.save();
   ctx.globalAlpha=obj.opacity!==undefined?obj.opacity:1;
   const p=w2s(obj.x,obj.y);
-  // Apply rotation around object center
+  // Apply rotation + flip around object center
+  const _cp = (obj.w && obj.h) ? w2s(obj.x+obj.w/2, obj.y+obj.h/2) : p;
   if(obj.rotation && obj.rotation!==0 && obj.w && obj.h){
-    const cp=w2s(obj.x+obj.w/2, obj.y+obj.h/2);
-    ctx.translate(cp.x,cp.y);
+    ctx.translate(_cp.x,_cp.y);
     ctx.rotate(obj.rotation*Math.PI/180);
-    ctx.translate(-cp.x,-cp.y);
+    ctx.translate(-_cp.x,-_cp.y);
+  }
+  if(obj.flipX || obj.flipY){
+    ctx.translate(_cp.x,_cp.y);
+    ctx.scale(obj.flipX?-1:1, obj.flipY?-1:1);
+    ctx.translate(-_cp.x,-_cp.y);
   }
 
   if(obj.type==='circle'){
@@ -7144,7 +7169,11 @@ function renderMapProps() {
       ${numInput('X','x',obj.x)}
       ${numInput('Y','y',obj.y)}
       ${obj.type==='circle'?numInput('Radius','r',obj.r):obj.type==='text'?`${numInput('Font Size','fontSize',obj.fontSize||14)}`:`${numInput('Width','w',obj.w)}${numInput('Height','h',obj.h)}`}
-      ${(obj.type!=='circle'&&obj.type!=='arrow'&&obj.type!=='poly'&&obj.type!=='draw')?numInput('Rotation°','rotation',obj.rotation||0):''}
+      ${numInput('Rotation°','rotation',obj.rotation||0)}
+      <div class="mp-row" style="gap:4px;display:flex;margin-top:2px">
+        <button class="btn btn-sm" style="flex:1;font-size:10px;padding:3px 0" onclick="flipMapObj('${id}','x')">⇔ Flip H</button>
+        <button class="btn btn-sm" style="flex:1;font-size:10px;padding:3px 0" onclick="flipMapObj('${id}','y')">⇕ Flip V</button>
+      </div>
     </div>
     ${obj.type==='text'?`<div class="mp-section"><div class="mp-section-title">Text Content</div>
       <div class="mp-row"><input class="mp-input" value="${(obj.text||'').replace(/"/g,'&quot;')}" oninput="updateMapObj('${id}','text',this.value);updateMapObj('${id}','name',this.value)"></div>
