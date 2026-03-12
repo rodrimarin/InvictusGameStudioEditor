@@ -5346,6 +5346,12 @@ function mapRC(e) {
     html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','down')">↓ Send Backward</button>`;
     html+=`<button onclick="_closeCtxMenu();_layerOrder('${id}','back')">⬇ Send to Back</button>`;
     html+=`<hr>`;
+    html+=`<button onclick="_closeCtxMenu();flipMapObj('${id}','x')">↔ Flip Horizontal</button>`;
+    html+=`<button onclick="_closeCtxMenu();flipMapObj('${id}','y')">↕ Flip Vertical</button>`;
+    html+=`<button onclick="_closeCtxMenu();_rotateCtx('${id}',90)">↻ Rotate 90°</button>`;
+    html+=`<button onclick="_closeCtxMenu();_rotateCtx('${id}',-90)">↺ Rotate -90°</button>`;
+    html+=`<button onclick="_closeCtxMenu();_rotateCtx('${id}',180)">⟳ Rotate 180°</button>`;
+    html+=`<hr>`;
   }
   html+=`<button onclick="_closeCtxMenu();toggleObjLock('${id}');renderMap();renderMapProps()">${hit.locked?'🔓 Unlock':'🔒 Lock'}</button>`;
   if(!hit.locked){
@@ -5354,7 +5360,7 @@ function mapRC(e) {
   }
   menu.innerHTML=html;
   menu.style.left=Math.min(e.clientX,window.innerWidth-180)+'px';
-  menu.style.top=Math.min(e.clientY,window.innerHeight-200)+'px';
+  menu.style.top=Math.min(e.clientY,window.innerHeight-320)+'px';
   menu.classList.add('open');
 }
 function _layerOrder(id, action, refId) {
@@ -5379,6 +5385,32 @@ function _layerOrder(id, action, refId) {
     renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent(); return;
   }
   renderMap(); renderMapProps(); renderMapLayers(); autoSave(); mapSaveCurrent();
+}
+function _rotateCtx(id, deg) {
+  const obj=MAP.objects.find(o=>o.id===id);
+  if(!obj) return;
+  mapPushHistory();
+  const rad=deg*Math.PI/180;
+  if(obj.type==='arrow'){
+    const cx2=(obj.x+(obj.x2||obj.x))/2, cy2=(obj.y+(obj.y2||obj.y))/2;
+    const cos=Math.cos(rad), sin=Math.sin(rad);
+    const rx1=obj.x-cx2, ry1=obj.y-cy2;
+    const rx2=(obj.x2||obj.x)-cx2, ry2=(obj.y2||obj.y)-cy2;
+    obj.x=cx2+rx1*cos-ry1*sin; obj.y=cy2+rx1*sin+ry1*cos;
+    obj.x2=cx2+rx2*cos-ry2*sin; obj.y2=cy2+rx2*sin+ry2*cos;
+  } else if((obj.type==='draw'||obj.type==='poly')&&obj.points){
+    const cx2=obj.x+(obj.w||0)/2, cy2=obj.y+(obj.h||0)/2;
+    const cos=Math.cos(rad), sin=Math.sin(rad);
+    obj.points=obj.points.map(p=>{
+      const rx=p.x-cx2, ry=p.y-cy2;
+      return {x:cx2+rx*cos-ry*sin, y:cy2+rx*sin+ry*cos};
+    });
+    obj.x=Math.min(...obj.points.map(p=>p.x)); obj.y=Math.min(...obj.points.map(p=>p.y));
+    obj.w=Math.max(...obj.points.map(p=>p.x))-obj.x; obj.h=Math.max(...obj.points.map(p=>p.y))-obj.y;
+  } else {
+    obj.rotation=((obj.rotation||0)+deg+360)%360;
+  }
+  renderMap(); renderMapProps(); autoSave(); mapSaveCurrent();
 }
 
 function flipMapObj(id, axis) {
