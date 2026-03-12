@@ -5623,34 +5623,35 @@ function _drawGameprop(ctx,obj,p){
       });
       break;}
     case 'tree':{
-      const trunkW=Math.max(3,sw*.16), trunkH=sh*.3;
-      const trunkX=cx-trunkW/2, trunkY=cy+sh*.18;
-      const cR=Math.min(sw*.42,sh*.44), cCy=cy-sh*.04;
-      // Trunk shadow
-      ctx.fillStyle='rgba(0,0,0,0.28)';
-      ctx.beginPath(); ctx.ellipse(cx+trunkW*.5,trunkY+trunkH*.8,trunkW,trunkH*.25,0,0,PI2); ctx.fill();
+      // Side-view pine: trunk + 3 stacked triangle tiers (pinito shape)
+      const tW=Math.max(3,sw*.13), tH=sh*.3, tX=cx-tW/2, tY=cy+sh*.68;
+      // Drop shadow
+      ctx.fillStyle='rgba(0,0,0,0.3)';
+      ctx.beginPath(); ctx.ellipse(cx+sw*.08,cy+sh*.94,sw*.35,sh*.1,0,0,PI2); ctx.fill();
       // Trunk
-      const grTK=ctx.createLinearGradient(trunkX,0,trunkX+trunkW,0);
-      grTK.addColorStop(0,'#3a1e06'); grTK.addColorStop(.3,'#7a4e20'); grTK.addColorStop(.7,'#6a4018'); grTK.addColorStop(1,'#2e1606');
-      ctx.fillStyle=grTK; ctx.strokeStyle='#1a0e04'; ctx.lineWidth=Math.max(.8,1.2*z);
-      ctx.beginPath(); ctx.roundRect(trunkX,trunkY,trunkW,trunkH,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
-      ctx.strokeStyle='rgba(0,0,0,0.28)'; ctx.lineWidth=Math.max(.4,.5*z);
-      ctx.beginPath(); ctx.moveTo(cx-trunkW*.08,trunkY+trunkH*.18); ctx.lineTo(cx-trunkW*.08,trunkY+trunkH*.82); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx+trunkW*.22,trunkY+trunkH*.12); ctx.lineTo(cx+trunkW*.22,trunkY+trunkH*.78); ctx.stroke();
-      // Canopy drop shadow
-      ctx.fillStyle='rgba(0,0,0,0.2)';
-      ctx.beginPath(); ctx.ellipse(cx+cR*.1,cCy+cR*.12,cR*.92,cR*.78,0,0,PI2); ctx.fill();
-      // Canopy dark rim
-      ctx.fillStyle='#0e2e06'; ctx.beginPath(); ctx.arc(cx,cCy,cR,0,PI2); ctx.fill();
-      ctx.strokeStyle='#081a04'; ctx.lineWidth=Math.max(1,1.5*z); ctx.stroke();
-      // Canopy main
-      const grC=ctx.createRadialGradient(cx-cR*.18,cCy-cR*.2,cR*.02,cx+cR*.06,cCy+cR*.06,cR*.9);
-      grC.addColorStop(0,'#58c028'); grC.addColorStop(.4,'#308818'); grC.addColorStop(.78,'#1c5c0e'); grC.addColorStop(1,'#0c2e06');
-      ctx.fillStyle=grC; ctx.beginPath(); ctx.arc(cx,cCy,cR*.92,0,PI2); ctx.fill();
-      // Highlight
-      const grHL=ctx.createRadialGradient(cx-cR*.32,cCy-cR*.34,0,cx-cR*.14,cCy-cR*.14,cR*.52);
-      grHL.addColorStop(0,'rgba(160,240,90,0.48)'); grHL.addColorStop(1,'rgba(160,240,90,0)');
-      ctx.fillStyle=grHL; ctx.beginPath(); ctx.arc(cx,cCy,cR*.92,0,PI2); ctx.fill();
+      const grTK=ctx.createLinearGradient(tX,0,tX+tW,0);
+      grTK.addColorStop(0,'#3a1e06'); grTK.addColorStop(.4,'#7a4e20'); grTK.addColorStop(1,'#2a1606');
+      ctx.fillStyle=grTK; ctx.strokeStyle='#1a0e04'; ctx.lineWidth=Math.max(.6,1*z);
+      ctx.beginPath(); ctx.rect(tX,tY,tW,tH); ctx.fill(); ctx.stroke();
+      // 3 triangle tiers — bottom/mid/top, overlapping
+      const tiers=[
+        {top:cy+sh*.1, bot:cy+sh*.7, half:sw*.88},  // bottom tier (widest)
+        {top:cy-sh*.22,bot:cy+sh*.35,half:sw*.66},  // mid tier
+        {top:cy-sh*.7, bot:cy+sh*.0, half:sw*.44},  // top tier (narrowest)
+      ];
+      tiers.forEach(({top,bot,half},i)=>{
+        const grT=ctx.createLinearGradient(cx,top,cx,bot);
+        grT.addColorStop(0,'#4db228'); grT.addColorStop(.5,'#2e8018'); grT.addColorStop(1,'#164010');
+        ctx.fillStyle=grT; ctx.strokeStyle='#0a2606'; ctx.lineWidth=Math.max(.6,1*z);
+        ctx.beginPath(); ctx.moveTo(cx,top); ctx.lineTo(cx+half,bot); ctx.lineTo(cx-half,bot); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        // Highlight edge
+        const grH=ctx.createLinearGradient(cx-half*.5,top,cx,top+sh*.15);
+        grH.addColorStop(0,'rgba(160,255,80,0.22)'); grH.addColorStop(1,'rgba(160,255,80,0)');
+        ctx.fillStyle=grH;
+        ctx.beginPath(); ctx.moveTo(cx,top); ctx.lineTo(cx+half,bot); ctx.lineTo(cx-half,bot); ctx.closePath();
+        ctx.fill();
+      });
       break;}
     case 'pine':{
       const R=Math.min(sw,sh)*.44;
@@ -5686,23 +5687,32 @@ function _drawGameprop(ctx,obj,p){
       break;}
     case 'bush':{
       // Shadow
-      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath();
-      ctx.ellipse(cx+sw*.06,cy+sh*.15,sw*.44,sh*.28,0,0,PI2); ctx.fill();
-      // Multiple overlapping spheres — varied green shades
-      const bData=[
-        [cx-sw*.28,cy+sh*.08,sw*.24,sh*.22,'#2a7518','#1a5010'],
-        [cx+sw*.18,cy+sh*.06,sw*.26,sh*.2,'#347a1c','#1e5812'],
-        [cx-sw*.06,cy-sh*.08,sw*.28,sh*.22,'#3a8820','#245818'],
-        [cx+sw*.34,cy-sh*.02,sw*.2,sh*.18,'#2e7018','#1c4c10'],
-        [cx-sw*.24,cy-sh*.14,sw*.2,sh*.18,'#327218','#1e4e0e'],
+      ctx.fillStyle='rgba(0,0,0,0.22)';
+      ctx.beginPath(); ctx.ellipse(cx,cy+sh*.32,sw*.4,sh*.14,0,0,PI2); ctx.fill();
+      // Ground line
+      ctx.strokeStyle='#1a4010'; ctx.lineWidth=Math.max(1,1.4*z);
+      ctx.beginPath(); ctx.moveTo(cx-sw*.32,cy+sh*.28); ctx.lineTo(cx+sw*.32,cy+sh*.28); ctx.stroke();
+      // 3 bumps: left, center (tallest), right
+      const bumps=[
+        {bx:cx-sw*.22,by:cy+sh*.1, brx:sw*.22,bry:sh*.22},
+        {bx:cx,       by:cy-sh*.04,brx:sw*.26,bry:sh*.28},
+        {bx:cx+sw*.22,by:cy+sh*.1, brx:sw*.2, bry:sh*.2},
       ];
-      bData.forEach(([bx,by,brx,bry,bc,bs])=>{
-        ctx.fillStyle=bc; ctx.strokeStyle=bs; ctx.lineWidth=Math.max(.5,.8*z);
-        ctx.beginPath(); ctx.ellipse(bx,by,brx,bry,0,0,PI2); ctx.fill(); ctx.stroke();
-        // Highlight
-        const gr=ctx.createRadialGradient(bx-brx*.3,by-bry*.3,brx*.05,bx,by,brx);
-        gr.addColorStop(0,'rgba(120,210,60,0.3)'); gr.addColorStop(1,'rgba(0,0,0,0)');
-        ctx.fillStyle=gr; ctx.beginPath(); ctx.ellipse(bx,by,brx,bry,0,0,PI2); ctx.fill();
+      bumps.forEach(({bx,by,brx,bry})=>{
+        const gf=ctx.createRadialGradient(bx-brx*.25,by-bry*.3,brx*.05,bx,by+bry*.1,brx);
+        gf.addColorStop(0,'#4a9e28'); gf.addColorStop(.5,'#2e7018'); gf.addColorStop(1,'#173d0a');
+        ctx.fillStyle=gf;
+        ctx.beginPath(); ctx.ellipse(bx,by,brx,bry,0,0,PI2); ctx.fill();
+      });
+      ctx.strokeStyle='#0e2a08'; ctx.lineWidth=Math.max(.6,1*z);
+      bumps.forEach(({bx,by,brx,bry})=>{
+        ctx.beginPath(); ctx.ellipse(bx,by,brx,bry,0,0,PI2); ctx.stroke();
+      });
+      bumps.forEach(({bx,by,brx,bry})=>{
+        const gh=ctx.createRadialGradient(bx-brx*.25,by-bry*.35,0,bx,by,brx*.7);
+        gh.addColorStop(0,'rgba(140,230,70,0.32)'); gh.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=gh;
+        ctx.beginPath(); ctx.ellipse(bx,by,brx,bry,0,0,PI2); ctx.fill();
       });
       break;}
     case 'shrub':{
