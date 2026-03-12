@@ -6046,6 +6046,413 @@ function _drawGameprop(ctx,obj,p){
         ctx.beginPath(); ctx.moveTo(bx,by+bh*.28); ctx.lineTo(bx+bw,by+bh*.28); ctx.stroke();
       }
       break;}
+    // ── INDOOR / FURNITURE (side-view) ──────────────────────────────────────
+    case 'sofa':{
+      const lw=Math.max(.8,1.2*z), arm=sw*.12;
+      // Shadow
+      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(cx,cy+sh*.9,sw*.5,sh*.12,0,0,PI2); ctx.fill();
+      // Seat base
+      const grSeat=ctx.createLinearGradient(p.x,cy,p.x,q.y);
+      grSeat.addColorStop(0,'#5a3e2a'); grSeat.addColorStop(1,'#3a2618');
+      ctx.fillStyle=grSeat; ctx.strokeStyle='#2a1a0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,cy+sh*.1,sw,sh*.7,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      // Backrest
+      const grBack=ctx.createLinearGradient(p.x,p.y,p.x,cy+sh*.2);
+      grBack.addColorStop(0,'#6a4a30'); grBack.addColorStop(1,'#4a3020');
+      ctx.fillStyle=grBack; ctx.strokeStyle='#2a1a0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh*.3,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      // Left arm
+      ctx.fillStyle='#5a3e28'; ctx.strokeStyle='#2a1a0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y+sh*.1,arm,sh*.7,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      // Right arm
+      ctx.beginPath(); ctx.roundRect(p.x+sw-arm,p.y+sh*.1,arm,sh*.7,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      // Cushion lines
+      ctx.strokeStyle='rgba(30,15,8,0.4)'; ctx.lineWidth=Math.max(.5,1*z);
+      ctx.beginPath(); ctx.moveTo(cx,cy+sh*.1); ctx.lineTo(cx,q.y-sh*.1); ctx.stroke();
+      // Legs
+      ctx.fillStyle='#2a1a08'; [[sw*.15,0],[sw*.78,0]].forEach(([ox])=>{
+        ctx.beginPath(); ctx.rect(p.x+ox,q.y-sh*.12,sw*.08,sh*.14); ctx.fill();
+      });
+      break;}
+    case 'chair':{
+      const lw=Math.max(.8,1.2*z);
+      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(cx,q.y+sh*.05,sw*.35,sh*.1,0,0,PI2); ctx.fill();
+      // Seat
+      const grSt=ctx.createLinearGradient(p.x,cy+sh*.1,p.x,cy+sh*.6);
+      grSt.addColorStop(0,'#4a3a2a'); grSt.addColorStop(1,'#2e2218');
+      ctx.fillStyle=grSt; ctx.strokeStyle='#1e1408'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.05,cy+sh*.05,sw*.9,sh*.35,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Backrest
+      const grBk=ctx.createLinearGradient(p.x,p.y,p.x,cy+sh*.1);
+      grBk.addColorStop(0,'#5a4630'); grBk.addColorStop(1,'#3a2e1a');
+      ctx.fillStyle=grBk; ctx.strokeStyle='#1e1408'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.08,p.y,sw*.84,sh*.22,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // 2 horizontal back rails
+      ctx.strokeStyle='rgba(20,12,4,0.45)'; ctx.lineWidth=Math.max(.5,.8*z);
+      [.07,.15].forEach(oy=>{ ctx.beginPath(); ctx.moveTo(p.x+sw*.1,p.y+sh*oy); ctx.lineTo(p.x+sw*.9,p.y+sh*oy); ctx.stroke(); });
+      // 4 legs
+      ctx.fillStyle='#2a1e0c'; ctx.strokeStyle='#140e04'; ctx.lineWidth=Math.max(.5,.8*z);
+      [[.1,.4],[.82,.4],[.1,.0],[.82,.0]].forEach(([ox,flare])=>{
+        const lx=p.x+sw*ox, ly=cy+sh*.38, lh=sh*.56;
+        ctx.beginPath(); ctx.rect(lx,ly,sw*.08,lh); ctx.fill(); ctx.stroke();
+      });
+      break;}
+    case 'shelf':{
+      const lw=Math.max(.8,1.2*z), side=sw*.08, shelves=3;
+      const grWood=ctx.createLinearGradient(p.x,p.y,p.x+side,p.y);
+      grWood.addColorStop(0,'#4a3418'); grWood.addColorStop(.4,'#6a5030'); grWood.addColorStop(1,'#3a2810');
+      // Side panels
+      ctx.fillStyle=grWood; ctx.strokeStyle='#2a1e0c'; ctx.lineWidth=lw;
+      [[p.x,p.y],[p.x+sw-side,p.y]].forEach(([sx,sy])=>{ ctx.beginPath(); ctx.rect(sx,sy,side,sh); ctx.fill(); ctx.stroke(); });
+      // Shelves
+      for(let i=0;i<=shelves;i++){
+        const sy=p.y+i*(sh/shelves);
+        const grS=ctx.createLinearGradient(p.x,sy,p.x,sy+sh*.07);
+        grS.addColorStop(0,'#7a6040'); grS.addColorStop(1,'#4a3820');
+        ctx.fillStyle=grS; ctx.strokeStyle='#2a1e0c'; ctx.lineWidth=lw;
+        ctx.beginPath(); ctx.rect(p.x,sy,sw,sh*.08); ctx.fill(); ctx.stroke();
+        // Books on shelf (not top/bottom)
+        if(i<shelves){
+          const bh=sh/shelves*0.82, by2=sy+sh*.08;
+          const cols=['#8a2020','#204880','#2a6a2a','#5a4a10','#5a2050','#3a5a3a'];
+          const bcount=Math.floor(sw*.6/Math.max(4,sw*.08));
+          for(let b=0;b<bcount;b++){
+            const bx=p.x+side+b*sw*.09+sw*.02, bw2=sw*.07;
+            ctx.fillStyle=cols[b%cols.length]; ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=Math.max(.3,.5*z);
+            ctx.beginPath(); ctx.rect(bx,by2,bw2,bh); ctx.fill(); ctx.stroke();
+          }
+        }
+      }
+      break;}
+    case 'locker':{
+      const lw=Math.max(.8,1.2*z);
+      const grBody=ctx.createLinearGradient(p.x,p.y,p.x+sw,p.y);
+      grBody.addColorStop(0,'#2a3040'); grBody.addColorStop(.4,'#3a4a5a'); grBody.addColorStop(1,'#1e2838');
+      ctx.fillStyle=grBody; ctx.strokeStyle='#141e2a'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Door center line
+      ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=Math.max(.5,1*z);
+      ctx.beginPath(); ctx.moveTo(cx,p.y+sh*.05); ctx.lineTo(cx,q.y-sh*.05); ctx.stroke();
+      // Ventilation slits top
+      ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=Math.max(.4,.7*z);
+      for(let i=0;i<4;i++){ const sy=p.y+sh*.08+i*sh*.04; ctx.beginPath(); ctx.moveTo(p.x+sw*.1,sy); ctx.lineTo(p.x+sw*.9,sy); ctx.stroke(); }
+      // Handle
+      ctx.fillStyle='#c9a227'; ctx.strokeStyle='#8a6e10'; ctx.lineWidth=Math.max(.4,.7*z);
+      ctx.beginPath(); ctx.roundRect(cx-sw*.08,cy-sh*.06,sw*.06,sh*.12,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Number plate
+      ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.roundRect(cx-sw*.12,p.y+sh*.22,sw*.24,sh*.08,1); ctx.fill();
+      break;}
+    case 'cabinet':{
+      const lw=Math.max(.8,1.2*z), rows=3;
+      const grC=ctx.createLinearGradient(p.x,p.y,p.x+sw,p.y);
+      grC.addColorStop(0,'#2a2a2a'); grC.addColorStop(.4,'#3a3a3a'); grC.addColorStop(1,'#1a1a1a');
+      ctx.fillStyle=grC; ctx.strokeStyle='#101010'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Drawer rows
+      const dh=sh/rows, pad=sh*.04;
+      for(let i=0;i<rows;i++){
+        const dy=p.y+i*dh+pad;
+        ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=Math.max(.5,.8*z);
+        ctx.beginPath(); ctx.roundRect(p.x+sw*.06,dy,sw*.88,dh-pad*2,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+        // Handle
+        ctx.fillStyle='#888'; ctx.strokeStyle='#444'; ctx.lineWidth=Math.max(.4,.6*z);
+        ctx.beginPath(); ctx.roundRect(cx-sw*.12,dy+dh*.3,sw*.24,dh*.18,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+      }
+      break;}
+    case 'desk':{
+      const lw=Math.max(.8,1.2*z), legW=sw*.07;
+      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(cx,q.y+sh*.06,sw*.48,sh*.08,0,0,PI2); ctx.fill();
+      // Desk surface
+      const grTop=ctx.createLinearGradient(p.x,p.y,p.x,p.y+sh*.22);
+      grTop.addColorStop(0,'#6e5438'); grTop.addColorStop(1,'#4a3820');
+      ctx.fillStyle=grTop; ctx.strokeStyle='#2a1e10'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh*.22,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Monitor
+      ctx.fillStyle='#1a1a2a'; ctx.strokeStyle='#0a0a18'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(cx-sw*.18,p.y-sh*.42,sw*.36,sh*.34,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Monitor screen
+      ctx.fillStyle='rgba(60,120,200,0.35)'; ctx.beginPath(); ctx.roundRect(cx-sw*.14,p.y-sh*.38,sw*.28,sh*.26,Math.max(1,1.5*z)); ctx.fill();
+      // Monitor stand
+      ctx.fillStyle='#1a1a2a'; ctx.beginPath(); ctx.rect(cx-sw*.04,p.y-sh*.08,sw*.08,sh*.08); ctx.fill();
+      // Legs
+      ctx.fillStyle='#3a2c18'; ctx.strokeStyle='#1e1408'; ctx.lineWidth=Math.max(.5,.8*z);
+      [[sw*.06],[sw*.88-legW]].forEach(([ox])=>{
+        ctx.beginPath(); ctx.rect(p.x+ox,p.y+sh*.2,legW,sh*.8); ctx.fill(); ctx.stroke();
+      });
+      break;}
+    case 'bed':{
+      const lw=Math.max(.8,1.2*z);
+      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(cx,q.y+sh*.05,sw*.5,sh*.1,0,0,PI2); ctx.fill();
+      // Bed frame
+      const grFrame=ctx.createLinearGradient(p.x,p.y,p.x+sw*.1,p.y);
+      grFrame.addColorStop(0,'#4a3418'); grFrame.addColorStop(1,'#3a2810');
+      ctx.fillStyle=grFrame; ctx.strokeStyle='#1e1408'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      // Mattress
+      ctx.fillStyle='#e8e0d0'; ctx.strokeStyle='#c0b8a8'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.04,p.y+sh*.08,sw*.92,sh*.78,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Pillow
+      ctx.fillStyle='#f0ece4'; ctx.strokeStyle='#c8c0b0'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.08,p.y+sh*.12,sw*.84,sh*.28,Math.max(2,4*z)); ctx.fill(); ctx.stroke();
+      // Blanket / sheets lower half
+      const grBl=ctx.createLinearGradient(p.x,cy+sh*.1,p.x,q.y);
+      grBl.addColorStop(0,'#5a7a9a'); grBl.addColorStop(1,'#3a5a7a');
+      ctx.fillStyle=grBl; ctx.strokeStyle='#2a4060'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.04,cy+sh*.12,sw*.92,sh*.55,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Headboard
+      const grH=ctx.createLinearGradient(p.x,p.y,p.x+sw*.08,p.y);
+      grH.addColorStop(0,'#5a4020'); grH.addColorStop(1,'#3e2c14');
+      ctx.fillStyle=grH; ctx.strokeStyle='#1e1408'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw*.08,sh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      break;}
+    case 'computer':{
+      const lw=Math.max(.8,1.2*z);
+      // Desk / surface
+      const grD=ctx.createLinearGradient(p.x,cy+sh*.1,p.x,q.y);
+      grD.addColorStop(0,'#3a3218'); grD.addColorStop(1,'#282010');
+      ctx.fillStyle=grD; ctx.strokeStyle='#141008'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,cy+sh*.1,sw,sh*.9,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Monitor frame
+      ctx.fillStyle='#1a1a28'; ctx.strokeStyle='#0a0a18'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(cx-sw*.28,p.y,sw*.56,sh*.8,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Screen glow
+      const grScr=ctx.createLinearGradient(cx-sw*.22,p.y+sh*.04,cx,cy);
+      grScr.addColorStop(0,'#203870'); grScr.addColorStop(1,'#102040');
+      ctx.fillStyle=grScr; ctx.beginPath(); ctx.roundRect(cx-sw*.22,p.y+sh*.04,sw*.44,sh*.64,Math.max(1,1.5*z)); ctx.fill();
+      // Scanlines hint
+      ctx.strokeStyle='rgba(80,160,255,0.15)'; ctx.lineWidth=Math.max(.5,.7*z);
+      for(let i=0;i<4;i++){ const sy=p.y+sh*.12+i*sh*.13; ctx.beginPath(); ctx.moveTo(cx-sw*.2,sy); ctx.lineTo(cx+sw*.2,sy); ctx.stroke(); }
+      // Monitor stand
+      ctx.fillStyle='#1a1a28'; ctx.beginPath(); ctx.rect(cx-sw*.06,cy,sw*.12,sh*.14); ctx.fill();
+      // Keyboard
+      ctx.fillStyle='#2a2a38'; ctx.strokeStyle='#14141e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.05,cy+sh*.18,sw*.9,sh*.2,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+      break;}
+    // ── URBAN / PROPS (side-view) ────────────────────────────────────────────
+    case 'crate':{
+      const lw=Math.max(.8,1.2*z);
+      const grCr=ctx.createLinearGradient(p.x,p.y,p.x+sw*.3,p.y+sh*.3);
+      grCr.addColorStop(0,'#8a6e38'); grCr.addColorStop(.5,'#6a5228'); grCr.addColorStop(1,'#4a3818');
+      ctx.fillStyle=grCr; ctx.strokeStyle='#3a2a10'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.rect(p.x,p.y,sw,sh); ctx.fill(); ctx.stroke();
+      // Wood planks: 3 horizontal bands
+      ctx.strokeStyle='rgba(35,22,8,0.45)'; ctx.lineWidth=Math.max(.5,.8*z);
+      [.33,.66].forEach(t=>{ ctx.beginPath(); ctx.moveTo(p.x,p.y+sh*t); ctx.lineTo(p.x+sw,p.y+sh*t); ctx.stroke(); });
+      // Cross braces
+      ctx.lineWidth=Math.max(.6,1*z);
+      ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+sw,p.y+sh); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.x+sw,p.y); ctx.lineTo(p.x,p.y+sh); ctx.stroke();
+      // Corner brackets
+      ctx.fillStyle='#4a4030'; ctx.strokeStyle='#2a2010'; ctx.lineWidth=Math.max(.5,.8*z);
+      [[0,0],[sw-sw*.1,0],[0,sh-sh*.1],[sw-sw*.1,sh-sh*.1]].forEach(([ox,oy])=>{
+        ctx.beginPath(); ctx.rect(p.x+ox,p.y+oy,sw*.1,sh*.1); ctx.fill(); ctx.stroke();
+      });
+      break;}
+    case 'barrel':{
+      const lw=Math.max(.8,1.2*z);
+      ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(cx+sw*.06,q.y+sh*.08,sw*.32,sh*.1,0,0,PI2); ctx.fill();
+      // Barrel body (tapered top/bottom)
+      const brlW=sw*.88, brlX=cx-brlW/2;
+      ctx.beginPath();
+      ctx.moveTo(brlX+brlW*.06,p.y); ctx.lineTo(brlX+brlW*.94,p.y);
+      ctx.bezierCurveTo(brlX+brlW,p.y,brlX+brlW,p.y,brlX+brlW,p.y+sh*.1);
+      ctx.lineTo(brlX+brlW,q.y-sh*.1);
+      ctx.bezierCurveTo(brlX+brlW,q.y,brlX+brlW,q.y,brlX+brlW*.94,q.y);
+      ctx.lineTo(brlX+brlW*.06,q.y);
+      ctx.bezierCurveTo(brlX,q.y,brlX,q.y,brlX,q.y-sh*.1);
+      ctx.lineTo(brlX,p.y+sh*.1);
+      ctx.bezierCurveTo(brlX,p.y,brlX,p.y,brlX+brlW*.06,p.y);
+      ctx.closePath();
+      const grBrl=ctx.createLinearGradient(brlX,p.y,brlX+brlW,p.y);
+      grBrl.addColorStop(0,'#3a2a18'); grBrl.addColorStop(.35,'#6a4e2a'); grBrl.addColorStop(.65,'#5a4020'); grBrl.addColorStop(1,'#2a1e10');
+      ctx.fillStyle=grBrl; ctx.fill();
+      ctx.strokeStyle='#2a1a0c'; ctx.lineWidth=lw; ctx.stroke();
+      // Metal bands
+      ctx.strokeStyle='#3a3018'; ctx.lineWidth=Math.max(1.2,2*z);
+      [.18,.5,.82].forEach(t=>{ ctx.beginPath(); ctx.moveTo(brlX+brlW*.02,p.y+sh*t); ctx.lineTo(brlX+brlW*.98,p.y+sh*t); ctx.stroke(); });
+      // Lid circle
+      ctx.fillStyle='rgba(80,60,30,0.5)'; ctx.beginPath(); ctx.ellipse(cx,p.y+sh*.06,brlW*.4,sh*.08,0,0,PI2); ctx.fill();
+      break;}
+    case 'dumpster':{
+      const lw=Math.max(.8,1.2*z);
+      ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(cx+sw*.05,q.y+sh*.08,sw*.44,sh*.12,0,0,PI2); ctx.fill();
+      // Body
+      const grDump=ctx.createLinearGradient(p.x,p.y,p.x+sw*.2,p.y);
+      grDump.addColorStop(0,'#1a3a1a'); grDump.addColorStop(.4,'#2a4e2a'); grDump.addColorStop(1,'#142e14');
+      ctx.fillStyle=grDump; ctx.strokeStyle='#0e1e0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y+sh*.18,sw,sh*.72,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Lid (two flaps)
+      ctx.fillStyle='#2a4a2a'; ctx.strokeStyle='#0e1e0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.02,p.y,sw*.48,sh*.22,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.52,p.y,sw*.46,sh*.22,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Vertical ribs
+      ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=Math.max(.5,.8*z);
+      [.25,.5,.75].forEach(t=>{ ctx.beginPath(); ctx.moveTo(p.x+sw*t,p.y+sh*.2); ctx.lineTo(p.x+sw*t,q.y-sh*.05); ctx.stroke(); });
+      // Wheels
+      ctx.fillStyle='#1a1a1a'; ctx.strokeStyle='#0a0a0a'; ctx.lineWidth=Math.max(.5,.8*z);
+      [[sw*.18],[sw*.72]].forEach(([ox])=>{
+        ctx.beginPath(); ctx.arc(p.x+ox,q.y,sh*.08,0,PI2); ctx.fill(); ctx.stroke();
+      });
+      break;}
+    case 'bench':{
+      const lw=Math.max(.8,1.2*z);
+      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(cx,q.y+sh*.05,sw*.44,sh*.08,0,0,PI2); ctx.fill();
+      // Seat planks
+      const grPl=ctx.createLinearGradient(p.x,cy-sh*.1,p.x,cy+sh*.2);
+      grPl.addColorStop(0,'#7a6040'); grPl.addColorStop(1,'#5a4830');
+      ctx.fillStyle=grPl; ctx.strokeStyle='#2a1e0c'; ctx.lineWidth=lw;
+      [0,.12].forEach(oy=>{
+        ctx.beginPath(); ctx.roundRect(p.x,cy-sh*.1+sh*oy,sw,sh*.1,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+      });
+      // Backrest planks
+      ctx.fillStyle=grPl;
+      [0,.1].forEach(oy=>{
+        ctx.beginPath(); ctx.roundRect(p.x+sw*.04,p.y+sh*.05+sh*oy,sw*.92,sh*.1,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+      });
+      // Support legs (2 X-frame legs)
+      ctx.strokeStyle='#3a2a10'; ctx.lineWidth=Math.max(1.2,2*z);
+      [[sw*.12,sw*.3],[sw*.62,sw*.8]].forEach(([lx,rx])=>{
+        ctx.beginPath(); ctx.moveTo(p.x+lx,cy-sh*.1); ctx.lineTo(p.x+rx,q.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(p.x+rx,cy-sh*.1); ctx.lineTo(p.x+lx,q.y); ctx.stroke();
+      });
+      break;}
+    case 'lamppost':{
+      const lw=Math.max(.8,1.2*z), poleW=sw*.14, poleX=cx-poleW/2;
+      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(cx+sw*.04,q.y+sh*.04,sw*.28,sh*.06,0,0,PI2); ctx.fill();
+      // Pole
+      const grPole=ctx.createLinearGradient(poleX,p.y,poleX+poleW,p.y);
+      grPole.addColorStop(0,'#5a5a5a'); grPole.addColorStop(.4,'#8a8a8a'); grPole.addColorStop(1,'#3a3a3a');
+      ctx.fillStyle=grPole; ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(poleX,p.y+sh*.22,poleW,sh*.78,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+      // Arm
+      ctx.fillStyle='#707070'; ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.moveTo(cx,p.y+sh*.22); ctx.quadraticCurveTo(cx+sw*.3,p.y+sh*.08,cx+sw*.4,p.y+sh*.16); ctx.stroke();
+      // Lamp head
+      ctx.fillStyle='#5a5a5a'; ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(cx+sw*.24,p.y,sw*.32,sh*.18,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Light glow
+      const grGlow=ctx.createRadialGradient(cx+sw*.4,p.y+sh*.18,0,cx+sw*.4,p.y+sh*.18,sw*.4);
+      grGlow.addColorStop(0,'rgba(255,220,100,0.55)'); grGlow.addColorStop(1,'rgba(255,220,100,0)');
+      ctx.fillStyle=grGlow; ctx.beginPath(); ctx.arc(cx+sw*.4,p.y+sh*.18,sw*.4,0,PI2); ctx.fill();
+      // Lens
+      ctx.fillStyle='rgba(255,230,120,0.8)'; ctx.beginPath(); ctx.ellipse(cx+sw*.4,p.y+sh*.14,sw*.1,sh*.06,0,0,PI2); ctx.fill();
+      // Base
+      ctx.fillStyle='#4a4a4a'; ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.rect(poleX-sw*.08,q.y-sh*.06,poleW+sw*.16,sh*.06); ctx.fill(); ctx.stroke();
+      break;}
+    case 'vending':{
+      const lw=Math.max(.8,1.2*z);
+      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(cx+sw*.05,q.y+sh*.05,sw*.4,sh*.08,0,0,PI2); ctx.fill();
+      // Body
+      const grV=ctx.createLinearGradient(p.x,p.y,p.x+sw*.2,p.y);
+      grV.addColorStop(0,'#1a2a4a'); grV.addColorStop(.5,'#2a3e6a'); grV.addColorStop(1,'#142038');
+      ctx.fillStyle=grV; ctx.strokeStyle='#0a101e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      // Glass window
+      const grGl=ctx.createLinearGradient(p.x+sw*.1,p.y+sh*.1,p.x+sw*.1,p.y+sh*.6);
+      grGl.addColorStop(0,'rgba(120,180,255,0.3)'); grGl.addColorStop(1,'rgba(60,100,180,0.15)');
+      ctx.fillStyle=grGl; ctx.strokeStyle='#1a2838'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.1,p.y+sh*.1,sw*.8,sh*.52,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Product rows in window
+      const colors=['#e05252','#52b0e0','#52e07a','#e0c052'];
+      for(let r=0;r<2;r++) for(let c=0;c<3;c++){
+        ctx.fillStyle=colors[(r*3+c)%4]; ctx.globalAlpha=.7;
+        ctx.beginPath(); ctx.roundRect(p.x+sw*.14+c*sw*.24,p.y+sh*.14+r*sh*.22,sw*.2,sh*.18,Math.max(1,1.5*z)); ctx.fill();
+        ctx.globalAlpha=1;
+      }
+      // Slot + keypad
+      ctx.fillStyle='#1a1a1a'; ctx.strokeStyle='#0a0a0a'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.1,p.y+sh*.65,sw*.5,sh*.08,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+      // Keypad buttons
+      ctx.fillStyle='#c9a227'; [0,1,2].forEach(i=>{ ctx.beginPath(); ctx.arc(p.x+sw*.7+i*sw*.08,p.y+sh*.72,sw*.03,0,PI2); ctx.fill(); });
+      break;}
+    case 'trashcan':{
+      const lw=Math.max(.8,1.2*z), cW=sw*.78, cX=cx-cW/2;
+      ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(cx+sw*.04,q.y+sh*.06,cW*.5,sh*.1,0,0,PI2); ctx.fill();
+      // Body (slightly tapered)
+      ctx.beginPath();
+      ctx.moveTo(cX+cW*.06,p.y+sh*.1); ctx.lineTo(cX+cW*.94,p.y+sh*.1);
+      ctx.lineTo(cX+cW,q.y); ctx.lineTo(cX,q.y); ctx.closePath();
+      const grT=ctx.createLinearGradient(cX,p.y,cX+cW,p.y);
+      grT.addColorStop(0,'#2a2a2a'); grT.addColorStop(.4,'#3e3e3e'); grT.addColorStop(1,'#1a1a1a');
+      ctx.fillStyle=grT; ctx.fill(); ctx.strokeStyle='#111'; ctx.lineWidth=lw; ctx.stroke();
+      // Lid
+      ctx.fillStyle='#3a3a3a'; ctx.strokeStyle='#111'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(cX-sw*.04,p.y,cW+sw*.08,sh*.12,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Handle on lid
+      ctx.fillStyle='#888'; ctx.beginPath(); ctx.roundRect(cx-sw*.12,p.y+sh*.01,sw*.24,sh*.06,Math.max(1,1.5*z)); ctx.fill();
+      // Rib lines
+      ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=Math.max(.4,.7*z);
+      [.35,.65].forEach(t=>{ ctx.beginPath(); ctx.moveTo(cX+cW*t*(1-t*.1),p.y+sh*.1); ctx.lineTo(cX+cW*t,q.y); ctx.stroke(); });
+      break;}
+    case 'car_side':{
+      const lw=Math.max(.8,1.2*z);
+      const wR=sh*.28, wb1=p.x+sw*.18, wb2=p.x+sw*.72, wy=q.y-wR;
+      // Shadow
+      ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(cx,q.y+sh*.06,sw*.42,sh*.1,0,0,PI2); ctx.fill();
+      // Body
+      ctx.beginPath();
+      ctx.moveTo(p.x+sw*.05,wy);
+      ctx.lineTo(p.x+sw*.18,p.y+sh*.38); ctx.lineTo(p.x+sw*.3,p.y);
+      ctx.lineTo(p.x+sw*.74,p.y); ctx.lineTo(p.x+sw*.88,p.y+sh*.38);
+      ctx.lineTo(p.x+sw*.98,wy); ctx.lineTo(p.x+sw*.98,q.y-wR*.6);
+      ctx.lineTo(p.x+sw*.05,q.y-wR*.6); ctx.closePath();
+      const grCar=ctx.createLinearGradient(p.x,p.y,p.x+sw*.15,p.y+sh*.5);
+      grCar.addColorStop(0,'#3a4a60'); grCar.addColorStop(.4,'#4a5e7a'); grCar.addColorStop(1,'#2a3448');
+      ctx.fillStyle=grCar; ctx.fill(); ctx.strokeStyle='#1a2230'; ctx.lineWidth=lw; ctx.stroke();
+      // Windows
+      ctx.fillStyle='rgba(120,180,255,0.35)'; ctx.strokeStyle='#1a2a40'; ctx.lineWidth=Math.max(.5,.8*z);
+      ctx.beginPath(); ctx.moveTo(p.x+sw*.22,p.y+sh*.42); ctx.lineTo(p.x+sw*.32,p.y+sh*.06); ctx.lineTo(p.x+sw*.52,p.y+sh*.06); ctx.lineTo(p.x+sw*.52,p.y+sh*.42); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.x+sw*.54,p.y+sh*.42); ctx.lineTo(p.x+sw*.54,p.y+sh*.06); ctx.lineTo(p.x+sw*.72,p.y+sh*.06); ctx.lineTo(p.x+sw*.84,p.y+sh*.42); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // Wheels
+      ctx.fillStyle='#1a1a1a'; ctx.strokeStyle='#0a0a0a'; ctx.lineWidth=lw;
+      [wb1,wb2].forEach(wx2=>{
+        ctx.beginPath(); ctx.arc(wx2,wy,wR,0,PI2); ctx.fill(); ctx.stroke();
+        // Rim
+        ctx.fillStyle='#8a8a8a'; ctx.beginPath(); ctx.arc(wx2,wy,wR*.5,0,PI2); ctx.fill();
+        ctx.fillStyle='#1a1a1a';
+      });
+      // Headlight
+      ctx.fillStyle='rgba(255,240,160,0.7)'; ctx.beginPath(); ctx.ellipse(p.x+sw*.06,p.y+sh*.55,sw*.04,sh*.1,0,0,PI2); ctx.fill();
+      // Taillight
+      ctx.fillStyle='rgba(255,60,40,0.7)'; ctx.beginPath(); ctx.ellipse(p.x+sw*.94,p.y+sh*.55,sw*.03,sh*.1,0,0,PI2); ctx.fill();
+      break;}
+    case 'fence_panel':{
+      const lw=Math.max(.8,1.2*z), posts=4;
+      ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.rect(p.x,q.y,sw,sh*.06); ctx.fill();
+      // Rails (2 horizontal)
+      const grRail=ctx.createLinearGradient(p.x,p.y,p.x,p.y+sh*.1);
+      grRail.addColorStop(0,'#707070'); grRail.addColorStop(1,'#484848');
+      ctx.fillStyle=grRail; ctx.strokeStyle='#282828'; ctx.lineWidth=lw;
+      [p.y+sh*.15, p.y+sh*.65].forEach(ry=>{
+        ctx.beginPath(); ctx.rect(p.x,ry,sw,sh*.1); ctx.fill(); ctx.stroke();
+      });
+      // Vertical posts
+      const seg=sw/(posts+1);
+      for(let i=1;i<=posts;i++){
+        const px2=p.x+seg*i-sw*.03;
+        const grPost=ctx.createLinearGradient(px2,p.y,px2+sw*.06,p.y);
+        grPost.addColorStop(0,'#686868'); grPost.addColorStop(.4,'#8a8a8a'); grPost.addColorStop(1,'#484848');
+        ctx.fillStyle=grPost; ctx.strokeStyle='#282828'; ctx.lineWidth=lw;
+        ctx.beginPath(); ctx.rect(px2,p.y+sh*.05,sw*.06,sh*.9); ctx.fill(); ctx.stroke();
+        // Post cap
+        ctx.fillStyle='#9a9a9a'; ctx.beginPath(); ctx.arc(px2+sw*.03,p.y+sh*.05,sw*.04,0,PI2); ctx.fill();
+      }
+      break;}
+    case 'sandbag':{
+      const lw=Math.max(.8,1.2*z), rows=2, cols=3;
+      for(let r=0;r<rows;r++) for(let c=0;c<cols-(r%2);c++){
+        const bw=sw/(cols-(r%2)), bh=sh/rows*0.9;
+        const bx=p.x+c*bw+(r%2)*bw*.5, by=p.y+r*(sh/rows);
+        const grBag=ctx.createRadialGradient(bx+bw*.3,by+bh*.25,bh*.04,bx+bw*.5,by+bh*.5,bw*.55);
+        grBag.addColorStop(0,'#aa9a60'); grBag.addColorStop(.5,'#8a7a48'); grBag.addColorStop(1,'#5a4e28');
+        ctx.fillStyle=grBag; ctx.strokeStyle='#3a3018'; ctx.lineWidth=lw;
+        ctx.beginPath(); ctx.roundRect(bx+1,by+1,bw-2,bh-1,Math.max(2,4*z)); ctx.fill(); ctx.stroke();
+        // Tie line in middle
+        ctx.strokeStyle='rgba(40,30,10,0.5)'; ctx.lineWidth=Math.max(.5,.8*z);
+        ctx.beginPath(); ctx.moveTo(bx+bw*.5,by+1); ctx.lineTo(bx+bw*.5,by+bh-1); ctx.stroke();
+      }
+      break;}
     default:{
       const grDef=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
       grDef.addColorStop(0,fc||'#3a3530'); grDef.addColorStop(1,sc||'#1a1510');
@@ -7303,6 +7710,24 @@ function _spSVG(type, f, s) {
     case 'camera': return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="3" y="8" width="22" height="14" rx="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><polygon points="25,10 34,6 34,22 25,18" fill="${f}" stroke="${s}" stroke-width="1.5"/><circle cx="13" cy="15" r="4" fill="none" stroke="${s}" stroke-width="1.5"/><circle cx="13" cy="15" r="2" fill="${s}" opacity=".6"/><circle cx="7" cy="10" r="2" fill="${s}" opacity=".7"/></svg>`;
     case 'key':    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><circle cx="12" cy="12" r="8" fill="${f}" stroke="${s}" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="${s}" stroke-width="1.5"/><rect x="18" y="11" width="14" height="4" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="26" y="15" width="3" height="5" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="30" y="15" width="3" height="3" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/></svg>`;
     case 'ammo':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="5" y="7" width="8" height="14" rx="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="14" y="9" width="8" height="12" rx="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="23" y="7" width="8" height="14" rx="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><ellipse cx="9" cy="8" rx="4" ry="2" fill="${s}" opacity=".8"/><ellipse cx="18" cy="10" rx="4" ry="2" fill="${s}" opacity=".8"/><ellipse cx="27" cy="8" rx="4" ry="2" fill="${s}" opacity=".8"/></svg>`;
+    case 'sofa':      return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="8" width="32" height="12" rx="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="2" y="4" width="32" height="6" rx="2" fill="${s}" opacity=".8"/><rect x="2" y="8" width="6" height="12" rx="2" fill="${s}" opacity=".7"/><rect x="28" y="8" width="6" height="12" rx="2" fill="${s}" opacity=".7"/><line x1="18" y1="8" x2="18" y2="20" stroke="${s}" stroke-width="1" opacity=".4"/></svg>`;
+    case 'chair':     return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="8" y="12" width="20" height="8" rx="2" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="8" y="5" width="20" height="8" rx="2" fill="${f}" stroke="${s}" stroke-width="1.5"/><line x1="10" y1="20" x2="10" y2="26" stroke="${s}" stroke-width="2.5"/><line x1="26" y1="20" x2="26" y2="26" stroke="${s}" stroke-width="2.5"/></svg>`;
+    case 'shelf':     return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="2" width="4" height="24" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="30" y="2" width="4" height="24" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="2" y="2" width="32" height="3" fill="${s}" opacity=".8"/><rect x="2" y="13" width="32" height="3" fill="${s}" opacity=".8"/><rect x="2" y="24" width="32" height="3" fill="${s}" opacity=".8"/><rect x="7" y="5" width="4" height="8" rx="1" fill="#c05050" opacity=".8"/><rect x="12" y="5" width="4" height="8" rx="1" fill="#3060c0" opacity=".8"/><rect x="17" y="5" width="4" height="8" rx="1" fill="#208040" opacity=".8"/><rect x="22" y="5" width="4" height="8" rx="1" fill="#c0a020" opacity=".8"/><rect x="7" y="16" width="4" height="8" rx="1" fill="#8020a0" opacity=".8"/><rect x="13" y="16" width="6" height="8" rx="1" fill="#3060c0" opacity=".8"/></svg>`;
+    case 'locker':    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="4" y="2" width="28" height="24" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><line x1="18" y1="2" x2="18" y2="26" stroke="${s}" stroke-width="1" opacity=".4"/><rect x="15" y="11" width="3" height="6" rx="1" fill="${s}" opacity=".9"/><rect x="6" y="5" width="10" height="3" rx="1" fill="${s}" opacity=".3"/><rect x="6" y="9" width="10" height="2" rx="1" fill="${s}" opacity=".25"/><rect x="20" y="5" width="9" height="3" rx="1" fill="${s}" opacity=".3"/></svg>`;
+    case 'cabinet':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="3" y="3" width="30" height="22" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><line x1="3" y1="11" x2="33" y2="11" stroke="${s}" stroke-width="1" opacity=".5"/><line x1="3" y1="18" x2="33" y2="18" stroke="${s}" stroke-width="1" opacity=".5"/><rect x="11" y="7" width="14" height="3" rx="1" fill="${s}" opacity=".7"/><rect x="11" y="13" width="14" height="3" rx="1" fill="${s}" opacity=".7"/><rect x="11" y="20" width="14" height="3" rx="1" fill="${s}" opacity=".7"/></svg>`;
+    case 'desk':      return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="13" width="32" height="5" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><rect x="4" y="3" width="14" height="10" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="6" y="5" width="10" height="6" rx="1" fill="${s}" opacity=".35"/><line x1="4" y1="18" x2="4" y2="26" stroke="${s}" stroke-width="2.5"/><line x1="32" y1="18" x2="32" y2="26" stroke="${s}" stroke-width="2.5"/></svg>`;
+    case 'bed':       return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="4" width="32" height="20" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><rect x="2" y="4" width="8" height="20" rx="2" fill="${s}" opacity=".6"/><rect x="5" y="7" width="34" height="5" rx="2" fill="${s}" opacity=".4"/><rect x="11" y="11" width="22" height="10" rx="1" fill="${s}" opacity=".3"/><line x1="10" y1="12" x2="10" y2="22" stroke="${s}" stroke-width="1" opacity=".3"/></svg>`;
+    case 'computer':  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="8" y="2" width="20" height="16" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><rect x="10" y="4" width="16" height="11" rx="1" fill="${s}" opacity=".4"/><rect x="16" y="18" width="4" height="4" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="10" y="22" width="16" height="4" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/></svg>`;
+    case 'crate':     return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="4" width="32" height="20" fill="${f}" stroke="${s}" stroke-width="2"/><line x1="2" y1="4" x2="34" y2="24" stroke="${s}" stroke-width="1.5" opacity=".5"/><line x1="34" y1="4" x2="2" y2="24" stroke="${s}" stroke-width="1.5" opacity=".5"/><rect x="2" y="4" width="6" height="4" fill="${s}" opacity=".4"/><rect x="28" y="4" width="6" height="4" fill="${s}" opacity=".4"/><rect x="2" y="20" width="6" height="4" fill="${s}" opacity=".4"/><rect x="28" y="20" width="6" height="4" fill="${s}" opacity=".4"/></svg>`;
+    case 'barrel':    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><ellipse cx="18" cy="14" rx="12" ry="13" fill="${f}" stroke="${s}" stroke-width="2"/><line x1="6" y1="9" x2="30" y2="9" stroke="${s}" stroke-width="2" opacity=".6"/><line x1="6" y1="14" x2="30" y2="14" stroke="${s}" stroke-width="2" opacity=".6"/><line x1="6" y1="19" x2="30" y2="19" stroke="${s}" stroke-width="2" opacity=".6"/><ellipse cx="18" cy="4" rx="10" ry="3" fill="${s}" opacity=".5"/></svg>`;
+    case 'dumpster':  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="10" width="32" height="16" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><rect x="2" y="5" width="15" height="6" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="19" y="5" width="15" height="6" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><circle cx="8" cy="26" r="3" fill="#1a1a1a" stroke="${s}" stroke-width="1"/><circle cx="28" cy="26" r="3" fill="#1a1a1a" stroke="${s}" stroke-width="1"/></svg>`;
+    case 'bench':     return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="12" width="32" height="4" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="2" y="8" width="32" height="4" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><line x1="8" y1="16" x2="5" y2="24" stroke="${s}" stroke-width="2.5"/><line x1="14" y1="16" x2="11" y2="24" stroke="${s}" stroke-width="2.5"/><line x1="22" y1="16" x2="25" y2="24" stroke="${s}" stroke-width="2.5"/><line x1="28" y1="16" x2="31" y2="24" stroke="${s}" stroke-width="2.5"/></svg>`;
+    case 'lamppost':  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="16" y="12" width="4" height="14" fill="${f}" stroke="${s}" stroke-width="1.5"/><path d="M18,12 Q26,8 28,10" fill="none" stroke="${s}" stroke-width="2"/><rect x="22" y="6" width="10" height="5" rx="2" fill="${f}" stroke="${s}" stroke-width="1.5"/><ellipse cx="27" cy="11" rx="6" ry="4" fill="${s}" opacity=".25"/><rect x="14" y="24" width="8" height="3" rx="1" fill="${s}" opacity=".7"/></svg>`;
+    case 'vending':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="4" y="2" width="28" height="24" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><rect x="7" y="5" width="22" height="12" rx="1" fill="${s}" opacity=".3"/><rect x="9" y="7" width="6" height="4" rx="1" fill="#e05252" opacity=".8"/><rect x="17" y="7" width="6" height="4" rx="1" fill="#52a0e0" opacity=".8"/><rect x="9" y="12" width="6" height="4" rx="1" fill="#52e07a" opacity=".8"/><rect x="17" y="12" width="6" height="4" rx="1" fill="#e0c052" opacity=".8"/><rect x="7" y="19" width="14" height="4" rx="1" fill="${s}" opacity=".2"/><circle cx="26" cy="21" r="2" fill="${s}" opacity=".8"/></svg>`;
+    case 'trashcan':  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polygon points="8,8 28,8 26,26 10,26" fill="${f}" stroke="${s}" stroke-width="2"/><rect x="6" y="5" width="24" height="4" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="14" y="5" width="8" height="2" rx="1" fill="${s}" opacity=".6"/><line x1="14" y1="10" x2="13" y2="24" stroke="${s}" stroke-width="1" opacity=".4"/><line x1="19" y1="10" x2="19" y2="24" stroke="${s}" stroke-width="1" opacity=".4"/><line x1="24" y1="10" x2="25" y2="24" stroke="${s}" stroke-width="1" opacity=".4"/></svg>`;
+    case 'car_side':  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><path d="M2,18 L6,10 L12,5 L24,5 L30,10 L34,18 Z" fill="${f}" stroke="${s}" stroke-width="2"/><path d="M10,10 L14,5 L24,5 L28,10 Z" fill="${s}" opacity=".3"/><circle cx="9" cy="20" r="4" fill="#1a1a1a" stroke="${s}" stroke-width="1.5"/><circle cx="9" cy="20" r="2" fill="#666"/><circle cx="27" cy="20" r="4" fill="#1a1a1a" stroke="${s}" stroke-width="1.5"/><circle cx="27" cy="20" r="2" fill="#666"/><ellipse cx="3" cy="16" rx="2" ry="3" fill="#ffe090" opacity=".8"/></svg>`;
+    case 'fence_panel':return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="8" width="32" height="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="2" y="17" width="32" height="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="2" y="4" width="4" height="22" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="14" y="4" width="4" height="22" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="30" y="4" width="4" height="22" fill="${f}" stroke="${s}" stroke-width="1.5"/></svg>`;
+    case 'sandbag':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="14" width="14" height="9" rx="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="18" y="14" width="14" height="9" rx="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="10" y="6" width="14" height="9" rx="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><line x1="9" y1="14" x2="9" y2="23" stroke="${s}" stroke-width="1" opacity=".4"/><line x1="25" y1="14" x2="25" y2="23" stroke="${s}" stroke-width="1" opacity=".4"/><line x1="17" y1="6" x2="17" y2="15" stroke="${s}" stroke-width="1" opacity=".4"/></svg>`;
     default:       return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="3" width="32" height="22" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/></svg>`;
   }
 }
@@ -7370,6 +7795,28 @@ function renderShapesPanel(){
       {type:'camera',  f:'#0a1a2a',s:'#4a9eff',label:'Camera',     fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'camera',   fill:'#0a1a2a',stroke:'#4a9eff',name:'Camera',   w:36,h:20,tag:'security'}}},
       {type:'key',     f:'#2a1a00',s:'#c9a227',label:'Key',        fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'key',      fill:'#2a1a00',stroke:'#c9a227',name:'Key',      w:24,h:14,tag:'item'}}},
       {type:'ammo',    f:'#1a1a0a',s:'#e07820',label:'Ammo',       fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'ammo',     fill:'#1a1a0a',stroke:'#e07820',name:'Ammo',     w:30,h:20,tag:'item'}}},
+    ]},
+    {label:'Furniture (side-view)',shapes:[
+      {type:'sofa',    f:'#4a2e18',s:'#8a6040',label:'Sofa',      fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'sofa',    fill:'#4a2e18',stroke:'#8a6040',name:'Sofa',    w:72,h:32}}},
+      {type:'chair',   f:'#3a2814',s:'#7a5832',label:'Chair',     fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'chair',   fill:'#3a2814',stroke:'#7a5832',name:'Chair',   w:32,h:40}}},
+      {type:'desk',    f:'#2e2010',s:'#6a5028',label:'Desk',      fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'desk',    fill:'#2e2010',stroke:'#6a5028',name:'Desk',    w:64,h:48}}},
+      {type:'bed',     f:'#1e3050',s:'#4a6888',label:'Bed',       fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'bed',     fill:'#1e3050',stroke:'#4a6888',name:'Bed',     w:40,h:64}}},
+      {type:'shelf',   f:'#3a2810',s:'#6a4e28',label:'Shelf',     fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'shelf',   fill:'#3a2810',stroke:'#6a4e28',name:'Shelf',   w:56,h:72}}},
+      {type:'locker',  f:'#1a2838',s:'#3a5060',label:'Locker',    fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'locker',  fill:'#1a2838',stroke:'#3a5060',name:'Locker',  w:28,h:56}}},
+      {type:'cabinet', f:'#1a1a1a',s:'#4a4a4a',label:'Cabinet',   fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'cabinet', fill:'#1a1a1a',stroke:'#4a4a4a',name:'Cabinet', w:36,h:48}}},
+      {type:'computer',f:'#1a1a2e',s:'#3a4a6a',label:'Computer',  fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'computer',fill:'#1a1a2e',stroke:'#3a4a6a',name:'Computer',w:56,h:44}}},
+    ]},
+    {label:'Urban Props (side-view)',shapes:[
+      {type:'car_side',  f:'#2a3a50',s:'#4a6070',label:'Car',       fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'car_side',   fill:'#2a3a50',stroke:'#4a6070',name:'Car',       w:80,h:36}}},
+      {type:'crate',     f:'#5a4218',s:'#8a6e38',label:'Crate',     fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'crate',      fill:'#5a4218',stroke:'#8a6e38',name:'Crate',     w:40,h:40}}},
+      {type:'barrel',    f:'#4a3010',s:'#7a5828',label:'Barrel',    fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'barrel',     fill:'#4a3010',stroke:'#7a5828',name:'Barrel',    w:30,h:44}}},
+      {type:'dumpster',  f:'#0e2a0e',s:'#2a5020',label:'Dumpster',  fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'dumpster',   fill:'#0e2a0e',stroke:'#2a5020',name:'Dumpster',  w:56,h:36}}},
+      {type:'bench',     f:'#3a2a10',s:'#6a5228',label:'Bench',     fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'bench',      fill:'#3a2a10',stroke:'#6a5228',name:'Bench',     w:56,h:36}}},
+      {type:'lamppost',  f:'#282828',s:'#6a6a6a',label:'Lamp Post', fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'lamppost',   fill:'#282828',stroke:'#6a6a6a',name:'Lamp Post', w:36,h:72}}},
+      {type:'vending',   f:'#0e1a2e',s:'#2a4a6a',label:'Vending',   fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'vending',    fill:'#0e1a2e',stroke:'#2a4a6a',name:'Vending',   w:30,h:60}}},
+      {type:'trashcan',  f:'#1a1a1a',s:'#484848',label:'Trash Can', fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'trashcan',   fill:'#1a1a1a',stroke:'#484848',name:'Trash Can', w:22,h:32}}},
+      {type:'fence_panel',f:'#2a2a2a',s:'#5a5a5a',label:'Fence',   fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'fence_panel', fill:'#2a2a2a',stroke:'#5a5a5a',name:'Fence',    w:64,h:28}}},
+      {type:'sandbag',   f:'#5a4e24',s:'#8a7a40',label:'Sandbag',   fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'sandbag',    fill:'#5a4e24',stroke:'#8a7a40',name:'Sandbag',   w:48,h:24}}},
     ]},
     {label:'Hazards & Objects',shapes:[
       {type:'hazard',  f:'#3a1a0a',s:'#e07820',label:'Hazard',    fn:()=>{setTool('rect');MAP.shapePreset={fill:'#3a1a0a',stroke:'#e07820',name:'Hazard',opacity:.8}}},
