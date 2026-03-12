@@ -5623,58 +5623,77 @@ function _drawGameprop(ctx,obj,p){
       });
       break;}
     case 'tree':{
-      // Ground shadow
-      ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath();
-      ctx.ellipse(cx+sw*.08,cy+sh*.12,sw*.42,sh*.32,0,0,PI2); ctx.fill();
-      // Trunk dot
-      const trunkR=Math.max(2,sw*.1);
-      const grTrunk=ctx.createRadialGradient(cx-trunkR*.3,cy-trunkR*.3,trunkR*.1,cx,cy,trunkR);
-      grTrunk.addColorStop(0,'#7a5a30'); grTrunk.addColorStop(1,'#3d2a10');
-      ctx.fillStyle=grTrunk; ctx.beginPath(); ctx.arc(cx,cy,trunkR,0,PI2); ctx.fill();
-      ctx.strokeStyle='#2a1a08'; ctx.lineWidth=Math.max(.5,.8*z); ctx.stroke();
-      // Canopy — outer ring (darkest)
-      const grOuter=ctx.createRadialGradient(cx-sw*.1,cy-sh*.15,sw*.05,cx,cy,sw*.48);
-      grOuter.addColorStop(0,'#4a9a30'); grOuter.addColorStop(.6,'#2d6a18'); grOuter.addColorStop(1,'#1a4010');
-      ctx.fillStyle=grOuter; ctx.beginPath();
-      ctx.arc(cx,cy,sw*.46,0,PI2); ctx.fill();
-      ctx.strokeStyle='#1a3a0c'; ctx.lineWidth=Math.max(.8,1.2*z); ctx.stroke();
-      // Inner canopy highlight
-      const grInner=ctx.createRadialGradient(cx-sw*.15,cy-sh*.18,0,cx-sw*.1,cy-sh*.12,sw*.28);
-      grInner.addColorStop(0,'rgba(100,200,60,0.45)'); grInner.addColorStop(1,'rgba(100,200,60,0)');
-      ctx.fillStyle=grInner; ctx.beginPath(); ctx.arc(cx,cy,sw*.46,0,PI2); ctx.fill();
-      // Leaf cluster bumps around edge
-      ctx.fillStyle='#2a6015'; ctx.strokeStyle='#1a3a0c'; ctx.lineWidth=Math.max(.5,.8*z);
-      for(let i=0;i<8;i++){
-        const a=i*PI2/8, br=sw*.44, bumpR=sw*.1;
-        ctx.beginPath(); ctx.arc(cx+Math.cos(a)*br,cy+Math.sin(a)*br*0.85,bumpR,0,PI2); ctx.fill();
+      const R=Math.min(sw,sh)*.46;
+      // Ground shadow (offset ellipse)
+      ctx.fillStyle='rgba(0,0,0,0.32)';
+      ctx.beginPath(); ctx.ellipse(cx+R*.18,cy+R*.22,R*.95,R*.7,0,0,PI2); ctx.fill();
+      // Outer canopy silhouette — bumpy edge drawn as star-polygon
+      const nBumps=11;
+      ctx.beginPath();
+      for(let i=0;i<nBumps*2;i++){
+        const a=i*PI/nBumps - PI/2;
+        const r=i%2===0 ? R : R*.72;
+        const nx=cx+Math.cos(a)*r, ny=cy+Math.sin(a)*r;
+        i===0?ctx.moveTo(nx,ny):ctx.lineTo(nx,ny);
       }
+      ctx.closePath();
+      // Fill with dark outer green
+      ctx.fillStyle='#1a4a0e'; ctx.fill();
+      ctx.strokeStyle='#0e2e08'; ctx.lineWidth=Math.max(1,1.5*z); ctx.stroke();
+      // Mid canopy layer — inner bumpy circle, slightly offset for 3D feel
+      ctx.beginPath();
+      for(let i=0;i<nBumps*2;i++){
+        const a=i*PI/nBumps - PI/2 + PI/nBumps;
+        const r=i%2===0 ? R*.7 : R*.5;
+        const nx=cx-R*.04+Math.cos(a)*r, ny=cy-R*.06+Math.sin(a)*r;
+        i===0?ctx.moveTo(nx,ny):ctx.lineTo(nx,ny);
+      }
+      ctx.closePath();
+      ctx.fillStyle='#2e7018'; ctx.fill();
+      // Inner bright highlight cluster (top-left light source)
+      const grHL=ctx.createRadialGradient(cx-R*.28,cy-R*.3,0,cx-R*.1,cy-R*.12,R*.55);
+      grHL.addColorStop(0,'rgba(90,200,50,0.55)');
+      grHL.addColorStop(.5,'rgba(55,140,25,0.25)');
+      grHL.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=grHL; ctx.beginPath(); ctx.arc(cx,cy,R*.9,0,PI2); ctx.fill();
+      // Trunk dot center
+      const tr=Math.max(2,R*.14);
+      const grTK=ctx.createRadialGradient(cx-tr*.3,cy-tr*.3,0,cx,cy,tr);
+      grTK.addColorStop(0,'#8a6232'); grTK.addColorStop(1,'#3a2010');
+      ctx.fillStyle=grTK; ctx.beginPath(); ctx.arc(cx,cy,tr,0,PI2); ctx.fill();
+      ctx.strokeStyle='#1e1008'; ctx.lineWidth=Math.max(.5,.8*z); ctx.stroke();
       break;}
     case 'pine':{
+      const R=Math.min(sw,sh)*.44;
       // Shadow
-      ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath();
-      ctx.ellipse(cx+sw*.06,cy+sh*.1,sw*.38,sh*.25,0,0,PI2); ctx.fill();
-      // Trunk
-      const ptw=Math.max(2,sw*.1), pth=sh*.22;
-      const grPT=ctx.createLinearGradient(cx-ptw,0,cx+ptw,0);
-      grPT.addColorStop(0,'#3d2408'); grPT.addColorStop(.5,'#6b4018'); grPT.addColorStop(1,'#3d2408');
-      ctx.fillStyle=grPT; ctx.beginPath(); ctx.roundRect(cx-ptw,cy+sh*.35,ptw*2,pth,Math.max(1,1.5*z)); ctx.fill();
-      ctx.strokeStyle='#2a1a06'; ctx.lineWidth=Math.max(.5,.8*z); ctx.strokeRect(cx-ptw,cy+sh*.35,ptw*2,pth);
-      // Three triangular tiers — darker lower, brighter top
-      const tiers=[
-        {y:.32,xr:.46,yOff:-.02,c:'#1e5010',s:'#0e3008'},
-        {y:.1, xr:.36,yOff:-.22,c:'#267018',s:'#144010'},
-        {y:-.12,xr:.24,yOff:-.4, c:'#2e8020',s:'#1a5012'},
-      ];
-      tiers.forEach(({y,xr,yOff,c,s})=>{
-        const ty=cy+sh*yOff, by=cy+sh*y;
-        const grT=ctx.createLinearGradient(cx-sw*xr,ty,cx,ty);
-        grT.addColorStop(0,s); grT.addColorStop(.5,c); grT.addColorStop(1,s);
-        ctx.fillStyle=grT; ctx.strokeStyle=s; ctx.lineWidth=Math.max(.5,.8*z);
-        ctx.beginPath(); ctx.moveTo(cx,ty); ctx.lineTo(cx+sw*xr,by); ctx.lineTo(cx-sw*xr,by); ctx.closePath();
+      ctx.fillStyle='rgba(0,0,0,0.28)';
+      ctx.beginPath(); ctx.ellipse(cx+R*.15,cy+R*.2,R*.9,R*.6,0,0,PI2); ctx.fill();
+      // Pine shape: 6 radiating "branch fans" + fill between = star of david style
+      const nArms=6;
+      // Dark base fill (full circle)
+      ctx.fillStyle='#163808';
+      ctx.beginPath(); ctx.arc(cx,cy,R,0,PI2); ctx.fill();
+      // Arm fans — alternating dark/light
+      for(let i=0;i<nArms;i++){
+        const a=i*PI2/nArms - PI/2;
+        const tip={x:cx+Math.cos(a)*R*.96, y:cy+Math.sin(a)*R*.96};
+        const lSide={x:cx+Math.cos(a-PI/5)*R*.42, y:cy+Math.sin(a-PI/5)*R*.42};
+        const rSide={x:cx+Math.cos(a+PI/5)*R*.42, y:cy+Math.sin(a+PI/5)*R*.42};
+        const grArm=ctx.createLinearGradient(cx,cy,tip.x,tip.y);
+        grArm.addColorStop(0,'#2e7820'); grArm.addColorStop(.5,'#3a9228'); grArm.addColorStop(1,'#1a5010');
+        ctx.fillStyle=grArm; ctx.strokeStyle='#0e2e08'; ctx.lineWidth=Math.max(.4,.6*z);
+        ctx.beginPath(); ctx.moveTo(lSide.x,lSide.y); ctx.lineTo(tip.x,tip.y); ctx.lineTo(rSide.x,rSide.y);
+        ctx.quadraticCurveTo(cx,cy,lSide.x,lSide.y); ctx.closePath();
         ctx.fill(); ctx.stroke();
-        // Snow tips
-        ctx.fillStyle='rgba(220,230,240,0.18)'; ctx.beginPath(); ctx.moveTo(cx,ty); ctx.lineTo(cx+sw*xr*.25,ty+sh*.1); ctx.lineTo(cx-sw*xr*.25,ty+sh*.1); ctx.closePath(); ctx.fill();
-      });
+      }
+      // Center glow
+      const grC=ctx.createRadialGradient(cx-R*.2,cy-R*.2,0,cx,cy,R*.5);
+      grC.addColorStop(0,'rgba(80,180,40,0.4)'); grC.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=grC; ctx.beginPath(); ctx.arc(cx,cy,R*.5,0,PI2); ctx.fill();
+      // Trunk dot
+      const ptr=Math.max(2,R*.12);
+      ctx.fillStyle='#4a2c0e'; ctx.beginPath(); ctx.arc(cx,cy,ptr,0,PI2); ctx.fill();
+      ctx.strokeStyle='#1e1008'; ctx.lineWidth=Math.max(.4,.6*z); ctx.stroke();
       break;}
     case 'bush':{
       // Shadow
