@@ -5553,212 +5553,386 @@ function _drawGameprop(ctx,obj,p){
   const sw=q.x-p.x, sh=q.y-p.y;
   const cx=p.x+sw/2, cy=p.y+sh/2;
   const z=MAP.cam.zoom;
-  const fc=obj.fill||'#3a3530', sc=obj.stroke||'#706050';
+  const fc=obj.fill, sc=obj.stroke;
   ctx.save();
+  const PI=Math.PI, PI2=PI*2;
+  // helper: draw rock polygon via bezier
+  function _rockPoly(ox,oy,rx,ry,pts,rot){
+    ctx.beginPath();
+    const a=rot||0;
+    for(let i=0;i<pts.length;i++){
+      const [ra,rr]=pts[i];
+      const ang=ra+a, nx=ox+Math.cos(ang)*rx*rr, ny=oy+Math.sin(ang)*ry*rr;
+      i===0?ctx.moveTo(nx,ny):ctx.lineTo(nx,ny);
+    }
+    ctx.closePath();
+  }
   switch(obj.subtype){
     case 'rock':{
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,1.5*z);
+      const rc='#706255', rs='#4a3f32', rh='#9a8e7a';
+      // Drop shadow
+      ctx.fillStyle='rgba(0,0,0,0.38)'; ctx.beginPath();
+      ctx.ellipse(cx+sw*.1,cy+sh*.2,sw*.42,sh*.3,0,0,PI2); ctx.fill();
+      // Main body — irregular polygon
+      const rockPts=[[-.1,1.0],[.25,.82],[.55,.95],[.88,.72],[1.0,.5],[.95,.15],[.75,-.2],[.45,-.45],[.1,-.5],[-.25,-.42],[-.55,-.25],[-.85,.05],[-.95,.35],[-.8,.7],[-.5,.95]];
+      const grMain=ctx.createRadialGradient(cx-sw*.12,cy-sh*.15,sw*.04,cx,cy,sw*.5);
+      grMain.addColorStop(0,rh); grMain.addColorStop(.5,rc); grMain.addColorStop(1,rs);
       ctx.beginPath();
-      ctx.ellipse(cx+sw*.05,cy+sh*.15,sw*.48,sh*.38,0,0,Math.PI*2);
-      ctx.fill(); ctx.stroke();
-      ctx.beginPath();
-      ctx.ellipse(cx-sw*.15,cy-sh*.1,sw*.3,sh*.3,-.3,0,Math.PI*2);
-      ctx.fill(); ctx.stroke();
-      ctx.strokeStyle=sc; ctx.lineWidth=Math.max(.5,1*z); ctx.globalAlpha=.5;
-      ctx.beginPath(); ctx.moveTo(cx-sw*.1,cy-sh*.15); ctx.lineTo(cx,cy+sh*.1); ctx.stroke();
+      rockPts.forEach(([ax,ay],i)=>{
+        const nx=cx+ax*sw*.44, ny=cy+ay*sh*.38;
+        i===0?ctx.moveTo(nx,ny):ctx.lineTo(nx,ny);
+      }); ctx.closePath();
+      ctx.fillStyle=grMain; ctx.fill();
+      ctx.strokeStyle=rs; ctx.lineWidth=Math.max(.8,1.2*z); ctx.stroke();
+      // Highlight patch top-left
+      ctx.fillStyle='rgba(200,185,160,0.22)'; ctx.beginPath();
+      ctx.ellipse(cx-sw*.15,cy-sh*.16,sw*.16,sh*.14,-0.4,0,PI2); ctx.fill();
+      // Crack lines
+      ctx.strokeStyle='rgba(60,48,36,0.55)'; ctx.lineWidth=Math.max(.5,.8*z);
+      ctx.beginPath(); ctx.moveTo(cx-sw*.05,cy-sh*.12); ctx.bezierCurveTo(cx+sw*.05,cy,cx-sw*.05,cy+sh*.12,cx+sw*.1,cy+sh*.22); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx+sw*.15,cy-sh*.08); ctx.lineTo(cx+sw*.22,cy+sh*.1); ctx.stroke();
       break;}
     case 'boulder':{
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,2*z);
+      const rc='#635848', rs='#3d2e22', rh='#8a7a68';
+      // Drop shadow
+      ctx.fillStyle='rgba(0,0,0,0.42)'; ctx.beginPath();
+      ctx.ellipse(cx+sw*.12,cy+sh*.22,sw*.44,sh*.32,0,0,PI2); ctx.fill();
+      // Main boulder body
+      const bldPts=[[-.05,1.0],[.22,.88],[.5,1.0],[.82,.78],[1.0,.42],[.92,-.05],[.72,-.38],[.42,-.55],[.05,-.58],[-.28,-.48],[-.58,-.28],[-.88,0],[-.98,.38],[-.82,.75],[-.52,.98]];
+      const grB=ctx.createRadialGradient(cx-sw*.15,cy-sh*.18,sw*.05,cx+sw*.05,cy+sh*.05,sw*.52);
+      grB.addColorStop(0,rh); grB.addColorStop(.45,rc); grB.addColorStop(1,rs);
       ctx.beginPath();
-      ctx.ellipse(cx,cy+sh*.1,sw*.46,sh*.42,0,0,Math.PI*2);
-      ctx.fill(); ctx.stroke();
-      ctx.beginPath();
-      ctx.ellipse(cx-sw*.18,cy-sh*.08,sw*.25,sh*.26,-.4,0,Math.PI*2);
-      ctx.fill(); ctx.stroke();
-      ctx.strokeStyle=sc; ctx.lineWidth=Math.max(.5,1.5*z); ctx.globalAlpha=.45;
-      ctx.beginPath(); ctx.moveTo(cx-sw*.15,cy-sh*.1); ctx.quadraticCurveTo(cx,cy,cx+sw*.1,cy+sh*.2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx+sw*.1,cy-sh*.15); ctx.lineTo(cx+sw*.2,cy+sh*.1); ctx.stroke();
-      break;}
-    case 'tree':{
-      // Trunk
-      const tw=sw*.22, th=sh*.35;
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,1.5*z);
-      ctx.fillRect(cx-tw/2,cy+sh*.5-th,tw,th);
-      ctx.strokeRect(cx-tw/2,cy+sh*.5-th,tw,th);
-      // Canopy layers
-      const gc=obj.stroke||'#2d6a2d';
-      ctx.fillStyle=gc; ctx.strokeStyle=gc; ctx.lineWidth=Math.max(.5,1*z);
-      [[0,-.18,.42,.4],[-.2,.05,.28,.28],[.2,.05,.26,.27],[0,-.35,.28,.28]].forEach(([ox,oy,rx,ry])=>{
-        ctx.beginPath(); ctx.ellipse(cx+ox*sw,cy+oy*sh,rx*sw,ry*sh,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      bldPts.forEach(([ax,ay],i)=>{
+        const nx=cx+ax*sw*.46,ny=cy+ay*sh*.42;
+        i===0?ctx.moveTo(nx,ny):ctx.lineTo(nx,ny);
+      }); ctx.closePath();
+      ctx.fillStyle=grB; ctx.fill();
+      ctx.strokeStyle=rs; ctx.lineWidth=Math.max(1,1.5*z); ctx.stroke();
+      // Facet highlight
+      ctx.fillStyle='rgba(210,195,170,0.18)'; ctx.beginPath();
+      ctx.ellipse(cx-sw*.18,cy-sh*.2,sw*.2,sh*.16,-.5,0,PI2); ctx.fill();
+      // Cracks
+      ctx.strokeStyle='rgba(50,38,28,0.6)'; ctx.lineWidth=Math.max(.6,1*z);
+      ctx.beginPath(); ctx.moveTo(cx-sw*.08,cy-sh*.18); ctx.bezierCurveTo(cx+sw*.08,cy-.05*sh,cx-sw*.04,cy+sh*.15,cx+sw*.14,cy+sh*.28); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx+sw*.18,cy-sh*.1); ctx.bezierCurveTo(cx+sw*.28,cy,cx+sw*.22,cy+sh*.18,cx+sw*.3,cy+sh*.25); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-sw*.22,cy+sh*.05); ctx.lineTo(cx-sw*.1,cy+sh*.22); ctx.stroke();
+      // Small pebble cluster beside
+      ctx.fillStyle=rc; ctx.strokeStyle=rs; ctx.lineWidth=Math.max(.5,.8*z);
+      [[sw*.3,sh*.28,sw*.09,sh*.07],[sw*.35,sh*.1,sw*.07,sh*.05]].forEach(([dx,dy,rx2,ry2])=>{
+        ctx.beginPath(); ctx.ellipse(cx+dx,cy+dy,rx2,ry2,0,0,PI2); ctx.fill(); ctx.stroke();
       });
       break;}
+    case 'tree':{
+      // Ground shadow
+      ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath();
+      ctx.ellipse(cx+sw*.08,cy+sh*.12,sw*.42,sh*.32,0,0,PI2); ctx.fill();
+      // Trunk dot
+      const trunkR=Math.max(2,sw*.1);
+      const grTrunk=ctx.createRadialGradient(cx-trunkR*.3,cy-trunkR*.3,trunkR*.1,cx,cy,trunkR);
+      grTrunk.addColorStop(0,'#7a5a30'); grTrunk.addColorStop(1,'#3d2a10');
+      ctx.fillStyle=grTrunk; ctx.beginPath(); ctx.arc(cx,cy,trunkR,0,PI2); ctx.fill();
+      ctx.strokeStyle='#2a1a08'; ctx.lineWidth=Math.max(.5,.8*z); ctx.stroke();
+      // Canopy — outer ring (darkest)
+      const grOuter=ctx.createRadialGradient(cx-sw*.1,cy-sh*.15,sw*.05,cx,cy,sw*.48);
+      grOuter.addColorStop(0,'#4a9a30'); grOuter.addColorStop(.6,'#2d6a18'); grOuter.addColorStop(1,'#1a4010');
+      ctx.fillStyle=grOuter; ctx.beginPath();
+      ctx.arc(cx,cy,sw*.46,0,PI2); ctx.fill();
+      ctx.strokeStyle='#1a3a0c'; ctx.lineWidth=Math.max(.8,1.2*z); ctx.stroke();
+      // Inner canopy highlight
+      const grInner=ctx.createRadialGradient(cx-sw*.15,cy-sh*.18,0,cx-sw*.1,cy-sh*.12,sw*.28);
+      grInner.addColorStop(0,'rgba(100,200,60,0.45)'); grInner.addColorStop(1,'rgba(100,200,60,0)');
+      ctx.fillStyle=grInner; ctx.beginPath(); ctx.arc(cx,cy,sw*.46,0,PI2); ctx.fill();
+      // Leaf cluster bumps around edge
+      ctx.fillStyle='#2a6015'; ctx.strokeStyle='#1a3a0c'; ctx.lineWidth=Math.max(.5,.8*z);
+      for(let i=0;i<8;i++){
+        const a=i*PI2/8, br=sw*.44, bumpR=sw*.1;
+        ctx.beginPath(); ctx.arc(cx+Math.cos(a)*br,cy+Math.sin(a)*br*0.85,bumpR,0,PI2); ctx.fill();
+      }
+      break;}
     case 'pine':{
+      // Shadow
+      ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath();
+      ctx.ellipse(cx+sw*.06,cy+sh*.1,sw*.38,sh*.25,0,0,PI2); ctx.fill();
       // Trunk
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,1.5*z);
-      ctx.fillRect(cx-sw*.08,cy+sh*.5-sh*.2,sw*.16,sh*.2);
-      ctx.strokeRect(cx-sw*.08,cy+sh*.5-sh*.2,sw*.16,sh*.2);
-      const pc=obj.stroke||'#3a6e2a';
-      [[.8,.55],[.65,.35],[.5,.15]].forEach(([yr,xr],i)=>{
-        ctx.fillStyle=i===0?pc:pc; ctx.globalAlpha=.85+i*.05;
-        ctx.beginPath();
-        ctx.moveTo(cx,p.y+sh*(yr-.45));
-        ctx.lineTo(cx+sw*xr,p.y+sh*yr);
-        ctx.lineTo(cx-sw*xr,p.y+sh*yr);
-        ctx.closePath(); ctx.fill(); ctx.stroke();
+      const ptw=Math.max(2,sw*.1), pth=sh*.22;
+      const grPT=ctx.createLinearGradient(cx-ptw,0,cx+ptw,0);
+      grPT.addColorStop(0,'#3d2408'); grPT.addColorStop(.5,'#6b4018'); grPT.addColorStop(1,'#3d2408');
+      ctx.fillStyle=grPT; ctx.beginPath(); ctx.roundRect(cx-ptw,cy+sh*.35,ptw*2,pth,Math.max(1,1.5*z)); ctx.fill();
+      ctx.strokeStyle='#2a1a06'; ctx.lineWidth=Math.max(.5,.8*z); ctx.strokeRect(cx-ptw,cy+sh*.35,ptw*2,pth);
+      // Three triangular tiers — darker lower, brighter top
+      const tiers=[
+        {y:.32,xr:.46,yOff:-.02,c:'#1e5010',s:'#0e3008'},
+        {y:.1, xr:.36,yOff:-.22,c:'#267018',s:'#144010'},
+        {y:-.12,xr:.24,yOff:-.4, c:'#2e8020',s:'#1a5012'},
+      ];
+      tiers.forEach(({y,xr,yOff,c,s})=>{
+        const ty=cy+sh*yOff, by=cy+sh*y;
+        const grT=ctx.createLinearGradient(cx-sw*xr,ty,cx,ty);
+        grT.addColorStop(0,s); grT.addColorStop(.5,c); grT.addColorStop(1,s);
+        ctx.fillStyle=grT; ctx.strokeStyle=s; ctx.lineWidth=Math.max(.5,.8*z);
+        ctx.beginPath(); ctx.moveTo(cx,ty); ctx.lineTo(cx+sw*xr,by); ctx.lineTo(cx-sw*xr,by); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        // Snow tips
+        ctx.fillStyle='rgba(220,230,240,0.18)'; ctx.beginPath(); ctx.moveTo(cx,ty); ctx.lineTo(cx+sw*xr*.25,ty+sh*.1); ctx.lineTo(cx-sw*xr*.25,ty+sh*.1); ctx.closePath(); ctx.fill();
       });
       break;}
     case 'bush':{
-      const bc=obj.stroke||'#3a7a30';
-      [[-.3,.1,.32,.28],[.1,.05,.34,.26],[-.1,-.1,.26,.24],[.3,.08,.26,.22]].forEach(([ox,oy,rx,ry],i)=>{
-        ctx.fillStyle=bc; ctx.globalAlpha=.75+i*.05; ctx.strokeStyle=bc; ctx.lineWidth=Math.max(.5,1*z);
-        ctx.beginPath(); ctx.ellipse(cx+ox*sw,cy+oy*sh,rx*sw,ry*sh,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      // Shadow
+      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath();
+      ctx.ellipse(cx+sw*.06,cy+sh*.15,sw*.44,sh*.28,0,0,PI2); ctx.fill();
+      // Multiple overlapping spheres — varied green shades
+      const bData=[
+        [cx-sw*.28,cy+sh*.08,sw*.24,sh*.22,'#2a7518','#1a5010'],
+        [cx+sw*.18,cy+sh*.06,sw*.26,sh*.2,'#347a1c','#1e5812'],
+        [cx-sw*.06,cy-sh*.08,sw*.28,sh*.22,'#3a8820','#245818'],
+        [cx+sw*.34,cy-sh*.02,sw*.2,sh*.18,'#2e7018','#1c4c10'],
+        [cx-sw*.24,cy-sh*.14,sw*.2,sh*.18,'#327218','#1e4e0e'],
+      ];
+      bData.forEach(([bx,by,brx,bry,bc,bs])=>{
+        ctx.fillStyle=bc; ctx.strokeStyle=bs; ctx.lineWidth=Math.max(.5,.8*z);
+        ctx.beginPath(); ctx.ellipse(bx,by,brx,bry,0,0,PI2); ctx.fill(); ctx.stroke();
+        // Highlight
+        const gr=ctx.createRadialGradient(bx-brx*.3,by-bry*.3,brx*.05,bx,by,brx);
+        gr.addColorStop(0,'rgba(120,210,60,0.3)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=gr; ctx.beginPath(); ctx.ellipse(bx,by,brx,bry,0,0,PI2); ctx.fill();
       });
       break;}
     case 'shrub':{
-      const bc=obj.stroke||'#4a8a30';
-      [[-.3,.05,.25,.22],[0,-.05,.28,.24],[.3,.05,.24,.2]].forEach(([ox,oy,rx,ry])=>{
-        ctx.fillStyle=bc; ctx.globalAlpha=.8; ctx.strokeStyle=bc; ctx.lineWidth=Math.max(.5,1*z);
-        ctx.beginPath(); ctx.ellipse(cx+ox*sw,cy+oy*sh,rx*sw,ry*sh,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      // Shadow
+      ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath();
+      ctx.ellipse(cx+sw*.05,cy+sh*.18,sw*.46,sh*.22,0,0,PI2); ctx.fill();
+      const sData=[
+        [cx-sw*.32,cy,sw*.2,sh*.18,'#3a7818','#244e10'],
+        [cx,cy-sh*.06,sw*.24,sh*.2,'#428820','#2a5814'],
+        [cx+sw*.3,cy+sh*.02,sw*.2,sh*.17,'#367018','#204a10'],
+        [cx-sw*.14,cy+sh*.08,sw*.18,sh*.15,'#2e6a14','#1c480c'],
+        [cx+sw*.14,cy+sh*.08,sw*.19,sh*.15,'#3a7618','#244e10'],
+      ];
+      sData.forEach(([bx,by,brx,bry,bc,bs])=>{
+        ctx.fillStyle=bc; ctx.strokeStyle=bs; ctx.lineWidth=Math.max(.5,.8*z);
+        ctx.beginPath(); ctx.ellipse(bx,by,brx,bry,0,0,PI2); ctx.fill(); ctx.stroke();
+        const gr=ctx.createRadialGradient(bx-brx*.28,by-bry*.28,0,bx,by,brx);
+        gr.addColorStop(0,'rgba(110,200,50,0.28)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=gr; ctx.beginPath(); ctx.ellipse(bx,by,brx,bry,0,0,PI2); ctx.fill();
       });
       break;}
     case 'vault':{
-      // Platform
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,2*z);
-      ctx.beginPath(); ctx.roundRect(p.x,cy+sh*.2,sw,sh*.45,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
-      // Vault arc arrow
-      ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1.5,2.5*z); ctx.setLineDash([]);
-      ctx.beginPath(); ctx.moveTo(p.x+sw*.15,cy+sh*.2); ctx.quadraticCurveTo(cx,p.y+sh*.05,p.x+sw*.85,cy+sh*.2); ctx.stroke();
-      const ax=p.x+sw*.85,ay=cy+sh*.2,al=Math.max(5,7*z);
-      ctx.fillStyle=sc; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax-al,ay-al*.5); ctx.lineTo(ax-al*.2,ay+al*.5); ctx.closePath(); ctx.fill();
+      // Base wall/ledge
+      const grV=ctx.createLinearGradient(p.x,cy+sh*.2,p.x,q.y);
+      grV.addColorStop(0,'#4a3e2a'); grV.addColorStop(1,'#2a2018');
+      ctx.fillStyle=grV; ctx.strokeStyle='#c9a227'; ctx.lineWidth=Math.max(1.5,2*z);
+      ctx.beginPath(); ctx.roundRect(p.x,cy+sh*.15,sw,sh*.5,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      // Top edge highlight
+      ctx.fillStyle='rgba(201,162,39,0.35)'; ctx.fillRect(p.x+2,cy+sh*.15,sw-4,Math.max(2,3*z));
+      // Vault arc (dotted guide)
+      ctx.strokeStyle='#c9a227'; ctx.lineWidth=Math.max(1.5,2.5*z); ctx.setLineDash([Math.max(3,4*z),Math.max(2,3*z)]);
+      ctx.beginPath(); ctx.moveTo(p.x+sw*.12,cy+sh*.14); ctx.quadraticCurveTo(cx,p.y+sh*.08,p.x+sw*.88,cy+sh*.14); ctx.stroke();
+      ctx.setLineDash([]);
+      // Arrow at end of arc
+      const vax=p.x+sw*.88, vay=cy+sh*.14, val=Math.max(5,7*z);
+      ctx.fillStyle='#c9a227';
+      ctx.beginPath(); ctx.moveTo(vax,vay); ctx.lineTo(vax-val*.8,vay-val*.7); ctx.lineTo(vax-val*.2,vay+val*.6); ctx.closePath(); ctx.fill();
+      // "VAULT" label in center
+      if(z>0.5){ ctx.fillStyle='rgba(201,162,39,0.8)'; ctx.font=`bold ${Math.max(6,7*z)}px Rajdhani`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('VAULT',cx,cy+sh*.42); }
       break;}
     case 'jumppad':{
-      // Base
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,2*z);
-      ctx.beginPath(); ctx.roundRect(p.x,cy+sh*.3,sw,sh*.45,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
-      // Spring coils
-      ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,1.5*z); const coils=3;
-      for(let i=0;i<coils;i++){
-        const bx=p.x+sw*.2+sw*.6*i/coils, bx2=p.x+sw*.2+sw*.6*(i+1)/coils;
-        const ty=cy-sh*.1, by=cy+sh*.3;
-        ctx.beginPath(); ctx.moveTo(bx,by); ctx.quadraticCurveTo((bx+bx2)/2,ty,bx2,by); ctx.stroke();
-      }
-      // Up arrow
-      ctx.fillStyle=sc;
-      ctx.beginPath(); ctx.moveTo(cx,p.y); ctx.lineTo(cx+sw*.12,p.y+sh*.25); ctx.lineTo(cx-sw*.12,p.y+sh*.25); ctx.closePath(); ctx.fill();
+      // Base plate
+      const grJB=ctx.createLinearGradient(p.x,cy+sh*.35,p.x,q.y);
+      grJB.addColorStop(0,'#1a3a5a'); grJB.addColorStop(1,'#0c1e30');
+      ctx.fillStyle=grJB; ctx.strokeStyle='#4a9eff'; ctx.lineWidth=Math.max(1.5,2*z);
+      ctx.beginPath(); ctx.roundRect(p.x,cy+sh*.35,sw,sh*.4,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      // Energy arrows (3 stacked chevrons)
+      ctx.strokeStyle='#4a9eff'; ctx.lineWidth=Math.max(1.5,2.5*z); ctx.lineJoin='round';
+      [[.58,.48],[.42,.32],[.26,.16]].forEach(([y1,y2],i)=>{
+        ctx.globalAlpha=0.4+i*.25;
+        ctx.beginPath();
+        ctx.moveTo(p.x+sw*.2,cy+sh*y1); ctx.lineTo(cx,cy+sh*y2); ctx.lineTo(p.x+sw*.8,cy+sh*y1);
+        ctx.stroke();
+      });
+      ctx.globalAlpha=1;
+      // Top glow
+      const grJG=ctx.createRadialGradient(cx,cy+sh*.38,0,cx,cy+sh*.38,sw*.35);
+      grJG.addColorStop(0,'rgba(74,158,255,0.4)'); grJG.addColorStop(1,'rgba(74,158,255,0)');
+      ctx.fillStyle=grJG; ctx.beginPath(); ctx.ellipse(cx,cy+sh*.38,sw*.4,sh*.18,0,0,PI2); ctx.fill();
       break;}
     case 'climbable':{
-      // Rails
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,2*z);
-      [[.1,.85],[.7,.85]].forEach(([xr,wr])=>{
-        ctx.fillRect(p.x+sw*xr,p.y,sw*(1-wr),sh);
-        ctx.strokeRect(p.x+sw*xr,p.y,sw*(1-wr),sh);
+      // Background fill
+      ctx.fillStyle='rgba(50,35,15,0.7)'; ctx.strokeStyle='#c9a227'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Rope rails
+      const rl=Math.max(1.5,2.5*z);
+      [[cx-sw*.22,cx-sw*.18],[cx+sw*.18,cx+sw*.22]].forEach(([lx1,lx2])=>{
+        const grR=ctx.createLinearGradient(lx1,0,lx2,0);
+        grR.addColorStop(0,'#7a5c28'); grR.addColorStop(.5,'#c9a227'); grR.addColorStop(1,'#7a5c28');
+        ctx.fillStyle=grR; ctx.fillRect(lx1,p.y+sh*.04,lx2-lx1,sh*.92);
+        ctx.strokeStyle='#5a4018'; ctx.lineWidth=Math.max(.4,.6*z); ctx.strokeRect(lx1,p.y+sh*.04,lx2-lx1,sh*.92);
       });
       // Rungs
-      const nRungs=Math.max(2,Math.round(sh/Math.max(10,14*z)));
-      for(let i=0;i<=nRungs;i++){
-        const ry=p.y+sh*i/nRungs;
-        ctx.beginPath(); ctx.moveTo(p.x+sw*.15,ry); ctx.lineTo(p.x+sw*.85,ry);
-        ctx.lineWidth=Math.max(1,2*z); ctx.stroke();
+      const nR=Math.max(2,Math.round(sh/Math.max(10,16*z)));
+      for(let i=1;i<nR;i++){
+        const ry=p.y+sh*i/nR;
+        const grRung=ctx.createLinearGradient(cx-sw*.22,ry,cx+sw*.22,ry);
+        grRung.addColorStop(0,'#7a5c28'); grRung.addColorStop(.5,'#c9a227'); grRung.addColorStop(1,'#7a5c28');
+        ctx.fillStyle=grRung; ctx.fillRect(cx-sw*.22,ry-Math.max(1,1.5*z),sw*.44,Math.max(2,3*z));
       }
       break;}
     case 'ledge':{
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,2*z);
+      // Ledge body with depth
+      const grL=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
+      grL.addColorStop(0,'#5a5048'); grL.addColorStop(.4,'#3a2e24'); grL.addColorStop(1,'#2a2018');
+      ctx.fillStyle=grL; ctx.strokeStyle='#888070'; ctx.lineWidth=Math.max(1,1.5*z);
       ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Grip marks
-      ctx.strokeStyle=sc; ctx.lineWidth=Math.max(.5,1*z); ctx.globalAlpha=.5;
-      for(let i=1;i<5;i++){
-        const gx=p.x+sw*i/5;
-        ctx.beginPath(); ctx.moveTo(gx,p.y); ctx.lineTo(gx,p.y+sh); ctx.stroke();
+      // Top bright edge (lit surface)
+      ctx.fillStyle='rgba(200,185,160,0.4)'; ctx.fillRect(p.x+1,p.y+1,sw-2,Math.max(1.5,2*z));
+      // Grip notches
+      const notches=Math.max(3,Math.round(sw/Math.max(8,12*z)));
+      ctx.strokeStyle='rgba(80,65,50,0.7)'; ctx.lineWidth=Math.max(.8,1.2*z);
+      for(let i=1;i<notches;i++){
+        const gx=p.x+sw*i/notches;
+        ctx.beginPath(); ctx.moveTo(gx,p.y+sh*.2); ctx.lineTo(gx,p.y+sh*.8); ctx.stroke();
       }
+      // Hang indicator arrows
+      ctx.strokeStyle='rgba(201,162,39,0.55)'; ctx.lineWidth=Math.max(1,1.5*z);
+      [-.3,0,.3].forEach(ox=>{
+        const hx=cx+ox*sw;
+        ctx.beginPath(); ctx.moveTo(hx-Math.max(3,4*z),p.y+sh*.3); ctx.lineTo(hx,p.y+sh*.6); ctx.lineTo(hx+Math.max(3,4*z),p.y+sh*.3); ctx.stroke();
+      });
       break;}
     case 'flashlight':{
       // Body
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,1.5*z);
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.05,cy-sh*.28,sw*.55,sh*.56,Math.max(2,4*z)); ctx.fill(); ctx.stroke();
+      const grFL=ctx.createLinearGradient(p.x,cy-sh*.3,p.x,cy+sh*.3);
+      grFL.addColorStop(0,'#3a3820'); grFL.addColorStop(.5,'#5a5630'); grFL.addColorStop(1,'#2a2818');
+      ctx.fillStyle=grFL; ctx.strokeStyle='#8a8050'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.05,cy-sh*.25,sw*.52,sh*.5,Math.max(3,5*z)); ctx.fill(); ctx.stroke();
+      // Grip texture
+      ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=Math.max(.5,.8*z);
+      for(let i=0;i<4;i++){ const gx=p.x+sw*.12+i*sw*.1; ctx.beginPath(); ctx.moveTo(gx,cy-sh*.2); ctx.lineTo(gx,cy+sh*.2); ctx.stroke(); }
+      // Head — wider part
+      ctx.fillStyle='#4a4835'; ctx.strokeStyle='#6a6040'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.52,cy-sh*.3,sw*.18,sh*.6,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
       // Beam cone
-      ctx.fillStyle=sc; ctx.globalAlpha=.25;
-      ctx.beginPath(); ctx.moveTo(p.x+sw*.6,cy-sh*.28); ctx.lineTo(p.x+sw,cy-sh*.48); ctx.lineTo(p.x+sw,cy+sh*.48); ctx.lineTo(p.x+sw*.6,cy+sh*.28); ctx.closePath(); ctx.fill();
-      ctx.globalAlpha=1; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(.5,1*z);
-      ctx.beginPath(); ctx.moveTo(p.x+sw*.6,cy-sh*.28); ctx.lineTo(p.x+sw,cy-sh*.48); ctx.moveTo(p.x+sw*.6,cy+sh*.28); ctx.lineTo(p.x+sw,cy+sh*.48); ctx.stroke();
+      const grBeam=ctx.createLinearGradient(p.x+sw*.7,0,q.x,0);
+      grBeam.addColorStop(0,'rgba(255,240,150,0.45)'); grBeam.addColorStop(1,'rgba(255,240,150,0.05)');
+      ctx.fillStyle=grBeam;
+      ctx.beginPath(); ctx.moveTo(p.x+sw*.7,cy-sh*.28); ctx.lineTo(q.x,cy-sh*.52); ctx.lineTo(q.x,cy+sh*.52); ctx.lineTo(p.x+sw*.7,cy+sh*.28); ctx.closePath(); ctx.fill();
       // Lens
-      ctx.fillStyle=sc; ctx.globalAlpha=.7;
-      ctx.beginPath(); ctx.ellipse(p.x+sw*.63,cy,sw*.06,sh*.2,0,0,Math.PI*2); ctx.fill();
+      const grLens=ctx.createRadialGradient(p.x+sw*.72,cy,0,p.x+sw*.72,cy,sh*.18);
+      grLens.addColorStop(0,'#fffccc'); grLens.addColorStop(.4,'#ffe066'); grLens.addColorStop(1,'#998820');
+      ctx.fillStyle=grLens; ctx.beginPath(); ctx.ellipse(p.x+sw*.71,cy,sw*.06,sh*.2,0,0,PI2); ctx.fill();
+      ctx.strokeStyle='#cc9900'; ctx.lineWidth=Math.max(.5,.8*z); ctx.stroke();
       break;}
     case 'battery':{
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,1.5*z);
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.04,cy-sh*.38,sw*.84,sh*.76,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Terminal
-      ctx.fillStyle=sc; ctx.fillRect(p.x+sw*.88,cy-sh*.2,sw*.1,sh*.4);
-      // Charge bars
-      const bars=4;
-      for(let i=0;i<bars;i++){
-        ctx.fillStyle=i<3?sc:'rgba(255,255,255,.15)'; ctx.globalAlpha=i<3?.85:.3;
-        ctx.beginPath(); ctx.roundRect(p.x+sw*.1+i*(sw*.18),cy-sh*.22,sw*.14,sh*.44,Math.max(1,2*z)); ctx.fill();
+      // Casing
+      const grBat=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
+      grBat.addColorStop(0,'#2a3818'); grBat.addColorStop(.5,'#3a5020'); grBat.addColorStop(1,'#1a2810');
+      ctx.fillStyle=grBat; ctx.strokeStyle='#4ecb71'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.02,p.y+sh*.08,sw*.82,sh*.84,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      // Positive terminal
+      ctx.fillStyle='#4ecb71'; ctx.beginPath(); ctx.roundRect(p.x+sw*.84,cy-sh*.22,sw*.14,sh*.44,Math.max(1,2*z)); ctx.fill();
+      // Charge level bars (4)
+      const btColors=['#4ecb71','#4ecb71','#4ecb71','rgba(78,203,113,0.2)'];
+      for(let i=0;i<4;i++){
+        ctx.fillStyle=btColors[i];
+        ctx.beginPath(); ctx.roundRect(p.x+sw*.08+i*sw*.18,cy-sh*.28,sw*.14,sh*.56,Math.max(1,1.5*z)); ctx.fill();
       }
+      // Lightning bolt icon
+      if(z>0.4){ ctx.fillStyle='rgba(255,255,255,0.6)'; ctx.font=`bold ${Math.max(8,10*z)}px Rajdhani`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('⚡',cx-sw*.1,cy); }
       break;}
     case 'health':{
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,2*z);
-      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
-      // Cross
-      ctx.fillStyle=sc; ctx.globalAlpha=.9;
-      ctx.fillRect(cx-sw*.08,p.y+sh*.2,sw*.16,sh*.6);
-      ctx.fillRect(p.x+sw*.2,cy-sh*.08,sw*.6,sh*.16);
+      // Red cross box
+      const grH=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
+      grH.addColorStop(0,'#4a1010'); grH.addColorStop(.5,'#3a0808'); grH.addColorStop(1,'#2a0505');
+      ctx.fillStyle=grH; ctx.strokeStyle='#e05252'; ctx.lineWidth=Math.max(1.5,2*z);
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(2,4*z)); ctx.fill(); ctx.stroke();
+      // Cross arms with gradient
+      const cw=sw*.22, ch=sh*.62, hw=sw*.62, hh=sh*.22;
+      const grCross=ctx.createLinearGradient(cx,p.y+sh*.18,cx,q.y-sh*.18);
+      grCross.addColorStop(0,'#ff7070'); grCross.addColorStop(.5,'#e82020'); grCross.addColorStop(1,'#ff7070');
+      ctx.fillStyle=grCross;
+      ctx.beginPath(); ctx.roundRect(cx-cw/2,p.y+sh*.18,cw,ch,Math.max(1,2*z)); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(cx-hw/2,cy-hh/2,hw,hh,Math.max(1,2*z)); ctx.fill();
+      // Shine
+      ctx.fillStyle='rgba(255,200,200,0.2)'; ctx.beginPath(); ctx.roundRect(p.x+sw*.1,p.y+sh*.08,sw*.35,sh*.35,Math.max(1,2*z)); ctx.fill();
       break;}
     case 'camera':{
       // Body
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,1.5*z);
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.04,p.y+sh*.15,sw*.62,sh*.7,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
-      // Lens
-      ctx.beginPath(); ctx.ellipse(cx-sw*.05,cy,sh*.32,sh*.32,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      ctx.fillStyle=sc; ctx.globalAlpha=.6;
-      ctx.beginPath(); ctx.ellipse(cx-sw*.05,cy,sh*.18,sh*.18,0,0,Math.PI*2); ctx.fill();
-      // Viewfinder bump
-      ctx.globalAlpha=1; ctx.fillStyle=fc; ctx.strokeStyle=sc;
-      ctx.beginPath(); ctx.roundRect(cx+sw*.15,p.y,sw*.25,sh*.4,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // FOV triangle
-      ctx.globalAlpha=.25; ctx.fillStyle=sc;
-      ctx.beginPath(); ctx.moveTo(p.x+sw*.66,cy); ctx.lineTo(p.x+sw,p.y); ctx.lineTo(p.x+sw,p.y+sh); ctx.closePath(); ctx.fill();
+      const grCam=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
+      grCam.addColorStop(0,'#1a2535'); grCam.addColorStop(1,'#0a1020');
+      ctx.fillStyle=grCam; ctx.strokeStyle='#4a9eff'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.04,p.y+sh*.1,sw*.6,sh*.8,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      // Lens barrel
+      const lensX=p.x+sw*.34, lensY=cy, lensR=Math.min(sw*.22,sh*.32);
+      const grLens2=ctx.createRadialGradient(lensX-lensR*.3,lensY-lensR*.3,0,lensX,lensY,lensR);
+      grLens2.addColorStop(0,'#c0d8ff'); grLens2.addColorStop(.3,'#3060b0'); grLens2.addColorStop(.7,'#102050'); grLens2.addColorStop(1,'#08121e');
+      ctx.fillStyle=grLens2; ctx.beginPath(); ctx.arc(lensX,lensY,lensR,0,PI2); ctx.fill();
+      ctx.strokeStyle='#4a9eff'; ctx.lineWidth=Math.max(.8,1.2*z); ctx.stroke();
+      ctx.fillStyle='rgba(180,210,255,0.5)'; ctx.beginPath(); ctx.arc(lensX-lensR*.35,lensY-lensR*.35,lensR*.25,0,PI2); ctx.fill();
+      // Top flash bump
+      ctx.fillStyle='#243040'; ctx.strokeStyle='#3a6a9a'; ctx.lineWidth=Math.max(.5,.8*z);
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.22,p.y,sw*.2,sh*.18,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // FOV beam
+      const grFOV=ctx.createLinearGradient(p.x+sw*.64,0,q.x,0);
+      grFOV.addColorStop(0,'rgba(74,158,255,0.35)'); grFOV.addColorStop(1,'rgba(74,158,255,0.04)');
+      ctx.fillStyle=grFOV;
+      ctx.beginPath(); ctx.moveTo(p.x+sw*.64,cy); ctx.lineTo(q.x,p.y-sh*.1); ctx.lineTo(q.x,q.y+sh*.1); ctx.closePath(); ctx.fill();
+      // Red recording dot
+      ctx.fillStyle='#e05252'; ctx.beginPath(); ctx.arc(p.x+sw*.12,p.y+sh*.25,Math.max(2,2.5*z),0,PI2); ctx.fill();
       break;}
     case 'key':{
-      // Key ring
-      ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,2*z); ctx.fillStyle=fc;
-      const kr=sh*.38;
-      ctx.beginPath(); ctx.arc(p.x+sw*.28,cy,kr,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      ctx.fillStyle=sc; ctx.globalAlpha=.3;
-      ctx.beginPath(); ctx.arc(p.x+sw*.28,cy,kr*.55,0,Math.PI*2); ctx.fill();
-      ctx.globalAlpha=1;
+      // Ring
+      const kr=Math.min(sw*.32,sh*.38);
+      const grKey=ctx.createRadialGradient(p.x+sw*.25-kr*.2,cy-kr*.2,0,p.x+sw*.25,cy,kr);
+      grKey.addColorStop(0,'#ffe090'); grKey.addColorStop(.5,'#c9a227'); grKey.addColorStop(1,'#7a6010');
+      ctx.fillStyle=grKey; ctx.strokeStyle='#6a5010'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.arc(p.x+sw*.28,cy,kr,0,PI2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#1a2010'; ctx.beginPath(); ctx.arc(p.x+sw*.28,cy,kr*.45,0,PI2); ctx.fill();
+      ctx.strokeStyle='#6a5010'; ctx.stroke();
       // Shaft
-      ctx.fillStyle=fc; ctx.strokeStyle=sc;
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.44,cy-sh*.14,sw*.52,sh*.28,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      const grShaft=ctx.createLinearGradient(p.x+sw*.44,cy-sh*.15,p.x+sw*.44,cy+sh*.15);
+      grShaft.addColorStop(0,'#ffe090'); grShaft.addColorStop(.5,'#c9a227'); grShaft.addColorStop(1,'#8a7020');
+      ctx.fillStyle=grShaft; ctx.strokeStyle='#6a5010'; ctx.lineWidth=Math.max(.8,1.2*z);
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.44,cy-sh*.15,sw*.5,sh*.3,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
       // Teeth
-      [[.62,.22,.12,.25],[.75,.22,.1,.35]].forEach(([tx,ty,tw,th])=>{
-        ctx.fillRect(p.x+sw*tx,cy+sh*ty,sw*tw,sh*th); ctx.strokeRect(p.x+sw*tx,cy+sh*ty,sw*tw,sh*th);
+      [[.58,.3,.12,.28],[.72,.3,.1,.38]].forEach(([tx,ty,tw,th])=>{
+        ctx.fillStyle=grShaft; ctx.strokeStyle='#6a5010';
+        ctx.beginPath(); ctx.roundRect(p.x+sw*tx,cy+sh*ty,sw*tw,sh*th,Math.max(.5,1*z)); ctx.fill(); ctx.stroke();
       });
       break;}
     case 'ammo':{
-      const n=3, bw=sw*.24, bh=sh*.75, bpad=sw*.06;
-      const totalW=n*bw+(n-1)*bpad, startX=cx-totalW/2;
+      const n=3, bpad=sw*.06;
+      const bw=(sw-bpad*(n+1))/n, bh=sh*.72, startX=p.x+bpad;
       for(let i=0;i<n;i++){
-        const bx=startX+i*(bw+bpad), by=cy-bh*.48;
-        ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(.5,1.5*z);
-        ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,Math.max(1,3*z)); ctx.fill(); ctx.stroke();
-        // Tip
-        ctx.fillStyle=sc; ctx.globalAlpha=.9;
-        ctx.beginPath(); ctx.ellipse(bx+bw/2,by,bw/2,bh*.15,0,0,Math.PI*2); ctx.fill();
-        ctx.globalAlpha=1;
+        const bx=startX+i*(bw+bpad), by=cy-bh*.5;
+        // Casing gradient
+        const grA=ctx.createLinearGradient(bx,0,bx+bw,0);
+        grA.addColorStop(0,'#5a4010'); grA.addColorStop(.3,'#e07820'); grA.addColorStop(.7,'#c06010'); grA.addColorStop(1,'#3a2808');
+        ctx.fillStyle=grA; ctx.strokeStyle='#5a3a08'; ctx.lineWidth=Math.max(.5,1*z);
+        ctx.beginPath(); ctx.roundRect(bx,by+bh*.2,bw,bh*.8,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+        // Bullet tip
+        const grTip=ctx.createLinearGradient(bx,0,bx+bw,0);
+        grTip.addColorStop(0,'#8a7040'); grTip.addColorStop(.5,'#d4b870'); grTip.addColorStop(1,'#6a5028');
+        ctx.fillStyle=grTip; ctx.strokeStyle='#4a3010';
+        ctx.beginPath(); ctx.moveTo(bx,by+bh*.2); ctx.quadraticCurveTo(bx+bw/2,by-bh*.05,bx+bw,by+bh*.2); ctx.closePath(); ctx.fill(); ctx.stroke();
+        // Rim
+        ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=Math.max(.5,.8*z);
+        ctx.beginPath(); ctx.moveTo(bx,by+bh*.28); ctx.lineTo(bx+bw,by+bh*.28); ctx.stroke();
       }
       break;}
     default:{
-      ctx.fillStyle=fc; ctx.strokeStyle=sc; ctx.lineWidth=Math.max(1,1.5*z);
-      ctx.beginPath(); ctx.roundRect(p.x,p.y,q.x-p.x,q.y-p.y,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      const grDef=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
+      grDef.addColorStop(0,fc||'#3a3530'); grDef.addColorStop(1,sc||'#1a1510');
+      ctx.fillStyle=grDef; ctx.strokeStyle=sc||'#706050'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
     }
   }
   // Label
   const _dl=obj.label||obj.name;
   if(_dl&&z>0.35){
-    ctx.globalAlpha=1; ctx.font=`${Math.max(7,9*z)}px Barlow`;
+    ctx.globalAlpha=.9; ctx.font=`bold ${Math.max(7,9*z)}px Rajdhani`;
     ctx.textAlign='center'; ctx.textBaseline='bottom';
-    ctx.fillStyle='rgba(255,255,255,0.75)';
+    ctx.fillStyle='rgba(0,0,0,0.55)';
+    ctx.fillText(_dl,cx+1,q.y-Math.max(1,2*z)+1);
+    ctx.fillStyle='rgba(255,255,255,0.85)';
     ctx.fillText(_dl,cx,q.y-Math.max(1,2*z));
     ctx.textAlign='left'; ctx.textBaseline='alphabetic';
   }
