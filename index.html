@@ -6046,411 +6046,413 @@ function _drawGameprop(ctx,obj,p){
         ctx.beginPath(); ctx.moveTo(bx,by+bh*.28); ctx.lineTo(bx+bw,by+bh*.28); ctx.stroke();
       }
       break;}
-    // ── INDOOR / FURNITURE (side-view) ──────────────────────────────────────
+    // ── INDOOR / FURNITURE (top-down) ───────────────────────────────────────
     case 'sofa':{
-      const lw=Math.max(.8,1.2*z), arm=sw*.12;
+      const lw=Math.max(.8,1.2*z);
       // Shadow
-      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(cx,cy+sh*.9,sw*.5,sh*.12,0,0,PI2); ctx.fill();
-      // Seat base
-      const grSeat=ctx.createLinearGradient(p.x,cy,p.x,q.y);
-      grSeat.addColorStop(0,'#5a3e2a'); grSeat.addColorStop(1,'#3a2618');
-      ctx.fillStyle=grSeat; ctx.strokeStyle='#2a1a0e'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x,cy+sh*.1,sw,sh*.7,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
-      // Backrest
-      const grBack=ctx.createLinearGradient(p.x,p.y,p.x,cy+sh*.2);
-      grBack.addColorStop(0,'#6a4a30'); grBack.addColorStop(1,'#4a3020');
-      ctx.fillStyle=grBack; ctx.strokeStyle='#2a1a0e'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh*.3,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
-      // Left arm
-      ctx.fillStyle='#5a3e28'; ctx.strokeStyle='#2a1a0e'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x,p.y+sh*.1,arm,sh*.7,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
-      // Right arm
-      ctx.beginPath(); ctx.roundRect(p.x+sw-arm,p.y+sh*.1,arm,sh*.7,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
-      // Cushion lines
-      ctx.strokeStyle='rgba(30,15,8,0.4)'; ctx.lineWidth=Math.max(.5,1*z);
-      ctx.beginPath(); ctx.moveTo(cx,cy+sh*.1); ctx.lineTo(cx,q.y-sh*.1); ctx.stroke();
-      // Legs
-      ctx.fillStyle='#2a1a08'; [[sw*.15,0],[sw*.78,0]].forEach(([ox])=>{
-        ctx.beginPath(); ctx.rect(p.x+ox,q.y-sh*.12,sw*.08,sh*.14); ctx.fill();
-      });
+      ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(cx+sw*.03,cy+sh*.06,sw*.5,sh*.28,0,0,PI2); ctx.fill();
+      // Main body (full rect — the seat area)
+      const grS=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
+      grS.addColorStop(0,'#6a4a30'); grS.addColorStop(1,'#3a2618');
+      ctx.fillStyle=grS; ctx.strokeStyle='#2a1a0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      // Backrest strip (top edge, visible from above)
+      const grBk=ctx.createLinearGradient(p.x,p.y,p.x,p.y+sh*.28);
+      grBk.addColorStop(0,'#7a5838'); grBk.addColorStop(1,'#5a3e26');
+      ctx.fillStyle=grBk; ctx.strokeStyle='#2a1a0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.04,p.y+sh*.04,sw*.92,sh*.28,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Left armrest
+      ctx.fillStyle='#5e3e28'; ctx.strokeStyle='#2a1a0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.02,p.y+sh*.28,sw*.1,sh*.66,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Right armrest
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.88,p.y+sh*.28,sw*.1,sh*.66,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Cushion division
+      ctx.strokeStyle='rgba(25,12,4,0.38)'; ctx.lineWidth=Math.max(.5,1*z);
+      ctx.beginPath(); ctx.moveTo(cx,p.y+sh*.34); ctx.lineTo(cx,q.y-sh*.06); ctx.stroke();
+      // Seat highlight
+      const grHL=ctx.createRadialGradient(cx-sw*.1,cy+sh*.1,0,cx,cy+sh*.1,sw*.4);
+      grHL.addColorStop(0,'rgba(180,130,70,0.22)'); grHL.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=grHL; ctx.beginPath(); ctx.roundRect(p.x+sw*.12,p.y+sh*.32,sw*.76,sh*.58,Math.max(1,2*z)); ctx.fill();
       break;}
     case 'chair':{
       const lw=Math.max(.8,1.2*z);
-      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(cx,q.y+sh*.05,sw*.35,sh*.1,0,0,PI2); ctx.fill();
-      // Seat
-      const grSt=ctx.createLinearGradient(p.x,cy+sh*.1,p.x,cy+sh*.6);
-      grSt.addColorStop(0,'#4a3a2a'); grSt.addColorStop(1,'#2e2218');
-      ctx.fillStyle=grSt; ctx.strokeStyle='#1e1408'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.05,cy+sh*.05,sw*.9,sh*.35,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Backrest
-      const grBk=ctx.createLinearGradient(p.x,p.y,p.x,cy+sh*.1);
-      grBk.addColorStop(0,'#5a4630'); grBk.addColorStop(1,'#3a2e1a');
-      ctx.fillStyle=grBk; ctx.strokeStyle='#1e1408'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.08,p.y,sw*.84,sh*.22,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // 2 horizontal back rails
-      ctx.strokeStyle='rgba(20,12,4,0.45)'; ctx.lineWidth=Math.max(.5,.8*z);
-      [.07,.15].forEach(oy=>{ ctx.beginPath(); ctx.moveTo(p.x+sw*.1,p.y+sh*oy); ctx.lineTo(p.x+sw*.9,p.y+sh*oy); ctx.stroke(); });
-      // 4 legs
-      ctx.fillStyle='#2a1e0c'; ctx.strokeStyle='#140e04'; ctx.lineWidth=Math.max(.5,.8*z);
-      [[.1,.4],[.82,.4],[.1,.0],[.82,.0]].forEach(([ox,flare])=>{
-        const lx=p.x+sw*ox, ly=cy+sh*.38, lh=sh*.56;
-        ctx.beginPath(); ctx.rect(lx,ly,sw*.08,lh); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(cx+sw*.03,cy+sh*.05,sw*.42,sh*.42,0,0,PI2); ctx.fill();
+      // Seat (full body)
+      const grSeat=ctx.createRadialGradient(cx-sw*.1,cy-sh*.1,sw*.02,cx,cy,sw*.5);
+      grSeat.addColorStop(0,'#5a4832'); grSeat.addColorStop(1,'#2e2218');
+      ctx.fillStyle=grSeat; ctx.strokeStyle='#1e1408'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.06,p.y+sh*.06,sw*.88,sh*.88,Math.max(2,4*z)); ctx.fill(); ctx.stroke();
+      // Backrest bar (top)
+      ctx.fillStyle='#6a5238'; ctx.strokeStyle='#1e1408'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.08,p.y+sh*.08,sw*.84,sh*.22,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // 4 leg dots at corners
+      ctx.fillStyle='#1e140a'; ctx.strokeStyle='#100a04'; ctx.lineWidth=Math.max(.4,.7*z);
+      [[sw*.08,sh*.08],[sw*.84,sh*.08],[sw*.08,sh*.82],[sw*.84,sh*.82]].forEach(([ox,oy])=>{
+        ctx.beginPath(); ctx.arc(p.x+ox,p.y+oy,Math.max(1.5,sw*.05),0,PI2); ctx.fill(); ctx.stroke();
       });
+      // Seat highlight
+      const grHL=ctx.createRadialGradient(cx-sw*.08,cy+sh*.1,0,cx,cy+sh*.1,sw*.32);
+      grHL.addColorStop(0,'rgba(160,120,60,0.25)'); grHL.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=grHL; ctx.beginPath(); ctx.arc(cx,cy+sh*.2,sw*.3,0,PI2); ctx.fill();
       break;}
     case 'shelf':{
-      const lw=Math.max(.8,1.2*z), side=sw*.08, shelves=3;
-      const grWood=ctx.createLinearGradient(p.x,p.y,p.x+side,p.y);
-      grWood.addColorStop(0,'#4a3418'); grWood.addColorStop(.4,'#6a5030'); grWood.addColorStop(1,'#3a2810');
+      const lw=Math.max(.8,1.2*z), depth=sh*.18;
+      // Shadow
+      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.rect(p.x+sw*.04,q.y,sw*.96,sh*.08); ctx.fill();
+      // Back panel (wall side — top)
+      ctx.fillStyle='#2a1e0c'; ctx.strokeStyle='#1a1008'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.rect(p.x,p.y,sw,depth); ctx.fill(); ctx.stroke();
+      // Shelf surface
+      const grSh=ctx.createLinearGradient(p.x,p.y+depth,p.x,q.y);
+      grSh.addColorStop(0,'#7a6040'); grSh.addColorStop(1,'#5a4828');
+      ctx.fillStyle=grSh; ctx.strokeStyle='#2a1e0c'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y+depth,sw,sh-depth,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
       // Side panels
-      ctx.fillStyle=grWood; ctx.strokeStyle='#2a1e0c'; ctx.lineWidth=lw;
-      [[p.x,p.y],[p.x+sw-side,p.y]].forEach(([sx,sy])=>{ ctx.beginPath(); ctx.rect(sx,sy,side,sh); ctx.fill(); ctx.stroke(); });
-      // Shelves
-      for(let i=0;i<=shelves;i++){
-        const sy=p.y+i*(sh/shelves);
-        const grS=ctx.createLinearGradient(p.x,sy,p.x,sy+sh*.07);
-        grS.addColorStop(0,'#7a6040'); grS.addColorStop(1,'#4a3820');
-        ctx.fillStyle=grS; ctx.strokeStyle='#2a1e0c'; ctx.lineWidth=lw;
-        ctx.beginPath(); ctx.rect(p.x,sy,sw,sh*.08); ctx.fill(); ctx.stroke();
-        // Books on shelf (not top/bottom)
-        if(i<shelves){
-          const bh=sh/shelves*0.82, by2=sy+sh*.08;
-          const cols=['#8a2020','#204880','#2a6a2a','#5a4a10','#5a2050','#3a5a3a'];
-          const bcount=Math.floor(sw*.6/Math.max(4,sw*.08));
-          for(let b=0;b<bcount;b++){
-            const bx=p.x+side+b*sw*.09+sw*.02, bw2=sw*.07;
-            ctx.fillStyle=cols[b%cols.length]; ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=Math.max(.3,.5*z);
-            ctx.beginPath(); ctx.rect(bx,by2,bw2,bh); ctx.fill(); ctx.stroke();
-          }
-        }
+      ctx.fillStyle='#3a2a14'; ctx.strokeStyle='#1a1008'; ctx.lineWidth=lw;
+      [[p.x,p.y+depth,sw*.06,sh-depth],[p.x+sw-sw*.06,p.y+depth,sw*.06,sh-depth]].forEach(([bx,by,bw2,bh2])=>{
+        ctx.beginPath(); ctx.rect(bx,by,bw2,bh2); ctx.fill(); ctx.stroke();
+      });
+      // Books (top-down: seen as colored spines)
+      const bColors=['#8a2020','#204880','#2a6a2a','#5a4a10','#5a2050','#3a5a3a','#7a4810'];
+      const bSlots=Math.floor((sw-sw*.14)/Math.max(3,sw*.08));
+      for(let b=0;b<bSlots;b++){
+        const bx=p.x+sw*.08+b*(sw*.08), bW=sw*.06, bY=p.y+depth+sh*.06;
+        ctx.fillStyle=bColors[b%bColors.length]; ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=Math.max(.3,.5*z);
+        ctx.beginPath(); ctx.rect(bx,bY,bW,sh-depth-sh*.1); ctx.fill(); ctx.stroke();
       }
       break;}
     case 'locker':{
-      const lw=Math.max(.8,1.2*z);
-      const grBody=ctx.createLinearGradient(p.x,p.y,p.x+sw,p.y);
-      grBody.addColorStop(0,'#2a3040'); grBody.addColorStop(.4,'#3a4a5a'); grBody.addColorStop(1,'#1e2838');
-      ctx.fillStyle=grBody; ctx.strokeStyle='#141e2a'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Door center line
-      ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=Math.max(.5,1*z);
-      ctx.beginPath(); ctx.moveTo(cx,p.y+sh*.05); ctx.lineTo(cx,q.y-sh*.05); ctx.stroke();
-      // Ventilation slits top
-      ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=Math.max(.4,.7*z);
-      for(let i=0;i<4;i++){ const sy=p.y+sh*.08+i*sh*.04; ctx.beginPath(); ctx.moveTo(p.x+sw*.1,sy); ctx.lineTo(p.x+sw*.9,sy); ctx.stroke(); }
-      // Handle
-      ctx.fillStyle='#c9a227'; ctx.strokeStyle='#8a6e10'; ctx.lineWidth=Math.max(.4,.7*z);
-      ctx.beginPath(); ctx.roundRect(cx-sw*.08,cy-sh*.06,sw*.06,sh*.12,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Number plate
-      ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.roundRect(cx-sw*.12,p.y+sh*.22,sw*.24,sh*.08,1); ctx.fill();
+      const lw=Math.max(.8,1.2*z), depth=sh*.16;
+      ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.rect(p.x+sw*.04,q.y,sw*.9,sh*.07); ctx.fill();
+      // Depth (back)
+      ctx.fillStyle='#0e1620'; ctx.strokeStyle='#080e16'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.rect(p.x,p.y,sw,depth); ctx.fill(); ctx.stroke();
+      // Top face
+      const grL=ctx.createLinearGradient(p.x,p.y+depth,p.x,q.y);
+      grL.addColorStop(0,'#3a4a5a'); grL.addColorStop(1,'#1e2a38');
+      ctx.fillStyle=grL; ctx.strokeStyle='#141e2a'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y+depth,sw,sh-depth,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Door division line
+      ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=Math.max(.5,1*z);
+      ctx.beginPath(); ctx.moveTo(cx,p.y+depth+sh*.04); ctx.lineTo(cx,q.y-sh*.04); ctx.stroke();
+      // Handles
+      ctx.fillStyle='#c9a227'; ctx.strokeStyle='#7a6010'; ctx.lineWidth=Math.max(.4,.7*z);
+      [cx-sw*.22,cx+sw*.08].forEach(hx=>{
+        ctx.beginPath(); ctx.roundRect(hx,cy-sh*.06,sw*.1,sh*.12,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+      });
       break;}
     case 'cabinet':{
-      const lw=Math.max(.8,1.2*z), rows=3;
-      const grC=ctx.createLinearGradient(p.x,p.y,p.x+sw,p.y);
-      grC.addColorStop(0,'#2a2a2a'); grC.addColorStop(.4,'#3a3a3a'); grC.addColorStop(1,'#1a1a1a');
-      ctx.fillStyle=grC; ctx.strokeStyle='#101010'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Drawer rows
-      const dh=sh/rows, pad=sh*.04;
+      const lw=Math.max(.8,1.2*z), depth=sh*.15, rows=3;
+      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.rect(p.x+sw*.04,q.y,sw*.9,sh*.07); ctx.fill();
+      // Back
+      ctx.fillStyle='#101010'; ctx.strokeStyle='#080808'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.rect(p.x,p.y,sw,depth); ctx.fill(); ctx.stroke();
+      // Top face
+      const grC=ctx.createLinearGradient(p.x,p.y+depth,p.x,q.y);
+      grC.addColorStop(0,'#3a3a3a'); grC.addColorStop(1,'#1a1a1a');
+      ctx.fillStyle=grC; ctx.strokeStyle='#0e0e0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y+depth,sw,sh-depth,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Drawer dividers
+      const dh=(sh-depth)/rows;
+      for(let i=1;i<rows;i++){
+        ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=Math.max(.5,.8*z);
+        ctx.beginPath(); ctx.moveTo(p.x+sw*.04,p.y+depth+dh*i); ctx.lineTo(p.x+sw*.96,p.y+depth+dh*i); ctx.stroke();
+      }
+      // Handles
+      ctx.fillStyle='#888'; ctx.strokeStyle='#444'; ctx.lineWidth=Math.max(.4,.7*z);
       for(let i=0;i<rows;i++){
-        const dy=p.y+i*dh+pad;
-        ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=Math.max(.5,.8*z);
-        ctx.beginPath(); ctx.roundRect(p.x+sw*.06,dy,sw*.88,dh-pad*2,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
-        // Handle
-        ctx.fillStyle='#888'; ctx.strokeStyle='#444'; ctx.lineWidth=Math.max(.4,.6*z);
-        ctx.beginPath(); ctx.roundRect(cx-sw*.12,dy+dh*.3,sw*.24,dh*.18,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+        const hy=p.y+depth+dh*i+dh*.4;
+        ctx.beginPath(); ctx.roundRect(cx-sw*.14,hy,sw*.28,dh*.2,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
       }
       break;}
     case 'desk':{
-      const lw=Math.max(.8,1.2*z), legW=sw*.07;
-      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(cx,q.y+sh*.06,sw*.48,sh*.08,0,0,PI2); ctx.fill();
+      const lw=Math.max(.8,1.2*z), depth=sh*.2;
+      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.rect(p.x+sw*.04,q.y,sw*.9,sh*.08); ctx.fill();
+      // Back strip (wall side)
+      ctx.fillStyle='#3a2a14'; ctx.strokeStyle='#1e1408'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.rect(p.x,p.y,sw,depth); ctx.fill(); ctx.stroke();
       // Desk surface
-      const grTop=ctx.createLinearGradient(p.x,p.y,p.x,p.y+sh*.22);
-      grTop.addColorStop(0,'#6e5438'); grTop.addColorStop(1,'#4a3820');
-      ctx.fillStyle=grTop; ctx.strokeStyle='#2a1e10'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh*.22,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Monitor
-      ctx.fillStyle='#1a1a2a'; ctx.strokeStyle='#0a0a18'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(cx-sw*.18,p.y-sh*.42,sw*.36,sh*.34,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Monitor screen
-      ctx.fillStyle='rgba(60,120,200,0.35)'; ctx.beginPath(); ctx.roundRect(cx-sw*.14,p.y-sh*.38,sw*.28,sh*.26,Math.max(1,1.5*z)); ctx.fill();
-      // Monitor stand
-      ctx.fillStyle='#1a1a2a'; ctx.beginPath(); ctx.rect(cx-sw*.04,p.y-sh*.08,sw*.08,sh*.08); ctx.fill();
-      // Legs
-      ctx.fillStyle='#3a2c18'; ctx.strokeStyle='#1e1408'; ctx.lineWidth=Math.max(.5,.8*z);
-      [[sw*.06],[sw*.88-legW]].forEach(([ox])=>{
-        ctx.beginPath(); ctx.rect(p.x+ox,p.y+sh*.2,legW,sh*.8); ctx.fill(); ctx.stroke();
-      });
+      const grD=ctx.createLinearGradient(p.x,p.y+depth,p.x,q.y);
+      grD.addColorStop(0,'#7a6040'); grD.addColorStop(1,'#4e3c24');
+      ctx.fillStyle=grD; ctx.strokeStyle='#2a1e10'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y+depth,sw,sh-depth,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Monitor (top-down: rectangle + screen)
+      ctx.fillStyle='#1a1a28'; ctx.strokeStyle='#0a0a18'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(cx-sw*.22,p.y+depth+sh*.04,sw*.44,sh*.3,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      const grScr=ctx.createLinearGradient(cx-sw*.18,p.y+depth,cx,cy);
+      grScr.addColorStop(0,'#2040a0'); grScr.addColorStop(1,'#102060');
+      ctx.fillStyle=grScr; ctx.beginPath(); ctx.roundRect(cx-sw*.18,p.y+depth+sh*.06,sw*.36,sh*.22,Math.max(1,1.5*z)); ctx.fill();
+      // Keyboard
+      ctx.fillStyle='#2a2a38'; ctx.strokeStyle='#14141e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.08,p.y+depth+sh*.38,sw*.84,sh*.24,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+      // Mouse
+      ctx.fillStyle='#1e1e2a'; ctx.strokeStyle='#0e0e16'; ctx.lineWidth=Math.max(.4,.7*z);
+      ctx.beginPath(); ctx.ellipse(p.x+sw*.88,p.y+depth+sh*.5,sw*.06,sh*.1,0,0,PI2); ctx.fill(); ctx.stroke();
       break;}
     case 'bed':{
       const lw=Math.max(.8,1.2*z);
-      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(cx,q.y+sh*.05,sw*.5,sh*.1,0,0,PI2); ctx.fill();
-      // Bed frame
-      const grFrame=ctx.createLinearGradient(p.x,p.y,p.x+sw*.1,p.y);
-      grFrame.addColorStop(0,'#4a3418'); grFrame.addColorStop(1,'#3a2810');
-      ctx.fillStyle=grFrame; ctx.strokeStyle='#1e1408'; ctx.lineWidth=lw;
+      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(cx+sw*.03,cy+sh*.04,sw*.52,sh*.52,0,0,PI2); ctx.fill();
+      // Frame
+      const grF=ctx.createLinearGradient(p.x,p.y,p.x+sw*.08,p.y);
+      grF.addColorStop(0,'#5a4020'); grF.addColorStop(1,'#3a2810');
+      ctx.fillStyle=grF; ctx.strokeStyle='#1e1408'; ctx.lineWidth=lw;
       ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
       // Mattress
-      ctx.fillStyle='#e8e0d0'; ctx.strokeStyle='#c0b8a8'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.04,p.y+sh*.08,sw*.92,sh*.78,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Pillow
-      ctx.fillStyle='#f0ece4'; ctx.strokeStyle='#c8c0b0'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.08,p.y+sh*.12,sw*.84,sh*.28,Math.max(2,4*z)); ctx.fill(); ctx.stroke();
-      // Blanket / sheets lower half
-      const grBl=ctx.createLinearGradient(p.x,cy+sh*.1,p.x,q.y);
-      grBl.addColorStop(0,'#5a7a9a'); grBl.addColorStop(1,'#3a5a7a');
+      ctx.fillStyle='#e8dfd0'; ctx.strokeStyle='#c0b8a8'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.06,p.y+sh*.06,sw*.88,sh*.88,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Blanket (bottom ~60%)
+      const grBl=ctx.createLinearGradient(p.x,cy-sh*.1,p.x,q.y);
+      grBl.addColorStop(0,'#5a7a9a'); grBl.addColorStop(1,'#3a5a78');
       ctx.fillStyle=grBl; ctx.strokeStyle='#2a4060'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.04,cy+sh*.12,sw*.92,sh*.55,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Headboard
-      const grH=ctx.createLinearGradient(p.x,p.y,p.x+sw*.08,p.y);
-      grH.addColorStop(0,'#5a4020'); grH.addColorStop(1,'#3e2c14');
-      ctx.fillStyle=grH; ctx.strokeStyle='#1e1408'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw*.08,sh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.06,cy-sh*.08,sw*.88,sh*.52+sh*.08,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Pillow (top area, seen from above)
+      ctx.fillStyle='#f0ece2'; ctx.strokeStyle='#c8c0b0'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.1,p.y+sh*.08,sw*.8,sh*.3,Math.max(2,4*z)); ctx.fill(); ctx.stroke();
+      // Pillow crease
+      ctx.strokeStyle='rgba(180,168,150,0.5)'; ctx.lineWidth=Math.max(.4,.7*z);
+      ctx.beginPath(); ctx.moveTo(cx,p.y+sh*.1); ctx.lineTo(cx,p.y+sh*.36); ctx.stroke();
       break;}
     case 'computer':{
-      const lw=Math.max(.8,1.2*z);
-      // Desk / surface
-      const grD=ctx.createLinearGradient(p.x,cy+sh*.1,p.x,q.y);
-      grD.addColorStop(0,'#3a3218'); grD.addColorStop(1,'#282010');
-      ctx.fillStyle=grD; ctx.strokeStyle='#141008'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x,cy+sh*.1,sw,sh*.9,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Monitor frame
+      const lw=Math.max(.8,1.2*z), depth=sh*.18;
+      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.rect(p.x+sw*.04,q.y,sw*.9,sh*.07); ctx.fill();
+      // Desk back strip
+      ctx.fillStyle='#282010'; ctx.strokeStyle='#141008'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.rect(p.x,p.y,sw,depth); ctx.fill(); ctx.stroke();
+      // Desk surface
+      const grDk=ctx.createLinearGradient(p.x,p.y+depth,p.x,q.y);
+      grDk.addColorStop(0,'#4a4030'); grDk.addColorStop(1,'#2e2818');
+      ctx.fillStyle=grDk; ctx.strokeStyle='#181408'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y+depth,sw,sh-depth,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Monitor (big, centered at top)
       ctx.fillStyle='#1a1a28'; ctx.strokeStyle='#0a0a18'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(cx-sw*.28,p.y,sw*.56,sh*.8,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.1,p.y+depth+sh*.04,sw*.8,sh*.38,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
       // Screen glow
-      const grScr=ctx.createLinearGradient(cx-sw*.22,p.y+sh*.04,cx,cy);
-      grScr.addColorStop(0,'#203870'); grScr.addColorStop(1,'#102040');
-      ctx.fillStyle=grScr; ctx.beginPath(); ctx.roundRect(cx-sw*.22,p.y+sh*.04,sw*.44,sh*.64,Math.max(1,1.5*z)); ctx.fill();
-      // Scanlines hint
-      ctx.strokeStyle='rgba(80,160,255,0.15)'; ctx.lineWidth=Math.max(.5,.7*z);
-      for(let i=0;i<4;i++){ const sy=p.y+sh*.12+i*sh*.13; ctx.beginPath(); ctx.moveTo(cx-sw*.2,sy); ctx.lineTo(cx+sw*.2,sy); ctx.stroke(); }
-      // Monitor stand
-      ctx.fillStyle='#1a1a28'; ctx.beginPath(); ctx.rect(cx-sw*.06,cy,sw*.12,sh*.14); ctx.fill();
+      const grSc=ctx.createLinearGradient(p.x+sw*.14,p.y+depth+sh*.06,p.x+sw*.14,p.y+depth+sh*.38);
+      grSc.addColorStop(0,'#2448b0'); grSc.addColorStop(1,'#102060');
+      ctx.fillStyle=grSc; ctx.beginPath(); ctx.roundRect(p.x+sw*.14,p.y+depth+sh*.07,sw*.72,sh*.3,Math.max(1,1.5*z)); ctx.fill();
+      // Scanlines
+      ctx.strokeStyle='rgba(80,160,255,0.14)'; ctx.lineWidth=Math.max(.4,.6*z);
+      for(let i=0;i<3;i++){ const sl=p.y+depth+sh*.12+i*sh*.08; ctx.beginPath(); ctx.moveTo(p.x+sw*.16,sl); ctx.lineTo(p.x+sw*.84,sl); ctx.stroke(); }
       // Keyboard
       ctx.fillStyle='#2a2a38'; ctx.strokeStyle='#14141e'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.05,cy+sh*.18,sw*.9,sh*.2,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.06,p.y+depth+sh*.5,sw*.74,sh*.26,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+      // Key rows
+      ctx.strokeStyle='rgba(255,255,255,0.1)'; ctx.lineWidth=Math.max(.3,.5*z);
+      [.57,.65,.73].forEach(t=>{ ctx.beginPath(); ctx.moveTo(p.x+sw*.08,p.y+depth+sh*t); ctx.lineTo(p.x+sw*.78,p.y+depth+sh*t); ctx.stroke(); });
+      // Mouse
+      ctx.fillStyle='#1e1e28'; ctx.strokeStyle='#0e0e18'; ctx.lineWidth=Math.max(.4,.6*z);
+      ctx.beginPath(); ctx.ellipse(p.x+sw*.88,p.y+depth+sh*.63,sw*.07,sh*.12,0,0,PI2); ctx.fill(); ctx.stroke();
       break;}
-    // ── URBAN / PROPS (side-view) ────────────────────────────────────────────
+    // ── URBAN / PROPS (top-down) ─────────────────────────────────────────────
     case 'crate':{
-      const lw=Math.max(.8,1.2*z);
-      const grCr=ctx.createLinearGradient(p.x,p.y,p.x+sw*.3,p.y+sh*.3);
-      grCr.addColorStop(0,'#8a6e38'); grCr.addColorStop(.5,'#6a5228'); grCr.addColorStop(1,'#4a3818');
+      const lw=Math.max(.8,1.2*z), lid=sh*.14;
+      ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.rect(p.x+sw*.04,q.y,sw*.9,sh*.07); ctx.fill();
+      // Depth strip (back)
+      ctx.fillStyle='#4a3010'; ctx.strokeStyle='#2a1a08'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.rect(p.x,p.y,sw,lid); ctx.fill(); ctx.stroke();
+      // Top face
+      const grCr=ctx.createLinearGradient(p.x,p.y+lid,p.x+sw*.3,q.y);
+      grCr.addColorStop(0,'#9a7e44'); grCr.addColorStop(.5,'#7a6230'); grCr.addColorStop(1,'#5a4818');
       ctx.fillStyle=grCr; ctx.strokeStyle='#3a2a10'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.rect(p.x,p.y,sw,sh); ctx.fill(); ctx.stroke();
-      // Wood planks: 3 horizontal bands
-      ctx.strokeStyle='rgba(35,22,8,0.45)'; ctx.lineWidth=Math.max(.5,.8*z);
-      [.33,.66].forEach(t=>{ ctx.beginPath(); ctx.moveTo(p.x,p.y+sh*t); ctx.lineTo(p.x+sw,p.y+sh*t); ctx.stroke(); });
-      // Cross braces
-      ctx.lineWidth=Math.max(.6,1*z);
-      ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+sw,p.y+sh); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(p.x+sw,p.y); ctx.lineTo(p.x,p.y+sh); ctx.stroke();
+      ctx.beginPath(); ctx.rect(p.x,p.y+lid,sw,sh-lid); ctx.fill(); ctx.stroke();
+      // X cross on top
+      ctx.strokeStyle='rgba(35,22,8,0.5)'; ctx.lineWidth=Math.max(.6,1*z);
+      ctx.beginPath(); ctx.moveTo(p.x,p.y+lid); ctx.lineTo(p.x+sw,q.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.x+sw,p.y+lid); ctx.lineTo(p.x,q.y); ctx.stroke();
+      // Plank lines
+      ctx.lineWidth=Math.max(.4,.7*z);
+      [.33,.66].forEach(t=>{ ctx.beginPath(); ctx.moveTo(p.x,p.y+lid+t*(sh-lid)); ctx.lineTo(p.x+sw,p.y+lid+t*(sh-lid)); ctx.stroke(); });
       // Corner brackets
-      ctx.fillStyle='#4a4030'; ctx.strokeStyle='#2a2010'; ctx.lineWidth=Math.max(.5,.8*z);
-      [[0,0],[sw-sw*.1,0],[0,sh-sh*.1],[sw-sw*.1,sh-sh*.1]].forEach(([ox,oy])=>{
+      ctx.fillStyle='#5a5040'; ctx.strokeStyle='#2e2820'; ctx.lineWidth=Math.max(.4,.7*z);
+      [[0,lid],[sw-sw*.1,lid],[0,sh-sh*.1],[sw-sw*.1,sh-sh*.1]].forEach(([ox,oy])=>{
         ctx.beginPath(); ctx.rect(p.x+ox,p.y+oy,sw*.1,sh*.1); ctx.fill(); ctx.stroke();
       });
       break;}
     case 'barrel':{
       const lw=Math.max(.8,1.2*z);
-      ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(cx+sw*.06,q.y+sh*.08,sw*.32,sh*.1,0,0,PI2); ctx.fill();
-      // Barrel body (tapered top/bottom)
-      const brlW=sw*.88, brlX=cx-brlW/2;
-      ctx.beginPath();
-      ctx.moveTo(brlX+brlW*.06,p.y); ctx.lineTo(brlX+brlW*.94,p.y);
-      ctx.bezierCurveTo(brlX+brlW,p.y,brlX+brlW,p.y,brlX+brlW,p.y+sh*.1);
-      ctx.lineTo(brlX+brlW,q.y-sh*.1);
-      ctx.bezierCurveTo(brlX+brlW,q.y,brlX+brlW,q.y,brlX+brlW*.94,q.y);
-      ctx.lineTo(brlX+brlW*.06,q.y);
-      ctx.bezierCurveTo(brlX,q.y,brlX,q.y,brlX,q.y-sh*.1);
-      ctx.lineTo(brlX,p.y+sh*.1);
-      ctx.bezierCurveTo(brlX,p.y,brlX,p.y,brlX+brlW*.06,p.y);
-      ctx.closePath();
-      const grBrl=ctx.createLinearGradient(brlX,p.y,brlX+brlW,p.y);
-      grBrl.addColorStop(0,'#3a2a18'); grBrl.addColorStop(.35,'#6a4e2a'); grBrl.addColorStop(.65,'#5a4020'); grBrl.addColorStop(1,'#2a1e10');
-      ctx.fillStyle=grBrl; ctx.fill();
-      ctx.strokeStyle='#2a1a0c'; ctx.lineWidth=lw; ctx.stroke();
-      // Metal bands
+      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(cx+sw*.04,cy+sh*.06,sw*.46,sh*.46,0,0,PI2); ctx.fill();
+      // Outer barrel ring
+      const grBrl=ctx.createRadialGradient(cx-sw*.2,cy-sh*.2,sw*.04,cx+sw*.05,cy+sh*.05,sw*.5);
+      grBrl.addColorStop(0,'#7a5e32'); grBrl.addColorStop(.5,'#5a4220'); grBrl.addColorStop(1,'#2e2010');
+      ctx.fillStyle=grBrl; ctx.strokeStyle='#2a1a0c'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.arc(cx,cy,sw*.46,0,PI2); ctx.fill(); ctx.stroke();
+      // Metal band rings (top-down: concentric ellipses)
       ctx.strokeStyle='#3a3018'; ctx.lineWidth=Math.max(1.2,2*z);
-      [.18,.5,.82].forEach(t=>{ ctx.beginPath(); ctx.moveTo(brlX+brlW*.02,p.y+sh*t); ctx.lineTo(brlX+brlW*.98,p.y+sh*t); ctx.stroke(); });
-      // Lid circle
-      ctx.fillStyle='rgba(80,60,30,0.5)'; ctx.beginPath(); ctx.ellipse(cx,p.y+sh*.06,brlW*.4,sh*.08,0,0,PI2); ctx.fill();
+      [.38,.24].forEach(r=>{ ctx.beginPath(); ctx.arc(cx,cy,sw*r,0,PI2); ctx.stroke(); });
+      // Lid top circle
+      const grLid=ctx.createRadialGradient(cx-sw*.1,cy-sh*.1,0,cx,cy,sw*.22);
+      grLid.addColorStop(0,'#7a6030'); grLid.addColorStop(1,'#3a2c10');
+      ctx.fillStyle=grLid; ctx.beginPath(); ctx.arc(cx,cy,sw*.22,0,PI2); ctx.fill();
+      ctx.strokeStyle='#2a1e08'; ctx.lineWidth=Math.max(.6,1*z); ctx.stroke();
+      // Center bolt
+      ctx.fillStyle='#9a8a60'; ctx.beginPath(); ctx.arc(cx,cy,Math.max(1.5,sw*.05),0,PI2); ctx.fill();
       break;}
     case 'dumpster':{
-      const lw=Math.max(.8,1.2*z);
-      ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(cx+sw*.05,q.y+sh*.08,sw*.44,sh*.12,0,0,PI2); ctx.fill();
-      // Body
-      const grDump=ctx.createLinearGradient(p.x,p.y,p.x+sw*.2,p.y);
-      grDump.addColorStop(0,'#1a3a1a'); grDump.addColorStop(.4,'#2a4e2a'); grDump.addColorStop(1,'#142e14');
-      ctx.fillStyle=grDump; ctx.strokeStyle='#0e1e0e'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x,p.y+sh*.18,sw,sh*.72,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Lid (two flaps)
-      ctx.fillStyle='#2a4a2a'; ctx.strokeStyle='#0e1e0e'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.02,p.y,sw*.48,sh*.22,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.52,p.y,sw*.46,sh*.22,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Vertical ribs
-      ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=Math.max(.5,.8*z);
-      [.25,.5,.75].forEach(t=>{ ctx.beginPath(); ctx.moveTo(p.x+sw*t,p.y+sh*.2); ctx.lineTo(p.x+sw*t,q.y-sh*.05); ctx.stroke(); });
-      // Wheels
-      ctx.fillStyle='#1a1a1a'; ctx.strokeStyle='#0a0a0a'; ctx.lineWidth=Math.max(.5,.8*z);
-      [[sw*.18],[sw*.72]].forEach(([ox])=>{
-        ctx.beginPath(); ctx.arc(p.x+ox,q.y,sh*.08,0,PI2); ctx.fill(); ctx.stroke();
-      });
+      const lw=Math.max(.8,1.2*z), depth=sh*.18;
+      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.rect(p.x+sw*.04,q.y,sw*.9,sh*.07); ctx.fill();
+      // Depth strip
+      ctx.fillStyle='#0e2010'; ctx.strokeStyle='#081408'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.rect(p.x,p.y,sw,depth); ctx.fill(); ctx.stroke();
+      // Main top face
+      const grDu=ctx.createLinearGradient(p.x,p.y+depth,p.x+sw*.15,q.y);
+      grDu.addColorStop(0,'#2a5020'); grDu.addColorStop(1,'#162e12');
+      ctx.fillStyle=grDu; ctx.strokeStyle='#0e1e0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y+depth,sw,sh-depth,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Two lid panels (seen from top, open gap in middle)
+      ctx.fillStyle='#3a6030'; ctx.strokeStyle='#0e1e0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.02,p.y+depth+sh*.04,sw*.46,sh*.38,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.52,p.y+depth+sh*.04,sw*.46,sh*.38,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Lid gap (dark center)
+      ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.rect(p.x+sw*.48,p.y+depth+sh*.04,sw*.04,sh*.38); ctx.fill();
+      // Rib lines
+      ctx.strokeStyle='rgba(0,0,0,0.28)'; ctx.lineWidth=Math.max(.4,.7*z);
+      [.3,.7].forEach(t=>{ ctx.beginPath(); ctx.moveTo(p.x+sw*t,p.y+depth+sh*.45); ctx.lineTo(p.x+sw*t,q.y-sh*.04); ctx.stroke(); });
       break;}
     case 'bench':{
-      const lw=Math.max(.8,1.2*z);
-      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(cx,q.y+sh*.05,sw*.44,sh*.08,0,0,PI2); ctx.fill();
-      // Seat planks
-      const grPl=ctx.createLinearGradient(p.x,cy-sh*.1,p.x,cy+sh*.2);
-      grPl.addColorStop(0,'#7a6040'); grPl.addColorStop(1,'#5a4830');
-      ctx.fillStyle=grPl; ctx.strokeStyle='#2a1e0c'; ctx.lineWidth=lw;
-      [0,.12].forEach(oy=>{
-        ctx.beginPath(); ctx.roundRect(p.x,cy-sh*.1+sh*oy,sw,sh*.1,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+      const lw=Math.max(.8,1.2*z), backH=sh*.2;
+      ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.rect(p.x+sw*.04,q.y,sw*.9,sh*.06); ctx.fill();
+      // Back strip (wall side, top-down)
+      ctx.fillStyle='#3a2a10'; ctx.strokeStyle='#1a1408'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,backH,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Seat planks (top-down: 2 horizontal planks)
+      const grPl=ctx.createLinearGradient(p.x,p.y+backH,p.x,q.y);
+      grPl.addColorStop(0,'#8a6e40'); grPl.addColorStop(1,'#5a4a28');
+      const ph=(sh-backH)/2;
+      [0,1].forEach(i=>{
+        ctx.fillStyle=grPl; ctx.strokeStyle='#2a1e0c'; ctx.lineWidth=lw;
+        ctx.beginPath(); ctx.roundRect(p.x+sw*.02,p.y+backH+i*ph+ph*.04,sw*.96,ph*.88,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
       });
-      // Backrest planks
-      ctx.fillStyle=grPl;
-      [0,.1].forEach(oy=>{
-        ctx.beginPath(); ctx.roundRect(p.x+sw*.04,p.y+sh*.05+sh*oy,sw*.92,sh*.1,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
-      });
-      // Support legs (2 X-frame legs)
-      ctx.strokeStyle='#3a2a10'; ctx.lineWidth=Math.max(1.2,2*z);
-      [[sw*.12,sw*.3],[sw*.62,sw*.8]].forEach(([lx,rx])=>{
-        ctx.beginPath(); ctx.moveTo(p.x+lx,cy-sh*.1); ctx.lineTo(p.x+rx,q.y); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(p.x+rx,cy-sh*.1); ctx.lineTo(p.x+lx,q.y); ctx.stroke();
-      });
+      // Plank grain lines
+      ctx.strokeStyle='rgba(30,20,8,0.3)'; ctx.lineWidth=Math.max(.3,.5*z);
+      [.3,.6].forEach(t=>{ ctx.beginPath(); ctx.moveTo(p.x+sw*t,p.y+backH); ctx.lineTo(p.x+sw*t,q.y); ctx.stroke(); });
       break;}
     case 'lamppost':{
-      const lw=Math.max(.8,1.2*z), poleW=sw*.14, poleX=cx-poleW/2;
-      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(cx+sw*.04,q.y+sh*.04,sw*.28,sh*.06,0,0,PI2); ctx.fill();
-      // Pole
-      const grPole=ctx.createLinearGradient(poleX,p.y,poleX+poleW,p.y);
-      grPole.addColorStop(0,'#5a5a5a'); grPole.addColorStop(.4,'#8a8a8a'); grPole.addColorStop(1,'#3a3a3a');
-      ctx.fillStyle=grPole; ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(poleX,p.y+sh*.22,poleW,sh*.78,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
-      // Arm
-      ctx.fillStyle='#707070'; ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.moveTo(cx,p.y+sh*.22); ctx.quadraticCurveTo(cx+sw*.3,p.y+sh*.08,cx+sw*.4,p.y+sh*.16); ctx.stroke();
-      // Lamp head
-      ctx.fillStyle='#5a5a5a'; ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(cx+sw*.24,p.y,sw*.32,sh*.18,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Light glow
-      const grGlow=ctx.createRadialGradient(cx+sw*.4,p.y+sh*.18,0,cx+sw*.4,p.y+sh*.18,sw*.4);
-      grGlow.addColorStop(0,'rgba(255,220,100,0.55)'); grGlow.addColorStop(1,'rgba(255,220,100,0)');
-      ctx.fillStyle=grGlow; ctx.beginPath(); ctx.arc(cx+sw*.4,p.y+sh*.18,sw*.4,0,PI2); ctx.fill();
-      // Lens
-      ctx.fillStyle='rgba(255,230,120,0.8)'; ctx.beginPath(); ctx.ellipse(cx+sw*.4,p.y+sh*.14,sw*.1,sh*.06,0,0,PI2); ctx.fill();
-      // Base
-      ctx.fillStyle='#4a4a4a'; ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.rect(poleX-sw*.08,q.y-sh*.06,poleW+sw*.16,sh*.06); ctx.fill(); ctx.stroke();
+      const lw=Math.max(.8,1.2*z), R=Math.min(sw,sh)*.48;
+      // Light glow radius
+      const grGlow=ctx.createRadialGradient(cx,cy,0,cx,cy,R);
+      grGlow.addColorStop(0,'rgba(255,220,80,0.5)'); grGlow.addColorStop(.5,'rgba(255,200,60,0.18)'); grGlow.addColorStop(1,'rgba(255,200,60,0)');
+      ctx.fillStyle=grGlow; ctx.beginPath(); ctx.arc(cx,cy,R,0,PI2); ctx.fill();
+      // Post circle (top-down: small dot)
+      const grPost=ctx.createRadialGradient(cx-sw*.08,cy-sh*.08,0,cx,cy,sw*.16);
+      grPost.addColorStop(0,'#8a8a8a'); grPost.addColorStop(1,'#3a3a3a');
+      ctx.fillStyle=grPost; ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.arc(cx,cy,sw*.16,0,PI2); ctx.fill(); ctx.stroke();
+      // Center bolt
+      ctx.fillStyle='#c0c0c0'; ctx.beginPath(); ctx.arc(cx,cy,Math.max(1.5,sw*.05),0,PI2); ctx.fill();
       break;}
     case 'vending':{
-      const lw=Math.max(.8,1.2*z);
-      ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(cx+sw*.05,q.y+sh*.05,sw*.4,sh*.08,0,0,PI2); ctx.fill();
-      // Body
-      const grV=ctx.createLinearGradient(p.x,p.y,p.x+sw*.2,p.y);
-      grV.addColorStop(0,'#1a2a4a'); grV.addColorStop(.5,'#2a3e6a'); grV.addColorStop(1,'#142038');
+      const lw=Math.max(.8,1.2*z), depth=sh*.2;
+      ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.rect(p.x+sw*.04,q.y,sw*.9,sh*.07); ctx.fill();
+      // Depth (back wall)
+      ctx.fillStyle='#0e1428'; ctx.strokeStyle='#060c18'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.rect(p.x,p.y,sw,depth); ctx.fill(); ctx.stroke();
+      // Top face
+      const grV=ctx.createLinearGradient(p.x,p.y+depth,p.x+sw*.15,q.y);
+      grV.addColorStop(0,'#2a3e6a'); grV.addColorStop(1,'#142038');
       ctx.fillStyle=grV; ctx.strokeStyle='#0a101e'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
-      // Glass window
-      const grGl=ctx.createLinearGradient(p.x+sw*.1,p.y+sh*.1,p.x+sw*.1,p.y+sh*.6);
-      grGl.addColorStop(0,'rgba(120,180,255,0.3)'); grGl.addColorStop(1,'rgba(60,100,180,0.15)');
+      ctx.beginPath(); ctx.roundRect(p.x,p.y+depth,sw,sh-depth,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Glass panel top-down
+      const grGl=ctx.createLinearGradient(p.x+sw*.06,p.y+depth+sh*.06,p.x+sw*.06,p.y+depth+sh*.5);
+      grGl.addColorStop(0,'rgba(100,160,255,0.35)'); grGl.addColorStop(1,'rgba(40,80,180,0.15)');
       ctx.fillStyle=grGl; ctx.strokeStyle='#1a2838'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.1,p.y+sh*.1,sw*.8,sh*.52,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Product rows in window
-      const colors=['#e05252','#52b0e0','#52e07a','#e0c052'];
+      ctx.beginPath(); ctx.roundRect(p.x+sw*.06,p.y+depth+sh*.06,sw*.88,sh*.44,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
+      // Product grid
+      const pCols=['#e05252','#52b0e0','#52e07a','#e0c052','#e07a20','#b052e0'];
       for(let r=0;r<2;r++) for(let c=0;c<3;c++){
-        ctx.fillStyle=colors[(r*3+c)%4]; ctx.globalAlpha=.7;
-        ctx.beginPath(); ctx.roundRect(p.x+sw*.14+c*sw*.24,p.y+sh*.14+r*sh*.22,sw*.2,sh*.18,Math.max(1,1.5*z)); ctx.fill();
+        ctx.fillStyle=pCols[(r*3+c)%pCols.length]; ctx.globalAlpha=.75;
+        ctx.beginPath(); ctx.roundRect(p.x+sw*.1+c*sw*.26,p.y+depth+sh*.1+r*sh*.18,sw*.22,sh*.14,Math.max(1,1.5*z)); ctx.fill();
         ctx.globalAlpha=1;
       }
-      // Slot + keypad
-      ctx.fillStyle='#1a1a1a'; ctx.strokeStyle='#0a0a0a'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(p.x+sw*.1,p.y+sh*.65,sw*.5,sh*.08,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
-      // Keypad buttons
-      ctx.fillStyle='#c9a227'; [0,1,2].forEach(i=>{ ctx.beginPath(); ctx.arc(p.x+sw*.7+i*sw*.08,p.y+sh*.72,sw*.03,0,PI2); ctx.fill(); });
+      // Coin slot strip
+      ctx.fillStyle='#1a1a1a'; ctx.beginPath(); ctx.roundRect(p.x+sw*.06,p.y+depth+sh*.56,sw*.5,sh*.06,Math.max(1,1.5*z)); ctx.fill();
+      ctx.fillStyle='#c9a227'; [0,1,2].forEach(i=>{ ctx.beginPath(); ctx.arc(p.x+sw*.64+i*sw*.09,p.y+depth+sh*.59,sw*.035,0,PI2); ctx.fill(); });
       break;}
     case 'trashcan':{
-      const lw=Math.max(.8,1.2*z), cW=sw*.78, cX=cx-cW/2;
-      ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(cx+sw*.04,q.y+sh*.06,cW*.5,sh*.1,0,0,PI2); ctx.fill();
-      // Body (slightly tapered)
-      ctx.beginPath();
-      ctx.moveTo(cX+cW*.06,p.y+sh*.1); ctx.lineTo(cX+cW*.94,p.y+sh*.1);
-      ctx.lineTo(cX+cW,q.y); ctx.lineTo(cX,q.y); ctx.closePath();
-      const grT=ctx.createLinearGradient(cX,p.y,cX+cW,p.y);
-      grT.addColorStop(0,'#2a2a2a'); grT.addColorStop(.4,'#3e3e3e'); grT.addColorStop(1,'#1a1a1a');
-      ctx.fillStyle=grT; ctx.fill(); ctx.strokeStyle='#111'; ctx.lineWidth=lw; ctx.stroke();
-      // Lid
-      ctx.fillStyle='#3a3a3a'; ctx.strokeStyle='#111'; ctx.lineWidth=lw;
-      ctx.beginPath(); ctx.roundRect(cX-sw*.04,p.y,cW+sw*.08,sh*.12,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
-      // Handle on lid
-      ctx.fillStyle='#888'; ctx.beginPath(); ctx.roundRect(cx-sw*.12,p.y+sh*.01,sw*.24,sh*.06,Math.max(1,1.5*z)); ctx.fill();
-      // Rib lines
-      ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=Math.max(.4,.7*z);
-      [.35,.65].forEach(t=>{ ctx.beginPath(); ctx.moveTo(cX+cW*t*(1-t*.1),p.y+sh*.1); ctx.lineTo(cX+cW*t,q.y); ctx.stroke(); });
+      const lw=Math.max(.8,1.2*z), R=Math.min(sw,sh)*.44;
+      ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(cx+sw*.04,cy+sh*.05,R*.9,R*.7,0,0,PI2); ctx.fill();
+      // Outer ring
+      const grT=ctx.createRadialGradient(cx-R*.2,cy-R*.2,R*.04,cx,cy,R);
+      grT.addColorStop(0,'#484848'); grT.addColorStop(.5,'#303030'); grT.addColorStop(1,'#181818');
+      ctx.fillStyle=grT; ctx.strokeStyle='#0e0e0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.arc(cx,cy,R,0,PI2); ctx.fill(); ctx.stroke();
+      // Inner lid
+      ctx.fillStyle='rgba(60,60,60,0.8)'; ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=Math.max(.6,1*z);
+      ctx.beginPath(); ctx.arc(cx,cy,R*.72,0,PI2); ctx.fill(); ctx.stroke();
+      // Lid ribs
+      ctx.strokeStyle='rgba(0,0,0,0.4)'; ctx.lineWidth=Math.max(.4,.7*z);
+      [R*.4,R*.56].forEach(r=>{ ctx.beginPath(); ctx.arc(cx,cy,r,0,PI2); ctx.stroke(); });
+      // Center handle
+      ctx.fillStyle='#888'; ctx.beginPath(); ctx.ellipse(cx,cy,R*.15,R*.08,0,0,PI2); ctx.fill();
       break;}
     case 'car_side':{
       const lw=Math.max(.8,1.2*z);
-      const wR=sh*.28, wb1=p.x+sw*.18, wb2=p.x+sw*.72, wy=q.y-wR;
-      // Shadow
-      ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(cx,q.y+sh*.06,sw*.42,sh*.1,0,0,PI2); ctx.fill();
-      // Body
+      ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(cx+sw*.03,cy+sh*.06,sw*.46,sh*.46,0,0,PI2); ctx.fill();
+      // Car body outline (top-down: slightly wider in middle)
+      const carPts=[[-.92,.5],[-.76,.9],[-.5,1.0],[.5,1.0],[.76,.9],[.92,.5],[.92,-.5],[.76,-.9],[.5,-1.0],[-.5,-1.0],[-.76,-.9],[-.92,-.5]];
+      ctx.beginPath(); carPts.forEach(([ax,ay],i)=>{ const nx=cx+ax*sw*.46,ny=cy+ay*sh*.46; i===0?ctx.moveTo(nx,ny):ctx.lineTo(nx,ny); }); ctx.closePath();
+      const grCar=ctx.createRadialGradient(cx-sw*.12,cy-sh*.12,sw*.04,cx+sw*.04,cy+sh*.04,sw*.5);
+      grCar.addColorStop(0,'#5a6e8a'); grCar.addColorStop(.5,'#3a4e68'); grCar.addColorStop(1,'#1e2e44');
+      ctx.fillStyle=grCar; ctx.fill(); ctx.strokeStyle='#141e2c'; ctx.lineWidth=lw; ctx.stroke();
+      // Windshield (front — right side)
+      ctx.fillStyle='rgba(120,180,255,0.4)'; ctx.strokeStyle='#1a2a3e'; ctx.lineWidth=Math.max(.5,.8*z);
       ctx.beginPath();
-      ctx.moveTo(p.x+sw*.05,wy);
-      ctx.lineTo(p.x+sw*.18,p.y+sh*.38); ctx.lineTo(p.x+sw*.3,p.y);
-      ctx.lineTo(p.x+sw*.74,p.y); ctx.lineTo(p.x+sw*.88,p.y+sh*.38);
-      ctx.lineTo(p.x+sw*.98,wy); ctx.lineTo(p.x+sw*.98,q.y-wR*.6);
-      ctx.lineTo(p.x+sw*.05,q.y-wR*.6); ctx.closePath();
-      const grCar=ctx.createLinearGradient(p.x,p.y,p.x+sw*.15,p.y+sh*.5);
-      grCar.addColorStop(0,'#3a4a60'); grCar.addColorStop(.4,'#4a5e7a'); grCar.addColorStop(1,'#2a3448');
-      ctx.fillStyle=grCar; ctx.fill(); ctx.strokeStyle='#1a2230'; ctx.lineWidth=lw; ctx.stroke();
-      // Windows
-      ctx.fillStyle='rgba(120,180,255,0.35)'; ctx.strokeStyle='#1a2a40'; ctx.lineWidth=Math.max(.5,.8*z);
-      ctx.beginPath(); ctx.moveTo(p.x+sw*.22,p.y+sh*.42); ctx.lineTo(p.x+sw*.32,p.y+sh*.06); ctx.lineTo(p.x+sw*.52,p.y+sh*.06); ctx.lineTo(p.x+sw*.52,p.y+sh*.42); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(p.x+sw*.54,p.y+sh*.42); ctx.lineTo(p.x+sw*.54,p.y+sh*.06); ctx.lineTo(p.x+sw*.72,p.y+sh*.06); ctx.lineTo(p.x+sw*.84,p.y+sh*.42); ctx.closePath(); ctx.fill(); ctx.stroke();
-      // Wheels
-      ctx.fillStyle='#1a1a1a'; ctx.strokeStyle='#0a0a0a'; ctx.lineWidth=lw;
-      [wb1,wb2].forEach(wx2=>{
-        ctx.beginPath(); ctx.arc(wx2,wy,wR,0,PI2); ctx.fill(); ctx.stroke();
-        // Rim
-        ctx.fillStyle='#8a8a8a'; ctx.beginPath(); ctx.arc(wx2,wy,wR*.5,0,PI2); ctx.fill();
-        ctx.fillStyle='#1a1a1a';
+      ctx.moveTo(cx+sw*.46,cy-sh*.3); ctx.lineTo(cx+sw*.3,cy-sh*.46);
+      ctx.lineTo(cx+sw*.3,cy+sh*.46); ctx.lineTo(cx+sw*.46,cy+sh*.3);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      // Rear window (left)
+      ctx.beginPath();
+      ctx.moveTo(cx-sw*.46,cy-sh*.28); ctx.lineTo(cx-sw*.3,cy-sh*.42);
+      ctx.lineTo(cx-sw*.3,cy+sh*.42); ctx.lineTo(cx-sw*.46,cy+sh*.28);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      // Roof rectangle (darker center)
+      ctx.fillStyle='rgba(20,30,50,0.55)'; ctx.beginPath(); ctx.roundRect(cx-sw*.22,cy-sh*.3,sw*.44,sh*.6,Math.max(1,2*z)); ctx.fill();
+      // 4 wheels
+      ctx.fillStyle='#111'; ctx.strokeStyle='#080808'; ctx.lineWidth=Math.max(.5,.8*z);
+      [[sw*.34,sh*.38],[sw*.34,-sh*.38],[-sw*.34,sh*.38],[-sw*.34,-sh*.38]].forEach(([ox,oy])=>{
+        ctx.beginPath(); ctx.ellipse(cx+ox,cy+oy,sw*.12,sh*.1,0,0,PI2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#4a4a4a'; ctx.beginPath(); ctx.ellipse(cx+ox,cy+oy,sw*.06,sh*.05,0,0,PI2); ctx.fill();
+        ctx.fillStyle='#111';
       });
-      // Headlight
-      ctx.fillStyle='rgba(255,240,160,0.7)'; ctx.beginPath(); ctx.ellipse(p.x+sw*.06,p.y+sh*.55,sw*.04,sh*.1,0,0,PI2); ctx.fill();
-      // Taillight
-      ctx.fillStyle='rgba(255,60,40,0.7)'; ctx.beginPath(); ctx.ellipse(p.x+sw*.94,p.y+sh*.55,sw*.03,sh*.1,0,0,PI2); ctx.fill();
       break;}
     case 'fence_panel':{
-      const lw=Math.max(.8,1.2*z), posts=4;
-      ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.rect(p.x,q.y,sw,sh*.06); ctx.fill();
-      // Rails (2 horizontal)
-      const grRail=ctx.createLinearGradient(p.x,p.y,p.x,p.y+sh*.1);
-      grRail.addColorStop(0,'#707070'); grRail.addColorStop(1,'#484848');
-      ctx.fillStyle=grRail; ctx.strokeStyle='#282828'; ctx.lineWidth=lw;
-      [p.y+sh*.15, p.y+sh*.65].forEach(ry=>{
-        ctx.beginPath(); ctx.rect(p.x,ry,sw,sh*.1); ctx.fill(); ctx.stroke();
-      });
-      // Vertical posts
-      const seg=sw/(posts+1);
-      for(let i=1;i<=posts;i++){
-        const px2=p.x+seg*i-sw*.03;
-        const grPost=ctx.createLinearGradient(px2,p.y,px2+sw*.06,p.y);
-        grPost.addColorStop(0,'#686868'); grPost.addColorStop(.4,'#8a8a8a'); grPost.addColorStop(1,'#484848');
-        ctx.fillStyle=grPost; ctx.strokeStyle='#282828'; ctx.lineWidth=lw;
-        ctx.beginPath(); ctx.rect(px2,p.y+sh*.05,sw*.06,sh*.9); ctx.fill(); ctx.stroke();
-        // Post cap
-        ctx.fillStyle='#9a9a9a'; ctx.beginPath(); ctx.arc(px2+sw*.03,p.y+sh*.05,sw*.04,0,PI2); ctx.fill();
+      const lw=Math.max(.8,1.2*z), depth=sh*.22;
+      ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.rect(p.x+sw*.04,q.y,sw*.9,sh*.06); ctx.fill();
+      // Depth (back)
+      ctx.fillStyle='#1a1a1a'; ctx.strokeStyle='#0e0e0e'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.rect(p.x,p.y,sw,depth); ctx.fill(); ctx.stroke();
+      // Top rail face
+      ctx.fillStyle='#484848'; ctx.strokeStyle='#242424'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.roundRect(p.x,p.y+depth,sw,sh-depth,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      // Post columns (top-down: vertical darker strips)
+      const posts=4, seg=sw/(posts+1);
+      ctx.fillStyle='#5a5a5a'; ctx.strokeStyle='#282828'; ctx.lineWidth=Math.max(.4,.7*z);
+      for(let i=0;i<=posts+1;i++){
+        const px2=p.x+seg*i-sw*.04;
+        ctx.beginPath(); ctx.roundRect(px2,p.y+depth,sw*.08,sh-depth,Math.max(1,1.5*z)); ctx.fill(); ctx.stroke();
       }
+      // Rail lines (horizontal)
+      ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=Math.max(.4,.7*z);
+      [.3,.65].forEach(t=>{ ctx.beginPath(); ctx.moveTo(p.x,p.y+depth+t*(sh-depth)); ctx.lineTo(p.x+sw,p.y+depth+t*(sh-depth)); ctx.stroke(); });
       break;}
     case 'sandbag':{
       const lw=Math.max(.8,1.2*z), rows=2, cols=3;
-      for(let r=0;r<rows;r++) for(let c=0;c<cols-(r%2);c++){
-        const bw=sw/(cols-(r%2)), bh=sh/rows*0.9;
-        const bx=p.x+c*bw+(r%2)*bw*.5, by=p.y+r*(sh/rows);
-        const grBag=ctx.createRadialGradient(bx+bw*.3,by+bh*.25,bh*.04,bx+bw*.5,by+bh*.5,bw*.55);
-        grBag.addColorStop(0,'#aa9a60'); grBag.addColorStop(.5,'#8a7a48'); grBag.addColorStop(1,'#5a4e28');
-        ctx.fillStyle=grBag; ctx.strokeStyle='#3a3018'; ctx.lineWidth=lw;
-        ctx.beginPath(); ctx.roundRect(bx+1,by+1,bw-2,bh-1,Math.max(2,4*z)); ctx.fill(); ctx.stroke();
-        // Tie line in middle
-        ctx.strokeStyle='rgba(40,30,10,0.5)'; ctx.lineWidth=Math.max(.5,.8*z);
-        ctx.beginPath(); ctx.moveTo(bx+bw*.5,by+1); ctx.lineTo(bx+bw*.5,by+bh-1); ctx.stroke();
+      // Shadow
+      ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.rect(p.x+sw*.04,q.y,sw*.9,sh*.07); ctx.fill();
+      for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+        const bw=sw/cols, bh=sh/rows;
+        const bx=p.x+c*bw+bw*.05, by=p.y+r*bh+bh*.05;
+        const offX=(r%2)*bw*.5;
+        const grBag=ctx.createRadialGradient(bx+offX+bw*.25,by+bh*.22,bh*.04,bx+offX+bw*.45,by+bh*.45,bw*.48);
+        grBag.addColorStop(0,'#c0aa68'); grBag.addColorStop(.5,'#9a8248'); grBag.addColorStop(1,'#5a4c24');
+        ctx.fillStyle=grBag; ctx.strokeStyle='#3a3218'; ctx.lineWidth=lw;
+        ctx.beginPath(); ctx.roundRect(bx+offX,by,bw*.9,bh*.9,Math.max(2,4*z)); ctx.fill(); ctx.stroke();
+        // Tie string
+        ctx.strokeStyle='rgba(40,30,10,0.55)'; ctx.lineWidth=Math.max(.5,.8*z);
+        ctx.beginPath(); ctx.moveTo(bx+offX+bw*.45,by+2); ctx.lineTo(bx+offX+bw*.45,by+bh*.88); ctx.stroke();
+        // Highlight
+        const grHL=ctx.createRadialGradient(bx+offX+bw*.25,by+bh*.2,0,bx+offX+bw*.4,by+bh*.35,bw*.32);
+        grHL.addColorStop(0,'rgba(220,200,140,0.3)'); grHL.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=grHL; ctx.beginPath(); ctx.roundRect(bx+offX,by,bw*.9,bh*.9,Math.max(2,4*z)); ctx.fill();
       }
       break;}
     default:{
