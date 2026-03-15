@@ -5926,6 +5926,145 @@ function _drawGameprop(ctx,obj,p){
         ctx.beginPath(); ctx.moveTo(hx-Math.max(3,4*z),p.y+sh*.3); ctx.lineTo(hx,p.y+sh*.6); ctx.lineTo(hx+Math.max(3,4*z),p.y+sh*.3); ctx.stroke();
       });
       break;}
+    case 'zipline':{
+      const aRZ=Math.max(3,5*z);
+      ctx.fillStyle='#4a4a5a'; ctx.strokeStyle='#aaaacc'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.arc(p.x+aRZ,p.y+aRZ,aRZ,0,PI2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(q.x-aRZ,q.y-aRZ,aRZ,0,PI2); ctx.fill(); ctx.stroke();
+      const grZ=ctx.createLinearGradient(p.x,p.y,q.x,q.y);
+      grZ.addColorStop(0,'#8ab4d4'); grZ.addColorStop(.5,'#4a9eff'); grZ.addColorStop(1,'#2a6adf');
+      ctx.strokeStyle=grZ; ctx.lineWidth=Math.max(1.5,2.5*z);
+      ctx.beginPath(); ctx.moveTo(p.x+aRZ*2,p.y+aRZ); ctx.lineTo(q.x-aRZ*2,q.y-aRZ); ctx.stroke();
+      const hx=cx-.1*sw, hy=cy-.1*sh, hw=Math.max(8,12*z), hh=Math.max(5,7*z);
+      ctx.fillStyle='#2a2a3a'; ctx.strokeStyle='#4a9eff'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.roundRect(hx-hw/2,hy-hh/2,hw,hh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(74,158,255,0.6)'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.moveTo(hx,hy+hh/2); ctx.lineTo(hx,hy+hh/2+Math.max(4,6*z)); ctx.stroke();
+      if(z>0.4){ctx.fillStyle='rgba(74,158,255,0.8)';ctx.font=`bold ${Math.max(6,7*z)}px Rajdhani`;ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('ZIPLINE',cx,q.y-Math.max(8,10*z));}
+      break;}
+    case 'ropeswing':{
+      const aRS=Math.max(3,4*z);
+      ctx.fillStyle='#5a4830'; ctx.strokeStyle='#c9a227'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.arc(cx,p.y+aRS,aRS,0,PI2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='#b8922e'; ctx.lineWidth=Math.max(1.5,2*z);
+      ctx.beginPath();
+      const segs=8;
+      for(let i=0;i<=segs;i++){const t=i/segs,ry=p.y+aRS*2+t*(sh*.78),rx=cx+Math.sin(t*Math.PI*2)*sw*.18;i===0?ctx.moveTo(rx,ry):ctx.lineTo(rx,ry);}
+      ctx.stroke();
+      const kx=cx+Math.sin(Math.PI*1.5)*sw*.18, ky=p.y+sh*.78+aRS*2;
+      ctx.fillStyle='#7a5c28'; ctx.strokeStyle='#c9a227'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.arc(kx,ky,Math.max(3,5*z),0,PI2); ctx.fill(); ctx.stroke();
+      if(z>0.4){ctx.fillStyle='rgba(201,162,39,0.8)';ctx.font=`bold ${Math.max(5,6*z)}px Rajdhani`;ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText('ROPE SWING',cx,q.y);}
+      break;}
+    case 'monkeybar':{
+      const rlMB=Math.max(2,3*z);
+      const grMR=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
+      grMR.addColorStop(0,'#6a5030'); grMR.addColorStop(1,'#4a3820');
+      ctx.fillStyle=grMR; ctx.strokeStyle='#8a6e38'; ctx.lineWidth=Math.max(.5,1*z);
+      ctx.fillRect(p.x,p.y+sh*.2,sw,rlMB); ctx.strokeRect(p.x,p.y+sh*.2,sw,rlMB);
+      ctx.fillRect(p.x,p.y+sh*.7,sw,rlMB); ctx.strokeRect(p.x,p.y+sh*.7,sw,rlMB);
+      const nb=Math.max(3,Math.round(sw/Math.max(10,14*z)));
+      const grBar=ctx.createLinearGradient(0,p.y+sh*.2,0,p.y+sh*.8);
+      grBar.addColorStop(0,'#a08050'); grBar.addColorStop(.5,'#c9a060'); grBar.addColorStop(1,'#8a6a40');
+      ctx.lineWidth=Math.max(1.5,2.5*z);
+      for(let i=0;i<=nb;i++){const bx=p.x+sw*i/nb;ctx.strokeStyle=grBar;ctx.beginPath();ctx.moveTo(bx,p.y+sh*.2+rlMB);ctx.lineTo(bx,p.y+sh*.7);ctx.stroke();}
+      ctx.fillStyle='#4a4a4a'; ctx.strokeStyle='#8a8a8a'; ctx.lineWidth=Math.max(.5,1*z);
+      [p.x,q.x].forEach(bx=>{ctx.beginPath();ctx.arc(bx,cy,Math.max(2,3*z),0,PI2);ctx.fill();ctx.stroke();});
+      if(z>0.4){ctx.fillStyle='rgba(201,162,39,0.8)';ctx.font=`bold ${Math.max(5,6*z)}px Rajdhani`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('MONKEY BARS',cx,cy+sh*.42);}
+      break;}
+    case 'crawlspace':{
+      const grCS=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
+      grCS.addColorStop(0,'#0e1e14'); grCS.addColorStop(1,'#1a3020');
+      ctx.fillStyle=grCS; ctx.strokeStyle='#4ecb71'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(78,203,113,0.7)'; ctx.lineWidth=Math.max(1,1.5*z);
+      const nAC=Math.max(2,Math.round(sw/Math.max(12,20*z)));
+      for(let i=1;i<=nAC;i++){const ax=p.x+sw*i/(nAC+1),aw=Math.max(3,5*z);ctx.beginPath();ctx.moveTo(ax,p.y+sh*.15);ctx.lineTo(ax,p.y+sh*.6);ctx.stroke();ctx.beginPath();ctx.moveTo(ax-aw,p.y+sh*.45);ctx.lineTo(ax,p.y+sh*.6);ctx.lineTo(ax+aw,p.y+sh*.45);ctx.stroke();}
+      ctx.setLineDash([Math.max(2,3*z),Math.max(2,3*z)]);
+      ctx.strokeStyle='rgba(78,203,113,0.4)'; ctx.lineWidth=Math.max(.8,1*z);
+      ctx.beginPath(); ctx.moveTo(p.x,p.y+sh*.5); ctx.lineTo(q.x,p.y+sh*.5); ctx.stroke();
+      ctx.setLineDash([]);
+      if(z>0.4){ctx.fillStyle='rgba(78,203,113,0.9)';ctx.font=`bold ${Math.max(5,6*z)}px Rajdhani`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('CRAWL',cx,cy+sh*.28);}
+      break;}
+    case 'wallrun':{
+      const grWR=ctx.createLinearGradient(p.x,p.y,q.x,p.y);
+      grWR.addColorStop(0,'#1a102a'); grWR.addColorStop(.5,'#2e1a44'); grWR.addColorStop(1,'#1a102a');
+      ctx.fillStyle=grWR; ctx.strokeStyle='#9b6bde'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(155,107,222,0.55)'; ctx.lineWidth=Math.max(.8,1.2*z);
+      const nLWR=Math.max(3,Math.round(sh/Math.max(8,14*z)));
+      for(let i=1;i<nLWR;i++){const ly=p.y+sh*i/nLWR;ctx.beginPath();ctx.moveTo(p.x+sw*.1,ly);ctx.lineTo(p.x+sw*.9,ly-Math.max(4,6*z));ctx.stroke();}
+      ctx.fillStyle='rgba(155,107,222,0.6)';
+      [[.3,.25],[.6,.5],[.35,.75]].forEach(([fx,fy])=>{const fpx=p.x+fx*sw,fpy=p.y+fy*sh,fpw=Math.max(3,4*z),fph=Math.max(1.5,2*z);ctx.beginPath();ctx.ellipse(fpx,fpy,fpw,fph,-.3,0,PI2);ctx.fill();});
+      if(z>0.4){ctx.fillStyle='rgba(155,107,222,0.9)';ctx.font=`bold ${Math.max(5,6*z)}px Rajdhani`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('WALL RUN',cx,cy);}
+      break;}
+    case 'grapplepnt':{
+      const gpR=Math.min(sw,sh)*.35;
+      ctx.fillStyle='#2a1010'; ctx.strokeStyle='#e05252'; ctx.lineWidth=Math.max(1.5,2*z);
+      ctx.beginPath(); ctx.arc(cx,cy,gpR,0,PI2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(224,82,82,0.5)'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.arc(cx,cy,gpR*.6,0,PI2); ctx.stroke();
+      ctx.strokeStyle='#e05252'; ctx.lineWidth=Math.max(1.5,2.5*z); ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(cx,cy-gpR*.4); ctx.lineTo(cx,cy+gpR*.2); ctx.arc(cx-gpR*.2,cy+gpR*.2,gpR*.2,-Math.PI/2,Math.PI); ctx.stroke();
+      ctx.strokeStyle='rgba(224,82,82,0.35)'; ctx.lineWidth=Math.max(.5,1*z);
+      ctx.setLineDash([Math.max(2,3*z),Math.max(2,3*z)]);
+      ctx.beginPath(); ctx.moveTo(cx-gpR*1.4,cy); ctx.lineTo(cx+gpR*1.4,cy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx,cy-gpR*1.4); ctx.lineTo(cx,cy+gpR*1.4); ctx.stroke();
+      ctx.setLineDash([]); ctx.lineCap='butt';
+      if(z>0.4){ctx.fillStyle='rgba(224,82,82,0.8)';ctx.font=`bold ${Math.max(5,6*z)}px Rajdhani`;ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('GRAPPLE',cx,cy+gpR+Math.max(2,3*z));}
+      break;}
+    case 'slidezone':{
+      const grSL=ctx.createLinearGradient(p.x,p.y,q.x,q.y);
+      grSL.addColorStop(0,'#1a2a3a'); grSL.addColorStop(1,'#0a1a2a');
+      ctx.fillStyle=grSL; ctx.strokeStyle='#4a9eff'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.moveTo(p.x,q.y); ctx.lineTo(q.x,q.y); ctx.lineTo(q.x,p.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(74,158,255,0.5)'; ctx.lineWidth=Math.max(.8,1*z);
+      const nSL=Math.max(3,Math.round(Math.sqrt(sw*sh)/Math.max(6,10*z)));
+      for(let i=1;i<nSL;i++){const t=i/nSL;ctx.beginPath();ctx.moveTo(p.x+sw*t*.7,q.y-sh*t*.3);ctx.lineTo(p.x+sw*t*.9,q.y-sh*t*.7);ctx.stroke();}
+      if(z>0.4){ctx.fillStyle='rgba(74,158,255,0.9)';ctx.font=`bold ${Math.max(5,6*z)}px Rajdhani`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('SLIDE',p.x+sw*.65,p.y+sh*.55);}
+      break;}
+    case 'pushblock':{
+      const grPB=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
+      grPB.addColorStop(0,'#6a4e28'); grPB.addColorStop(.5,'#5a3e1a'); grPB.addColorStop(1,'#3a2a10');
+      ctx.fillStyle=grPB; ctx.strokeStyle='#e07820'; ctx.lineWidth=Math.max(1.5,2*z);
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=Math.max(.5,.8*z);
+      for(let i=1;i<4;i++){const gx=p.x+sw*i/4;ctx.beginPath();ctx.moveTo(gx,p.y+sh*.2);ctx.lineTo(gx,p.y+sh*.8);ctx.stroke();}
+      const aw2=Math.max(4,6*z), ah2=Math.max(3,4*z);
+      ctx.strokeStyle='rgba(224,120,32,0.8)'; ctx.fillStyle='rgba(224,120,32,0.7)'; ctx.lineWidth=Math.max(1.5,2*z);
+      ctx.beginPath(); ctx.moveTo(p.x+sw*.05,cy); ctx.lineTo(cx+sw*.22,cy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx+sw*.28,cy); ctx.lineTo(cx+sw*.28-ah2,cy-aw2); ctx.lineTo(cx+sw*.28-ah2,cy+aw2); ctx.closePath(); ctx.fill();
+      if(z>0.4){ctx.fillStyle='rgba(224,120,32,0.9)';ctx.font=`bold ${Math.max(5,6*z)}px Rajdhani`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('PUSH',cx-sw*.1,cy);}
+      break;}
+    case 'interact':{
+      const grIT=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
+      grIT.addColorStop(0,'#1a3a28'); grIT.addColorStop(1,'#0a2018');
+      ctx.fillStyle=grIT; ctx.strokeStyle='#4ecb71'; ctx.lineWidth=Math.max(1.5,2*z);
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      const iR=Math.min(sw,sh)*.3;
+      ctx.strokeStyle='#4ecb71'; ctx.fillStyle='rgba(78,203,113,0.15)'; ctx.lineWidth=Math.max(1.5,2*z);
+      ctx.beginPath(); ctx.arc(cx,cy-sh*.1,iR,0,PI2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#4ecb71'; ctx.font=`bold ${Math.max(7,Math.round(iR*1.2))}px Rajdhani`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('E',cx,cy-sh*.1);
+      ctx.strokeStyle='rgba(78,203,113,0.35)'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.arc(cx,cy-sh*.1,iR*1.4,0,PI2); ctx.stroke();
+      if(z>0.4){ctx.fillStyle='rgba(78,203,113,0.8)';ctx.font=`bold ${Math.max(5,6*z)}px Rajdhani`;ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText('INTERACT',cx,q.y-Math.max(2,3*z));}
+      break;}
+    case 'breakable':{
+      const grBK=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
+      grBK.addColorStop(0,'#3a1818'); grBK.addColorStop(1,'#1a0a0a');
+      ctx.fillStyle=grBK; ctx.strokeStyle='#e05252'; ctx.lineWidth=Math.max(1,1.5*z);
+      ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(1,2*z)); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='rgba(224,82,82,0.7)'; ctx.lineWidth=Math.max(1,1.5*z); ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(cx-sw*.05,p.y+sh*.15); ctx.lineTo(cx+sw*.1,cy-.05*sh); ctx.lineTo(cx-sw*.15,cy+sh*.1); ctx.lineTo(cx+sw*.05,q.y-sh*.15); ctx.stroke();
+      ctx.lineWidth=Math.max(.6,1*z);
+      ctx.beginPath(); ctx.moveTo(cx+sw*.1,cy-.05*sh); ctx.lineTo(cx+sw*.3,cy-sh*.2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-sw*.15,cy+sh*.1); ctx.lineTo(cx-sw*.3,cy+sh*.2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx+sw*.1,cy-.05*sh); ctx.lineTo(cx+sw*.2,cy+sh*.1); ctx.stroke();
+      ctx.fillStyle='rgba(224,82,82,0.3)'; ctx.lineCap='butt';
+      [[cx-sw*.2,cy-sh*.2,3],[cx+sw*.25,cy+sh*.15,2],[cx-sw*.1,cy+sh*.3,2.5]].forEach(([bx,by,br])=>{ctx.beginPath();ctx.arc(bx,by,Math.max(br,br*z),0,PI2);ctx.fill();});
+      if(z>0.4){ctx.fillStyle='rgba(224,82,82,0.8)';ctx.font=`bold ${Math.max(5,6*z)}px Rajdhani`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('BREAK',cx,cy+sh*.42);}
+      break;}
     case 'flashlight':{
       // Body
       const grFL=ctx.createLinearGradient(p.x,cy-sh*.3,p.x,cy+sh*.3);
@@ -7705,7 +7844,17 @@ function _spSVG(type, f, s) {
     case 'vault':  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="3" y="18" width="30" height="7" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><path d="M10,17 Q18,6 26,17" fill="none" stroke="${s}" stroke-width="2.5" stroke-linecap="round"/><polyline points="22,10 26,17 20,17" fill="${s}" stroke="${s}" stroke-width="1"/></svg>`;
     case 'jumppad':return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="4" y="20" width="28" height="6" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><path d="M10,20 Q18,4 26,20" fill="${f}" opacity=".3" stroke="${s}" stroke-width="1.5"/><line x1="18" y1="18" x2="18" y2="6" stroke="${s}" stroke-width="2" stroke-dasharray="2,2"/><polyline points="14,9 18,4 22,9" fill="${s}" stroke="${s}" stroke-width="1.5"/></svg>`;
     case 'climbable':return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="7" y="1" width="6" height="26" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="23" y="1" width="6" height="26" fill="${f}" stroke="${s}" stroke-width="1.5"/><line x1="7" y1="7" x2="29" y2="7" stroke="${s}" stroke-width="2"/><line x1="7" y1="14" x2="29" y2="14" stroke="${s}" stroke-width="2"/><line x1="7" y1="21" x2="29" y2="21" stroke="${s}" stroke-width="2"/></svg>`;
-    case 'ledge':  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="13" width="32" height="5" rx="1" fill="${f}" stroke="${s}" stroke-width="2"/><line x1="6" y1="13" x2="6" y2="8" stroke="${s}" stroke-width="1.5" opacity=".6"/><line x1="12" y1="13" x2="12" y2="8" stroke="${s}" stroke-width="1.5" opacity=".6"/><line x1="24" y1="13" x2="24" y2="8" stroke="${s}" stroke-width="1.5" opacity=".6"/><line x1="30" y1="13" x2="30" y2="8" stroke="${s}" stroke-width="1.5" opacity=".6"/></svg>`;
+    case 'ledge':     return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="13" width="32" height="5" rx="1" fill="${f}" stroke="${s}" stroke-width="2"/><line x1="6" y1="13" x2="6" y2="8" stroke="${s}" stroke-width="1.5" opacity=".6"/><line x1="12" y1="13" x2="12" y2="8" stroke="${s}" stroke-width="1.5" opacity=".6"/><line x1="24" y1="13" x2="24" y2="8" stroke="${s}" stroke-width="1.5" opacity=".6"/><line x1="30" y1="13" x2="30" y2="8" stroke="${s}" stroke-width="1.5" opacity=".6"/></svg>`;
+    case 'zipline':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><circle cx="5" cy="5" r="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><circle cx="31" cy="22" r="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><line x1="5" y1="5" x2="31" y2="22" stroke="${s}" stroke-width="2"/><rect x="14" y="11" width="8" height="5" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><line x1="18" y1="16" x2="18" y2="20" stroke="${s}" stroke-width="1.5"/></svg>`;
+    case 'ropeswing': return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><circle cx="18" cy="3" r="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><path d="M18,6 Q24,14 20,22" fill="none" stroke="${s}" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="23" r="3" fill="${f}" stroke="${s}" stroke-width="1.5"/></svg>`;
+    case 'monkeybar': return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><line x1="2" y1="10" x2="34" y2="10" stroke="${s}" stroke-width="2.5"/><line x1="2" y1="18" x2="34" y2="18" stroke="${s}" stroke-width="2.5"/><line x1="8" y1="10" x2="8" y2="18" stroke="${s}" stroke-width="2"/><line x1="15" y1="10" x2="15" y2="18" stroke="${s}" stroke-width="2"/><line x1="22" y1="10" x2="22" y2="18" stroke="${s}" stroke-width="2"/><line x1="29" y1="10" x2="29" y2="18" stroke="${s}" stroke-width="2"/></svg>`;
+    case 'crawlspace':return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="6" width="32" height="14" rx="2" fill="${f}" stroke="${s}" stroke-width="1.5"/><polyline points="8,9 10,14 12,9" fill="none" stroke="${s}" stroke-width="1.5"/><polyline points="16,9 18,14 20,9" fill="none" stroke="${s}" stroke-width="1.5"/><polyline points="24,9 26,14 28,9" fill="none" stroke="${s}" stroke-width="1.5"/></svg>`;
+    case 'wallrun':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="2" width="10" height="24" rx="2" fill="${f}" stroke="${s}" stroke-width="1.5"/><path d="M14,22 Q20,14 14,6" fill="none" stroke="${s}" stroke-width="2" stroke-linecap="round"/><ellipse cx="17" cy="7" rx="4" ry="2" fill="${s}" opacity=".6" transform="rotate(-20,17,7)"/><ellipse cx="16" cy="16" rx="4" ry="2" fill="${s}" opacity=".6" transform="rotate(-20,16,16)"/><polyline points="22,10 28,14 22,18" fill="none" stroke="${s}" stroke-width="2" stroke-linecap="round"/></svg>`;
+    case 'grapplepnt':return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><circle cx="18" cy="14" r="10" fill="${f}" stroke="${s}" stroke-width="2"/><circle cx="18" cy="14" r="6" fill="none" stroke="${s}" stroke-width="1" opacity=".5"/><path d="M18,10 L18,17 A4,4 0 0 1 14,17" fill="none" stroke="${s}" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="14" x2="8" y2="14" stroke="${s}" stroke-width="1.5" opacity=".5"/><line x1="28" y1="14" x2="31" y2="14" stroke="${s}" stroke-width="1.5" opacity=".5"/><line x1="18" y1="2" x2="18" y2="4" stroke="${s}" stroke-width="1.5" opacity=".5"/></svg>`;
+    case 'slidezone': return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polygon points="2,26 34,26 34,4" fill="${f}" stroke="${s}" stroke-width="1.5"/><line x1="10" y1="26" x2="34" y2="10" stroke="${s}" stroke-width="1" opacity=".4"/><line x1="18" y1="26" x2="34" y2="16" stroke="${s}" stroke-width="1" opacity=".4"/><polyline points="26,8 34,14 28,18" fill="none" stroke="${s}" stroke-width="2"/></svg>`;
+    case 'pushblock': return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="8" width="22" height="14" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><line x1="9" y1="8" x2="9" y2="22" stroke="${s}" stroke-width="1" opacity=".4"/><line x1="16" y1="8" x2="16" y2="22" stroke="${s}" stroke-width="1" opacity=".4"/><polyline points="26,12 34,15 26,18" fill="${s}" stroke="${s}" stroke-width="1"/><line x1="24" y1="15" x2="34" y2="15" stroke="${s}" stroke-width="2"/></svg>`;
+    case 'interact':  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="3" y="4" width="30" height="20" rx="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><circle cx="18" cy="14" r="7" fill="none" stroke="${s}" stroke-width="1.5"/><text x="18" y="18" font-size="10" font-weight="bold" fill="${s}" text-anchor="middle">E</text></svg>`;
+    case 'breakable': return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="3" y="3" width="30" height="22" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><path d="M15,6 L18,13 L14,16 L17,24" fill="none" stroke="${s}" stroke-width="2" stroke-linecap="round"/><line x1="18" y1="13" x2="24" y2="9" stroke="${s}" stroke-width="1.5" opacity=".7"/><line x1="14" y1="16" x2="9" y2="19" stroke="${s}" stroke-width="1.5" opacity=".7"/></svg>`;
     case 'flashlight':return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="6" y="11" width="18" height="7" rx="3" fill="${f}" stroke="${s}" stroke-width="1.5"/><polygon points="24,10 34,6 34,22 24,18" fill="${s}" opacity=".3"/><polygon points="24,10 34,6 34,22 24,18" fill="none" stroke="${s}" stroke-width="1.5"/><circle cx="10" cy="14" r="2.5" fill="${s}" opacity=".6"/><line x1="34" y1="6" x2="36" y2="4" stroke="${s}" stroke-width="1" opacity=".4"/></svg>`;
     case 'battery':return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="4" y="9" width="26" height="10" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><rect x="30" y="11" width="4" height="6" rx="1" fill="${s}" opacity=".7"/><rect x="7" y="12" width="5" height="4" rx="1" fill="${s}" opacity=".8"/><rect x="14" y="12" width="5" height="4" rx="1" fill="${s}" opacity=".8"/><rect x="21" y="12" width="3" height="4" rx="1" fill="${s}" opacity=".5"/></svg>`;
     case 'health': return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="3" y="3" width="30" height="22" rx="3" fill="${f}" stroke="${s}" stroke-width="2"/><rect x="14" y="7" width="8" height="14" rx="1" fill="${s}"/><rect x="9" y="11" width="18" height="6" rx="1" fill="${s}"/></svg>`;
@@ -7788,7 +7937,17 @@ function renderShapesPanel(){
       {type:'vault',   f:'#2a2010',s:'#c9a227',label:'Vault',     fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'vault',    fill:'#2a2010',stroke:'#c9a227',name:'Vault',    w:48,h:16,tag:'vault'}}},
       {type:'jumppad', f:'#0a1a3a',s:'#4a9eff',label:'Jump Pad',  fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'jumppad',  fill:'#0a1a3a',stroke:'#4a9eff',name:'Jump Pad', w:40,h:12,tag:'jump'}}},
       {type:'climbable',f:'#2a1a0a',s:'#c9a227',label:'Climbable',fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'climbable',fill:'#2a1a0a',stroke:'#c9a227',name:'Climbable',w:24,h:64,tag:'climb'}}},
-      {type:'ledge',   f:'#2a2a2a',s:'#8a8a8a',label:'Ledge',     fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'ledge',   fill:'#2a2a2a',stroke:'#8a8a8a',name:'Ledge',    w:56,h:10,tag:'grab'}}},
+      {type:'ledge',    f:'#2a2a2a',s:'#8a8a8a',label:'Ledge',      fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'ledge',     fill:'#2a2a2a',stroke:'#8a8a8a',name:'Ledge',        w:56,h:10, tag:'grab'}}},
+      {type:'zipline',  f:'#1a1a2a',s:'#4a9eff',label:'Zipline',    fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'zipline',   fill:'#1a1a2a',stroke:'#4a9eff',name:'Zipline',      w:96,h:32, tag:'zip'}}},
+      {type:'ropeswing',f:'#1a1010',s:'#c9a227',label:'Rope Swing', fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'ropeswing', fill:'#1a1010',stroke:'#c9a227',name:'Rope Swing',   w:20,h:56, tag:'swing'}}},
+      {type:'monkeybar',f:'#2a1a0a',s:'#8a6e38',label:'Monkey Bar', fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'monkeybar', fill:'#2a1a0a',stroke:'#8a6e38',name:'Monkey Bar',   w:80,h:16, tag:'hang'}}},
+      {type:'crawlspace',f:'#0a1a10',s:'#4ecb71',label:'Crawl',     fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'crawlspace',fill:'#0a1a10',stroke:'#4ecb71',name:'Crawl Space',  w:64,h:24, tag:'crawl'}}},
+      {type:'wallrun',  f:'#1a102a',s:'#9b6bde',label:'Wall Run',   fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'wallrun',   fill:'#1a102a',stroke:'#9b6bde',name:'Wall Run',      w:12,h:72, tag:'wallrun'}}},
+      {type:'grapplepnt',f:'#2a0a10',s:'#e05252',label:'Grapple',   fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'grapplepnt',fill:'#2a0a10',stroke:'#e05252',name:'Grapple Point',w:20,h:20, tag:'grapple'}}},
+      {type:'slidezone',f:'#0a1a2a',s:'#4a9eff',label:'Slide',      fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'slidezone', fill:'#0a1a2a',stroke:'#4a9eff',name:'Slide Zone',    w:56,h:40, tag:'slide'}}},
+      {type:'pushblock',f:'#3a2a18',s:'#e07820',label:'Push Block',  fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'pushblock', fill:'#3a2a18',stroke:'#e07820',name:'Push Block',    w:32,h:32, tag:'push'}}},
+      {type:'interact', f:'#0a2a1a',s:'#4ecb71',label:'Interact',   fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'interact',  fill:'#0a2a1a',stroke:'#4ecb71',name:'Interactable',  w:28,h:36, tag:'use'}}},
+      {type:'breakable',f:'#2a1010',s:'#e05252',label:'Breakable',  fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'breakable', fill:'#2a1010',stroke:'#e05252',name:'Breakable',      w:40,h:40, tag:'break'}}},
     ]},
     {label:'Items & Pickups',shapes:[
       {type:'flashlight',f:'#1a1a0a',s:'#ffe066',label:'Flashlight',fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'flashlight',fill:'#1a1a0a',stroke:'#ffe066',name:'Flashlight',w:28,h:14,tag:'item'}}},
