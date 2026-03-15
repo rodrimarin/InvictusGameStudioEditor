@@ -6601,8 +6601,9 @@ function _drawGameprop(ctx,obj,p){
       ctx.beginPath(); ctx.roundRect(p.x,p.y,sw,sh,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
     }
   }
-  // Label
-  const _dl=obj.label||obj.name;
+  // Label — skip for subtypes that draw their own label internally
+  const _ownLabelSubtypes=new Set(['vault','zipline','ropeswing','monkeybar','crawlspace','wallrun','grapplepnt','slidezone','pushblock','interact','breakable']);
+  const _dl=obj.label||((_ownLabelSubtypes.has(obj.subtype))?null:obj.name);
   if(_dl&&z>0.35){
     ctx.globalAlpha=.9; ctx.font=`bold ${Math.max(7,9*z)}px Rajdhani`;
     ctx.textAlign='center'; ctx.textBaseline='bottom';
