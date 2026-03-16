@@ -7275,25 +7275,84 @@ function drawObj(obj,ctx) {
       const brickW=Math.max(6,16*z),brickH=Math.max(4,10*z);
       for(let row=0;row*brickH<h;row++){const offset=(row%2)*(brickW/2);for(let col=-1;col*brickW<w+brickW;col++){const bx=p.x+col*brickW+offset,by=p.y+row*brickH;ctx.strokeRect(bx,by,brickW,brickH);}}
     } else if(n==='Ramp'){
-      ctx.globalAlpha=.7; ctx.lineWidth=Math.max(1,2*z);
+      // ── Triangle ramp body ──────────────────────────────────────
+      ctx.save();
       ctx.beginPath();ctx.moveTo(p.x,p.y+h);ctx.lineTo(p.x+w,p.y);ctx.lineTo(p.x+w,p.y+h);ctx.closePath();
-      ctx.fillStyle=sc; ctx.globalAlpha=.25; ctx.fill();
-      ctx.globalAlpha=.8; ctx.stroke();
+      const _grRp=ctx.createLinearGradient(p.x+w,p.y,p.x,p.y+h);
+      _grRp.addColorStop(0,sc+'44');_grRp.addColorStop(1,sc+'99');
+      ctx.fillStyle=_grRp;ctx.globalAlpha=1;ctx.fill();
+      // Anti-slip grip lines (diagonal, clipped to triangle)
+      ctx.beginPath();ctx.moveTo(p.x,p.y+h);ctx.lineTo(p.x+w,p.y);ctx.lineTo(p.x+w,p.y+h);ctx.closePath();ctx.clip();
+      ctx.strokeStyle=sc+'44';ctx.lineWidth=Math.max(.7,1.2*z);ctx.globalAlpha=1;
+      for(let xi=0;xi<w+h;xi+=Math.max(5,9*z)){ctx.beginPath();ctx.moveTo(p.x+xi,p.y);ctx.lineTo(p.x+xi-h,p.y+h);ctx.stroke();}
+      ctx.restore();
+      // Slope walking surface — thick bright line
+      ctx.strokeStyle=sc;ctx.lineWidth=Math.max(2.5,4*z);ctx.globalAlpha=.95;
+      ctx.beginPath();ctx.moveTo(p.x,p.y+h);ctx.lineTo(p.x+w,p.y);ctx.stroke();
+      // Back wall + base
+      ctx.lineWidth=Math.max(1.5,2*z);ctx.globalAlpha=.5;
+      ctx.beginPath();ctx.moveTo(p.x+w,p.y);ctx.lineTo(p.x+w,p.y+h);ctx.stroke();
+      ctx.lineWidth=Math.max(2,3.5*z);ctx.globalAlpha=.85;
+      ctx.beginPath();ctx.moveTo(p.x,p.y+h);ctx.lineTo(p.x+w,p.y+h);ctx.stroke();
+      // Directional arrow along slope (top → bottom)
+      {const _ang=Math.atan2(h,-w),_mx=p.x+w*.58,_my=p.y+h*.48,_al=Math.min(w,h)*.28;
+      const _ex=_mx+Math.cos(_ang)*_al,_ey=_my+Math.sin(_ang)*_al;
+      const _ah=Math.max(3,5*z);
+      ctx.strokeStyle=sc;ctx.fillStyle=sc;ctx.lineWidth=Math.max(1.5,2.5*z);ctx.globalAlpha=.8;
+      ctx.beginPath();ctx.moveTo(_mx-Math.cos(_ang)*_al*.5,_my-Math.sin(_ang)*_al*.5);ctx.lineTo(_ex,_ey);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(_ex,_ey);ctx.lineTo(_ex-Math.cos(_ang-.5)*_ah,_ey-Math.sin(_ang-.5)*_ah);ctx.lineTo(_ex-Math.cos(_ang+.5)*_ah,_ey-Math.sin(_ang+.5)*_ah);ctx.closePath();ctx.fill();}
     } else if(n==='Elevator'){
-      ctx.globalAlpha=.8; ctx.lineWidth=Math.max(1,1.5*z);
-      const mx=p.x+w/2,aSize=Math.max(3,5*z);
-      // Up arrow
-      ctx.beginPath();ctx.moveTo(mx,p.y+h*.25-aSize);ctx.lineTo(mx-aSize,p.y+h*.25+aSize);ctx.lineTo(mx+aSize,p.y+h*.25+aSize);ctx.closePath();ctx.fill();
-      // Down arrow
-      ctx.beginPath();ctx.moveTo(mx,p.y+h*.75+aSize);ctx.lineTo(mx-aSize,p.y+h*.75-aSize);ctx.lineTo(mx+aSize,p.y+h*.75-aSize);ctx.closePath();ctx.fill();
-      ctx.globalAlpha=.3;ctx.beginPath();ctx.moveTo(mx,p.y+4);ctx.lineTo(mx,p.y+h-4);ctx.stroke();
+      // ── Elevator shaft + car ────────────────────────────────────
+      {const _mx=p.x+w/2,_sw=Math.max(3,5*z);
+      // Shaft side rails
+      ctx.fillStyle=sc;ctx.globalAlpha=.55;
+      ctx.fillRect(p.x,p.y,_sw,h);ctx.fillRect(p.x+w-_sw,p.y,_sw,h);
+      // Shaft wall texture (horizontal dashes)
+      ctx.strokeStyle=sc;ctx.lineWidth=Math.max(.5,.8*z);ctx.globalAlpha=.15;ctx.setLineDash([Math.max(2,3*z),Math.max(2,3*z)]);
+      for(let yi=p.y+Math.max(4,6*z);yi<p.y+h;yi+=Math.max(4,7*z)){ctx.beginPath();ctx.moveTo(p.x+_sw,yi);ctx.lineTo(p.x+w-_sw,yi);ctx.stroke();}
+      ctx.setLineDash([]);
+      // Cable lines from top to car
+      ctx.strokeStyle=sc;ctx.lineWidth=Math.max(.8,1.5*z);ctx.globalAlpha=.4;
+      const _ci=w*.28,_carY=p.y+h*.32,_carH=Math.min(h*.3,Math.max(14,22*z));
+      ctx.beginPath();ctx.moveTo(p.x+_ci,p.y+2);ctx.lineTo(p.x+_ci,_carY);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(p.x+w-_ci,p.y+2);ctx.lineTo(p.x+w-_ci,_carY);ctx.stroke();
+      // Pulley wheels at top
+      ctx.strokeStyle=sc;ctx.lineWidth=Math.max(1,1.5*z);ctx.globalAlpha=.6;
+      ctx.beginPath();ctx.arc(p.x+_ci,p.y+Math.max(3,4*z),Math.max(2,3*z),0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.arc(p.x+w-_ci,p.y+Math.max(3,4*z),Math.max(2,3*z),0,Math.PI*2);ctx.stroke();
+      // Elevator car platform
+      const _grCar=ctx.createLinearGradient(p.x,_carY,p.x,_carY+_carH);
+      _grCar.addColorStop(0,sc+'cc');_grCar.addColorStop(.5,sc+'88');_grCar.addColorStop(1,sc+'44');
+      ctx.fillStyle=_grCar;ctx.strokeStyle=sc;ctx.lineWidth=Math.max(1,1.5*z);ctx.globalAlpha=.9;
+      ctx.beginPath();ctx.roundRect(p.x+_sw+1,_carY,w-_sw*2-2,_carH,Math.max(1,2*z));ctx.fill();ctx.stroke();
+      // Up/down arrows on car
+      const _aS=Math.max(3,Math.min(4*z,_carH*.35));
+      ctx.fillStyle=obj.fill||'#1a1a2a';ctx.globalAlpha=.85;
+      ctx.beginPath();ctx.moveTo(_mx,_carY+_carH*.25-_aS);ctx.lineTo(_mx-_aS,_carY+_carH*.25+_aS*.6);ctx.lineTo(_mx+_aS,_carY+_carH*.25+_aS*.6);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(_mx,_carY+_carH*.75+_aS);ctx.lineTo(_mx-_aS,_carY+_carH*.75-_aS*.6);ctx.lineTo(_mx+_aS,_carY+_carH*.75-_aS*.6);ctx.closePath();ctx.fill();}
     } else if(n==='Ladder'){
-      ctx.globalAlpha=.85; ctx.lineWidth=Math.max(0.5,1.5*z);
-      const rails=w*.25;
-      ctx.beginPath();ctx.moveTo(p.x+rails,p.y+2);ctx.lineTo(p.x+rails,p.y+h-2);
-      ctx.moveTo(p.x+w-rails,p.y+2);ctx.lineTo(p.x+w-rails,p.y+h-2);ctx.stroke();
-      const rungs=Math.max(2,Math.round(h/Math.max(6,12*z)));
-      for(let i=1;i<rungs;i++){ctx.beginPath();ctx.moveTo(p.x+rails,p.y+h*i/rungs);ctx.lineTo(p.x+w-rails,p.y+h*i/rungs);ctx.stroke();}
+      // ── Ladder with rails + rungs ───────────────────────────────
+      {const _r1=p.x+w*.22,_r2=p.x+w*.78,_rW=Math.max(2,3.5*z);
+      // Rail gradients
+      const _grRail=ctx.createLinearGradient(_r1,0,_r1+_rW*2,0);
+      _grRail.addColorStop(0,'#5a4020');_grRail.addColorStop(.45,sc);_grRail.addColorStop(1,'#3a2810');
+      ctx.fillStyle=_grRail;ctx.globalAlpha=.9;
+      ctx.fillRect(_r1,p.y+h*.02,_rW,h*.96);ctx.fillRect(_r2,p.y+h*.02,_rW,h*.96);
+      // Top & bottom caps
+      ctx.fillStyle=sc;ctx.globalAlpha=.55;
+      ctx.fillRect(_r1-Math.max(1,2*z),p.y+h*.02,_rW+Math.max(2,4*z),Math.max(2,3*z));
+      ctx.fillRect(_r1-Math.max(1,2*z),p.y+h*.96,_rW+Math.max(2,4*z),Math.max(2,3*z));
+      ctx.fillRect(_r2-Math.max(1,2*z),p.y+h*.02,_rW+Math.max(2,4*z),Math.max(2,3*z));
+      ctx.fillRect(_r2-Math.max(1,2*z),p.y+h*.96,_rW+Math.max(2,4*z),Math.max(2,3*z));
+      // Rungs with gradient shine
+      const _nR=Math.max(2,Math.round(h/Math.max(7,13*z)));
+      for(let ri=0;ri<_nR;ri++){
+        const _ry=p.y+h*(ri+.5)/_nR,_rH=Math.max(2.5,3.5*z);
+        const _grRung=ctx.createLinearGradient(_r1,_ry-_rH,_r1,_ry+_rH);
+        _grRung.addColorStop(0,sc+'cc');_grRung.addColorStop(.5,sc);_grRung.addColorStop(1,sc+'55');
+        ctx.fillStyle=_grRung;ctx.globalAlpha=.9;
+        ctx.fillRect(_r1+_rW,_ry-_rH*.5,_r2-_r1-_rW,_rH);
+      }}
     } else if(n==='Exit'){
       ctx.globalAlpha=.9; ctx.lineWidth=Math.max(1,2*z);
       const mx=p.x+w/2,my=p.y+h/2,as=Math.min(w,h)*.28;
@@ -7831,9 +7890,9 @@ function _spSVG(type, f, s) {
     case 'light':  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><ellipse cx="18" cy="14" rx="13" ry="13" fill="${f}" opacity=".35"/><ellipse cx="18" cy="14" rx="7" ry="7" fill="${s}" opacity=".7"/><circle cx="18" cy="14" r="3" fill="${s}"/><circle cx="18" cy="14" r="13" fill="none" stroke="${s}" stroke-width="1.5" opacity=".4"/></svg>`;
     case 'arrow':  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><line x1="4" y1="14" x2="26" y2="14" stroke="${s}" stroke-width="2.5" stroke-linecap="round"/><polyline points="18,7 30,14 18,21" fill="${s}" stroke="${s}" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
     case 'draw':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><path d="M4 20 Q9 8 15 15 Q21 22 27 10" fill="none" stroke="${s}" stroke-width="2.5" stroke-linecap="round"/><circle cx="27" cy="10" r="2.5" fill="${s}"/></svg>`;
-    case 'ramp':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polygon points="2,25 34,25 34,4" fill="${f}" stroke="${s}" stroke-width="2"/><line x1="8" y1="25" x2="34" y2="11" stroke="${s}" stroke-width="1" opacity=".35" stroke-dasharray="4,2"/><polyline points="27,7 34,11 28,16" fill="none" stroke="${s}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-    case 'elev':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="4" y="2" width="28" height="24" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><line x1="18" y1="2" x2="18" y2="26" stroke="${s}" stroke-width="1" opacity=".35"/><line x1="4" y1="14" x2="32" y2="14" stroke="${s}" stroke-width="1" opacity=".3"/><polyline points="11,11 8,7 5,11" fill="none" stroke="${s}" stroke-width="2"/><line x1="8" y1="7" x2="8" y2="14" stroke="${s}" stroke-width="1.5" opacity=".6"/><polyline points="25,17 28,21 31,17" fill="none" stroke="${s}" stroke-width="2"/><line x1="28" y1="14" x2="28" y2="21" stroke="${s}" stroke-width="1.5" opacity=".6"/></svg>`;
-    case 'ladder': return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="9" y="2" width="3" height="24" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="24" y="2" width="3" height="24" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><line x1="12" y1="7" x2="24" y2="7" stroke="${s}" stroke-width="2"/><line x1="12" y1="13" x2="24" y2="13" stroke="${s}" stroke-width="2"/><line x1="12" y1="19" x2="24" y2="19" stroke="${s}" stroke-width="2"/><rect x="9" y="2" width="3" height="3" rx="1" fill="${s}" opacity=".5"/><rect x="24" y="2" width="3" height="3" rx="1" fill="${s}" opacity=".5"/></svg>`;
+    case 'ramp':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polygon points="2,26 34,26 34,3" fill="${f}" stroke="none"/><line x1="8" y1="26" x2="34" y2="8" stroke="${s}" stroke-width=".8" opacity=".3"/><line x1="14" y1="26" x2="34" y2="13" stroke="${s}" stroke-width=".8" opacity=".3"/><line x1="20" y1="26" x2="34" y2="18" stroke="${s}" stroke-width=".8" opacity=".3"/><line x1="26" y1="26" x2="34" y2="23" stroke="${s}" stroke-width=".8" opacity=".3"/><line x1="2" y1="26" x2="34" y2="3" stroke="${s}" stroke-width="3" stroke-linecap="round"/><line x1="2" y1="26" x2="34" y2="26" stroke="${s}" stroke-width="2.5"/><line x1="34" y1="3" x2="34" y2="26" stroke="${s}" stroke-width="1.5" opacity=".5"/><line x1="22" y1="17" x2="28" y2="22" stroke="${s}" stroke-width="2" stroke-linecap="round"/><polyline points="28,17 28,22 23,22" fill="none" stroke="${s}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    case 'elev':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="3" y="1" width="5" height="26" rx="1" fill="${s}" opacity=".5"/><rect x="28" y="1" width="5" height="26" rx="1" fill="${s}" opacity=".5"/><line x1="11" y1="2" x2="11" y2="10" stroke="${s}" stroke-width="1.2" opacity=".5"/><line x1="25" y1="2" x2="25" y2="10" stroke="${s}" stroke-width="1.2" opacity=".5"/><circle cx="11" cy="2" r="2" fill="${f}" stroke="${s}" stroke-width="1"/><circle cx="25" cy="2" r="2" fill="${f}" stroke="${s}" stroke-width="1"/><rect x="9" y="9" width="18" height="10" rx="2" fill="${s}" opacity=".7"/><rect x="10" y="10" width="16" height="8" rx="1" fill="${f}" stroke="${s}" stroke-width="1"/><polyline points="15,13 18,10 21,13" fill="${s}" stroke="${s}" stroke-width="1.5" stroke-linejoin="round"/><polyline points="15,15 18,18 21,15" fill="${s}" stroke="${s}" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+    case 'ladder': return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="10" y="1" width="4" height="26" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="22" y="1" width="4" height="26" rx="1" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="14" y="6" width="8" height="3" rx="1" fill="${s}" opacity=".9"/><rect x="14" y="12" width="8" height="3" rx="1" fill="${s}" opacity=".9"/><rect x="14" y="18" width="8" height="3" rx="1" fill="${s}" opacity=".9"/><rect x="8" y="1" width="6" height="3" rx="1" fill="${s}" opacity=".5"/><rect x="22" y="1" width="6" height="3" rx="1" fill="${s}" opacity=".5"/></svg>`;
     case 'exit':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="3" width="32" height="22" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><line x1="18" y1="8" x2="28" y2="14" stroke="${s}" stroke-width="2.5" stroke-linecap="round"/><line x1="18" y1="20" x2="28" y2="14" stroke="${s}" stroke-width="2.5" stroke-linecap="round"/><line x1="8" y1="14" x2="28" y2="14" stroke="${s}" stroke-width="2" stroke-linecap="round"/></svg>`;
     case 'star':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polygon points="18,3 21,11 30,11 23,17 26,26 18,20 10,26 13,17 6,11 15,11" fill="${f}" stroke="${s}" stroke-width="1.5"/></svg>`;
     case 'diamond':return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polygon points="18,3 32,14 18,25 4,14" fill="${f}" stroke="${s}" stroke-width="2"/></svg>`;
