@@ -7130,16 +7130,37 @@ function drawObj(obj,ctx) {
   } else if(obj.type==='stair'){
     const q=w2s(obj.x+obj.w,obj.y+obj.h);
     const sw=q.x-p.x, sh=q.y-p.y;
-    ctx.fillStyle=obj.fill||'#2a2010';ctx.fillRect(p.x,p.y,sw,sh);
-    ctx.strokeStyle=obj.stroke||'#c9a227';ctx.lineWidth=Math.max(0.5,1.5*MAP.cam.zoom);ctx.strokeRect(p.x,p.y,sw,sh);
+    const sc2=obj.stroke||'#c9a227', z2=MAP.cam.zoom;
     const steps=obj.steps||4;
-    ctx.strokeStyle=(obj.stroke||'#c9a227')+'66';ctx.lineWidth=0.5;ctx.setLineDash([2,2]);
-    for(let i=1;i<steps;i++){
-      ctx.beginPath();ctx.moveTo(p.x+sw*i/steps,p.y);ctx.lineTo(p.x+sw*i/steps,p.y+sh);ctx.stroke();
-      ctx.beginPath();ctx.moveTo(p.x,p.y+sh*i/steps);ctx.lineTo(p.x+sw,p.y+sh*i/steps);ctx.stroke();
-    }
+    const goDown=(obj.name||'').toLowerCase().includes('down');
+    // Fill
+    ctx.fillStyle=obj.fill||'#2a2010'; ctx.fillRect(p.x,p.y,sw,sh);
     ctx.setLineDash([]);
-    {const _dl=obj.label||obj.name;if(_dl&&MAP.cam.zoom>0.3){const mx2=(p.x+q.x)/2,my2=(p.y+q.y)/2;ctx.font=`${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(201,162,39,0.7)';ctx.fillText(_dl,mx2,my2);ctx.textAlign='left';ctx.textBaseline='alphabetic';}}
+    // Bold "entry" line at bottom (where you step onto the stairs)
+    ctx.strokeStyle=sc2; ctx.lineWidth=Math.max(2,3.5*z2); ctx.globalAlpha=1;
+    ctx.beginPath();ctx.moveTo(p.x,goDown?p.y:p.y+sh);ctx.lineTo(p.x+sw,goDown?p.y:p.y+sh);ctx.stroke();
+    // Step lines, fading toward the top (disappears through ceiling)
+    ctx.lineWidth=Math.max(0.8,1.2*z2);
+    for(let i=1;i<steps;i++){
+      const t=goDown?1-i/steps:i/steps;
+      ctx.globalAlpha=0.9-t*0.55;
+      const ly=p.y+sh*i/steps;
+      ctx.beginPath();ctx.moveTo(p.x,ly);ctx.lineTo(p.x+sw,ly);ctx.stroke();
+    }
+    // Dashed break line at the top (floor cut — stairs pass through)
+    ctx.setLineDash([Math.max(3,5*z2),Math.max(2,3*z2)]);
+    ctx.lineWidth=Math.max(1,1.8*z2); ctx.globalAlpha=0.65;
+    ctx.beginPath();ctx.moveTo(p.x,goDown?p.y+sh:p.y);ctx.lineTo(p.x+sw,goDown?p.y+sh:p.y);ctx.stroke();
+    ctx.setLineDash([]);
+    // Direction arrow (right side, centered vertically)
+    const ax=p.x+sw*0.68, ayS=goDown?p.y+sh*0.28:p.y+sh*0.72, ayE=goDown?p.y+sh*0.72:p.y+sh*0.28, ah=Math.max(4,6*z2);
+    ctx.strokeStyle=sc2; ctx.fillStyle=sc2; ctx.lineWidth=Math.max(1.5,2.5*z2); ctx.globalAlpha=0.92;
+    ctx.beginPath();ctx.moveTo(ax,ayS);ctx.lineTo(ax,ayE);ctx.stroke();
+    if(goDown){ctx.beginPath();ctx.moveTo(ax,ayE);ctx.lineTo(ax-ah,ayE-ah*1.4);ctx.lineTo(ax+ah,ayE-ah*1.4);ctx.closePath();ctx.fill();}
+    else{ctx.beginPath();ctx.moveTo(ax,ayE);ctx.lineTo(ax-ah,ayE+ah*1.4);ctx.lineTo(ax+ah,ayE+ah*1.4);ctx.closePath();ctx.fill();}
+    // Border
+    ctx.strokeStyle=sc2; ctx.lineWidth=Math.max(1,2*z2); ctx.globalAlpha=1; ctx.strokeRect(p.x,p.y,sw,sh);
+    {const _dl=obj.label||obj.name;if(_dl&&z2>0.3){ctx.font=`${Math.max(8,10*z2)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(201,162,39,0.7)';ctx.fillText(_dl,(p.x+q.x)/2,(p.y+q.y)/2);ctx.textAlign='left';ctx.textBaseline='alphabetic';}}
   } else if(obj.type==='light'){
     const lr=(obj.r||48)*MAP.cam.zoom;
     const grad=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,lr);
@@ -7244,13 +7265,26 @@ function drawObj(obj,ctx) {
       const mx=p.x+w/2,my=p.y+h/2,s2=Math.min(w,h)*.25;
       ctx.beginPath();ctx.moveTo(mx-s2,my-s2);ctx.lineTo(mx+s2,my+s2);ctx.moveTo(mx+s2,my-s2);ctx.lineTo(mx-s2,my+s2);ctx.stroke();
     } else if(n==='Door'){
-      ctx.globalAlpha=.9; ctx.lineWidth=Math.max(1,1.5*z);
-      // Door frame left side
-      ctx.strokeStyle=sc; ctx.beginPath();ctx.moveTo(p.x+w*.12,p.y+h*.05);ctx.lineTo(p.x+w*.12,p.y+h*.95);ctx.stroke();
-      // Doorknob
-      ctx.beginPath();ctx.arc(p.x+w*.72,p.y+h*.52,Math.max(2,3*z),0,Math.PI*2);ctx.fillStyle=sc;ctx.fill();
-      // Top arc
-      ctx.beginPath();ctx.moveTo(p.x+w*.12,p.y+h*.05);ctx.quadraticCurveTo(p.x+w*.56,p.y-h*.05,p.x+w*.95,p.y+h*.05);ctx.stroke();
+      // Top-down architectural door: hinge at bottom-left, panel at ~70°, quarter-arc swing
+      ctx.globalAlpha=.9;
+      const dl=Math.min(w*.92,h*.92); // door panel length
+      const hx=p.x+w*.05, hy=p.y+h*.95; // hinge point (bottom-left corner area)
+      const panelAng=-Math.PI*0.39; // ~70° open from horizontal
+      const pex=hx+dl*Math.cos(panelAng), pey=hy+dl*Math.sin(panelAng);
+      // Door panel (thick line)
+      ctx.strokeStyle=sc; ctx.lineWidth=Math.max(2,3*z);
+      ctx.beginPath();ctx.moveTo(hx,hy);ctx.lineTo(pex,pey);ctx.stroke();
+      // Swing arc from panel angle to 0° (closed/horizontal), anticlockwise
+      ctx.lineWidth=Math.max(1,1.5*z); ctx.globalAlpha=.45;
+      ctx.beginPath();ctx.arc(hx,hy,dl,panelAng,0,true);ctx.stroke();
+      // Hinge dot
+      ctx.fillStyle=sc; ctx.globalAlpha=.95;
+      ctx.beginPath();ctx.arc(hx,hy,Math.max(2,3*z),0,Math.PI*2);ctx.fill();
+      // Door jamb lines (thick marks at each side of opening)
+      ctx.lineWidth=Math.max(2.5,4*z); ctx.globalAlpha=.8;
+      const jl=Math.max(4,7*z);
+      ctx.beginPath();ctx.moveTo(hx,hy);ctx.lineTo(hx+jl,hy);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(p.x+w*.95,hy);ctx.lineTo(p.x+w*.95-jl,hy);ctx.stroke();
     } else if(n==='Window'){
       ctx.globalAlpha=.6; ctx.lineWidth=Math.max(0.5,1*z);
       ctx.beginPath();ctx.moveTo(p.x+w/2,p.y+2);ctx.lineTo(p.x+w/2,p.y+h-2);
@@ -7389,6 +7423,14 @@ function drawObj(obj,ctx) {
       ctx.fillStyle=sc; ctx.globalAlpha=.5;
       ctx.fillRect(p.x+w*.2,p.y,w*.6,capH);
       ctx.globalAlpha=.25; ctx.beginPath();ctx.ellipse(mx,bot,w*.35,Math.max(2,4*z),0,0,Math.PI*2);ctx.fill();
+    } else if(obj.type==='wall'){
+      // Architectural diagonal hatch (solid wall indicator)
+      ctx.save();
+      ctx.beginPath();ctx.rect(p.x,p.y,w,h);ctx.clip();
+      ctx.strokeStyle=sc;ctx.lineWidth=Math.max(.5,.8*z);ctx.globalAlpha=.28;ctx.setLineDash([]);
+      const hs=Math.max(5,9*z);
+      for(let xi=-h;xi<w+h;xi+=hs){ctx.beginPath();ctx.moveTo(p.x+xi,p.y);ctx.lineTo(p.x+xi+h,p.y+h);ctx.stroke();}
+      ctx.restore();
     }
     ctx.restore();
     // Object label — centered inside the object
