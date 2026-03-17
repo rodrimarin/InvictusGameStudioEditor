@@ -4373,50 +4373,24 @@ function initLDD() {
         // Node-based flowchart
         if(!PS.data.docs.ldd[sec.key]) PS.data.docs.ldd[sec.key]={nodes:[],connections:[]};
         html+=`<div class="doc-field-wrap">
-          <div style="margin-bottom:6px;">
-            <div class="doc-field-label" style="margin-bottom:5px">Node Flowchart</div>
-            <!-- Row 1: Core Flow -->
-            <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:3px;align-items:center;">
-              <span style="font-family:var(--fu);font-size:8px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-right:2px">FLOW</span>
-              <button class="btn btn-xs" onclick="addFlowNode('start')" style="border-color:#4ecb71;color:#4ecb71">▶ Start</button>
-              <button class="btn btn-xs" onclick="addFlowNode('exit')" style="border-color:#e05252;color:#e05252">🚪 Exit</button>
-              <button class="btn btn-xs" onclick="addFlowNode('transition')" style="border-color:#0088ff;color:#0088ff">🌀 Transition</button>
-              <button class="btn btn-xs" onclick="addFlowNode('branch')" style="border-color:#cccccc;color:#cccccc">🔀 Branch</button>
-              <button class="btn btn-xs" onclick="addFlowNode('checkpoint')" style="border-color:#f0e040;color:#f0e040">🏁 Checkpoint</button>
-              <span style="width:1px;background:var(--border);margin:0 1px;align-self:stretch;display:inline-block"></span>
-              <span style="font-family:var(--fu);font-size:8px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-right:2px">SPACE</span>
-              <button class="btn btn-xs" onclick="addFlowNode('area')" style="border-color:#4a9eff;color:#4a9eff">🏛️ Area</button>
-              <button class="btn btn-xs" onclick="addFlowNode('secret')" style="border-color:#9b6bde;color:#9b6bde">🔍 Secret</button>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
+            <div class="doc-field-label" style="margin:0;flex-shrink:0">Level Flowchart</div>
+            <!-- ── Node palette dropdown ── -->
+            <div style="position:relative;" id="fc-pal-wrap">
+              <button class="btn btn-sm btn-gold" id="fc-pal-btn" onclick="toggleFcPalette()" style="padding:4px 10px;font-weight:700">＋ Add Node ▾</button>
+              <div id="fc-palette" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:200;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px;width:390px;box-shadow:0 10px 32px rgba(0,0,0,.7);"></div>
             </div>
-            <!-- Row 2: Actions -->
-            <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:3px;align-items:center;">
-              <span style="font-family:var(--fu);font-size:8px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-right:2px">ACTION</span>
-              <button class="btn btn-xs" onclick="addFlowNode('combat')" style="border-color:#e05252;color:#e05252">⚔️ Combat</button>
-              <button class="btn btn-xs" onclick="addFlowNode('boss')" style="border-color:#ff2222;color:#ff2222">💀 Boss</button>
-              <button class="btn btn-xs" onclick="addFlowNode('interact')" style="border-color:#2ecc71;color:#2ecc71">🖐️ Interact</button>
-              <button class="btn btn-xs" onclick="addFlowNode('pickup')" style="border-color:#00ff88;color:#00ff88">✨ Pickup</button>
-              <button class="btn btn-xs" onclick="addFlowNode('puzzle')" style="border-color:#4a9eff;color:#4a9eff">🧩 Puzzle</button>
-              <button class="btn btn-xs" onclick="addFlowNode('hazard')" style="border-color:#ff6600;color:#ff6600">⚠️ Hazard</button>
-              <span style="width:1px;background:var(--border);margin:0 1px;align-self:stretch;display:inline-block"></span>
-              <span style="font-family:var(--fu);font-size:8px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-right:2px">STORY</span>
-              <button class="btn btn-xs" onclick="addFlowNode('npc')" style="border-color:#4ecb71;color:#4ecb71">💬 NPC</button>
-              <button class="btn btn-xs" onclick="addFlowNode('dialogue')" style="border-color:#55ccee;color:#55ccee">🗣️ Dialogue</button>
-              <button class="btn btn-xs" onclick="addFlowNode('cutscene')" style="border-color:#cc88ff;color:#cc88ff">🎬 Cutscene</button>
-            </div>
-            <!-- Row 3: Systems + tools -->
-            <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">
-              <span style="font-family:var(--fu);font-size:8px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-right:2px">SYSTEM</span>
-              <button class="btn btn-xs" onclick="addFlowNode('event')" style="border-color:#9b6bde;color:#9b6bde">⚡ Event</button>
-              <button class="btn btn-xs" onclick="addFlowNode('trigger')" style="border-color:#c9a227;color:#c9a227">🔮 Trigger</button>
-              <button class="btn btn-xs" onclick="addFlowNode('shop')" style="border-color:#ffaa00;color:#ffaa00">🏪 Shop</button>
-              <button class="btn btn-xs" onclick="addFlowNode('note')" style="border-color:#c9a227;color:var(--text-secondary)">📝 Note</button>
-              <span style="width:1px;background:var(--border);margin:0 2px;align-self:stretch;display:inline-block"></span>
-              <button class="btn btn-xs" onclick="fcUndo()" title="Undo (Ctrl+Z)">↩ Undo</button>
-              <button class="btn btn-xs" onclick="fcRedo()" title="Redo (Ctrl+Y)">↪ Redo</button>
-              <button class="btn btn-xs btn-gold" onclick="fcExportHD(4)" title="Export 4K PNG">4K</button>
-              <button class="btn btn-xs btn-gold" onclick="fcExportHD(8)" title="Export 8K PNG">8K</button>
-              <button class="btn btn-xs btn-danger" onclick="clearFlowchart()">Clear</button>
-            </div>
+            <span style="width:1px;background:var(--border);align-self:stretch;display:inline-block;margin:0 2px"></span>
+            <button class="btn btn-xs" onclick="fcUndo()" title="Undo Ctrl+Z">↩</button>
+            <button class="btn btn-xs" onclick="fcRedo()" title="Redo Ctrl+Y">↪</button>
+            <span style="width:1px;background:var(--border);align-self:stretch;display:inline-block;margin:0 2px"></span>
+            <button class="btn btn-xs" onclick="fcFitAll()" title="Fit all nodes">⊡ Fit</button>
+            <button class="btn btn-xs" onclick="fcResetCam()" title="Reset zoom">1:1</button>
+            <span style="width:1px;background:var(--border);align-self:stretch;display:inline-block;margin:0 2px"></span>
+            <button class="btn btn-xs btn-gold" onclick="fcExportHD(4)" title="Export 4K PNG">↓ 4K</button>
+            <button class="btn btn-xs btn-gold" onclick="fcExportHD(8)" title="Export 8K PNG">↓ 8K</button>
+            <span style="width:1px;background:var(--border);align-self:stretch;display:inline-block;margin:0 2px"></span>
+            <button class="btn btn-xs btn-danger" onclick="clearFlowchart()">Clear</button>
           </div>
           <div id="flowchart-canvas" style="width:100%;height:580px;background:#080808;border:1px solid var(--border);border-radius:6px;position:relative;overflow:hidden;cursor:default;">
             <div id="flow-viewport" style="position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:0 0;">
@@ -10091,67 +10065,246 @@ function setNodeColor(id,color){
   if(PS.data.docs.ldd.flowchart)PS.data.docs.ldd.flowchart.nodes=FC.nodes;
   renderFlowNodes();saveFlowchart();
 }
+// ── Node palette dropdown ─────────────────────────────────────────────
+const _FC_PAL_CATS = [
+  {label:'Flow / Navigation', types:['start','exit','transition','branch','checkpoint']},
+  {label:'Spaces',            types:['area','secret']},
+  {label:'Player Actions',    types:['combat','boss','interact','pickup','puzzle','hazard']},
+  {label:'Story & Characters',types:['npc','dialogue','cutscene']},
+  {label:'Systems & Meta',    types:['event','trigger','shop','note']},
+];
+function toggleFcPalette(){
+  const pal=document.getElementById('fc-palette');
+  if(!pal)return;
+  if(pal.style.display==='none'){
+    // Build palette content
+    let html='';
+    _FC_PAL_CATS.forEach(cat=>{
+      html+=`<div style="font-family:var(--fu);font-size:8px;color:var(--text-muted);letter-spacing:1.5px;text-transform:uppercase;margin:8px 0 5px;border-bottom:1px solid var(--border);padding-bottom:3px">${cat.label}</div>`;
+      html+=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">`;
+      cat.types.forEach(t=>{
+        const nt=NODE_TYPES[t];
+        html+=`<button onclick="addFlowNode('${t}');closeFcPalette()" title="${nt.desc}" style="background:${nt.color};border:1.5px solid ${nt.border};color:${nt.border};padding:7px 4px 5px;display:flex;flex-direction:column;align-items:center;gap:3px;border-radius:7px;cursor:pointer;min-width:0;transition:filter .12s" onmouseover="this.style.filter='brightness(1.3)'" onmouseout="this.style.filter=''">
+          <span style="font-size:18px;line-height:1">${nt.icon}</span>
+          <span style="font-family:var(--fu);font-size:8px;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62px">${nt.label}</span>
+        </button>`;
+      });
+      html+='</div>';
+    });
+    pal.innerHTML=html;
+    pal.style.display='block';
+    // Close on outside click
+    setTimeout(()=>document.addEventListener('click',_fcPalOutside,{once:true}),50);
+  } else {
+    pal.style.display='none';
+  }
+}
+function _fcPalOutside(e){
+  const wrap=document.getElementById('fc-pal-wrap');
+  if(wrap&&!wrap.contains(e.target)) closeFcPalette();
+}
+function closeFcPalette(){
+  const pal=document.getElementById('fc-palette');
+  if(pal) pal.style.display='none';
+}
+
 function fcExportHD(k){
   if(!FC.nodes.length){showToast('No nodes to export');return;}
   const presets={4:[3840,2160],8:[7680,4320]};
   const [TW,TH]=presets[k]||presets[4];
-  const label=k===4?'4K':'8K';
+  const resLabel=k===4?'4K':'8K';
+
+  // ── bounding box of all nodes ────────────────────────────────
+  const NW=180, NH=150; // logical node size
   let mnX=Infinity,mnY=Infinity,mxX=-Infinity,mxY=-Infinity;
-  FC.nodes.forEach(n=>{mnX=Math.min(mnX,n.x);mnY=Math.min(mnY,n.y);mxX=Math.max(mxX,n.x+170);mxY=Math.max(mxY,n.y+140);});
-  const PAD=100, bw=mxX-mnX+PAD*2, bh=mxY-mnY+PAD*2;
-  const sc=Math.min(TW/bw,TH/bh,4);
-  const offX=(TW-bw*sc)/2+PAD*sc-mnX*sc;
-  const offY=(TH-bh*sc)/2+PAD*sc-mnY*sc;
+  FC.nodes.forEach(n=>{mnX=Math.min(mnX,n.x);mnY=Math.min(mnY,n.y);mxX=Math.max(mxX,n.x+NW);mxY=Math.max(mxY,n.y+NH);});
+
+  // Reserve space for title bar (top) and legend (bottom)
+  const TITLE_H=120, LEGEND_H=200, PAD=160;
+  const contentH=TH-TITLE_H-LEGEND_H-PAD*2;
+  const contentW=TW-PAD*2;
+  const bw=mxX-mnX, bh=mxY-mnY;
+  // Scale to fit content area; minimum so nodes aren't tiny
+  const sc=Math.min(contentW/Math.max(bw,1), contentH/Math.max(bh,1), 3.5, Math.max(1.2,(TW/3840)*2.5));
+  const drawW=bw*sc, drawH=bh*sc;
+  const offX=(TW-drawW)/2 - mnX*sc;
+  const offY=TITLE_H+PAD+(contentH-drawH)/2 - mnY*sc;
+
   const off=document.createElement('canvas');
-  off.width=TW;off.height=TH;
+  off.width=TW; off.height=TH;
   const ctx=off.getContext('2d');
-  ctx.fillStyle='#080808';ctx.fillRect(0,0,TW,TH);
-  // Draw connections
+
+  // ── Background with subtle dot grid ─────────────────────────
+  ctx.fillStyle='#0a0a0a';ctx.fillRect(0,0,TW,TH);
+  ctx.fillStyle='rgba(255,255,255,0.04)';
+  const dot=Math.round(sc*22);
+  for(let gx=dot/2;gx<TW;gx+=dot)for(let gy=dot/2;gy<TH;gy+=dot){ctx.beginPath();ctx.arc(gx,gy,Math.max(1,sc*.6),0,Math.PI*2);ctx.fill();}
+
+  // ── Title bar ────────────────────────────────────────────────
+  const projName=(PS.data.docs?.ldd?.title||PS.data.projectName||'Level').replace(/<[^>]+>/g,'');
+  const titleGr=ctx.createLinearGradient(0,0,TW,0);
+  titleGr.addColorStop(0,'#1a1200');titleGr.addColorStop(.5,'#0e0e0e');titleGr.addColorStop(1,'#0a1800');
+  ctx.fillStyle=titleGr;ctx.fillRect(0,0,TW,TITLE_H);
+  ctx.fillStyle='#c9a22720';ctx.fillRect(0,TITLE_H-3,TW,3);
+  ctx.fillStyle='#c9a227';
+  ctx.font=`bold ${Math.round(TW*0.018)}px Rajdhani,sans-serif`;
+  ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText('LEVEL FLOWCHART',PAD,TITLE_H*0.42);
+  ctx.fillStyle='rgba(200,190,160,0.5)';
+  ctx.font=`${Math.round(TW*0.009)}px Barlow,sans-serif`;
+  ctx.fillText(`${projName}  ·  ${FC.nodes.length} nodes  ·  ${FC.connections.length} connections  ·  ${new Date().toLocaleDateString()}`,PAD,TITLE_H*0.76);
+  ctx.textAlign='left';
+
+  // helper: draw wrapped text, returns lines drawn
+  function _wrapText(text,x,y,maxW,lineH){
+    if(!text)return 0;
+    const words=text.split(' ');let line='',lines=0;
+    for(let w=0;w<words.length;w++){
+      const test=(line?line+' ':'')+words[w];
+      if(ctx.measureText(test).width>maxW&&line){ctx.fillText(line,x,y+lines*lineH);line=words[w];lines++;}
+      else line=test;
+    }
+    ctx.fillText(line,x,y+lines*lineH);
+    return lines+1;
+  }
+
+  // ── Draw connections ──────────────────────────────────────────
   FC.connections.forEach(conn=>{
     const a=FC.nodes.find(n=>n.id===conn.from),b=FC.nodes.find(n=>n.id===conn.to);
     if(!a||!b)return;
-    const x1=a.x*sc+offX+80*sc, y1=a.y*sc+offY+75*sc;
-    const x2=b.x*sc+offX+80*sc, y2=b.y*sc+offY+35*sc;
-    const cpx=(x1+x2)/2, cpy1=y1+Math.abs(y2-y1)*0.5, cpy2=y2-Math.abs(y2-y1)*0.3;
-    ctx.strokeStyle=conn.color||'#8a6e1a';ctx.lineWidth=Math.max(2,3*sc);
-    ctx.setLineDash(conn.dashed?[10*sc,5*sc]:[]);
+    const x1=a.x*sc+offX+NW*sc/2, y1=a.y*sc+offY+NH*sc*0.65;
+    const x2=b.x*sc+offX+NW*sc/2, y2=b.y*sc+offY+NH*sc*0.2;
+    const cpx=(x1+x2)/2, cpy1=y1+Math.abs(y2-y1)*0.55, cpy2=y2-Math.abs(y2-y1)*0.35;
+    const col=conn.color||'#8a6e1a';
+    // Glow
+    ctx.save();ctx.shadowColor=col;ctx.shadowBlur=sc*8;
+    ctx.strokeStyle=col+'88';ctx.lineWidth=Math.max(4,sc*5);
+    ctx.setLineDash(conn.dashed?[sc*14,sc*7]:[]);
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.bezierCurveTo(cpx,cpy1,cpx,cpy2,x2,y2);ctx.stroke();
+    ctx.restore();
+    // Main line
+    ctx.strokeStyle=col;ctx.lineWidth=Math.max(2,sc*2.5);
+    ctx.setLineDash(conn.dashed?[sc*12,sc*6]:[]);
     ctx.beginPath();ctx.moveTo(x1,y1);ctx.bezierCurveTo(cpx,cpy1,cpx,cpy2,x2,y2);ctx.stroke();
     ctx.setLineDash([]);
-    const ang=Math.atan2(y2-cpy2,x2-cpx),ah=Math.max(8,12*sc);
-    ctx.fillStyle=conn.color||'#8a6e1a';
-    ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-ah*Math.cos(ang-.4),y2-ah*Math.sin(ang-.4));ctx.lineTo(x2-ah*Math.cos(ang+.4),y2-ah*Math.sin(ang+.4));ctx.closePath();ctx.fill();
-    if(conn.label){const tw2=ctx.measureText(conn.label).width;ctx.fillStyle='rgba(10,10,0,0.8)';ctx.fillRect((x1+x2)/2-tw2/2-6,(y1+y2)/2-10,tw2+12,20);ctx.fillStyle='#c9a227';ctx.font=`${Math.max(9,12*sc)}px Barlow,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(conn.label,(x1+x2)/2,(y1+y2)/2);}
+    // Arrowhead
+    const ang=Math.atan2(y2-cpy2,x2-cpx),ah=Math.max(10,sc*14);
+    ctx.fillStyle=col;
+    ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-ah*Math.cos(ang-.38),y2-ah*Math.sin(ang-.38));ctx.lineTo(x2-ah*Math.cos(ang+.38),y2-ah*Math.sin(ang+.38));ctx.closePath();ctx.fill();
+    // Connection label pill
+    if(conn.label){
+      const lx=(x1+x2)/2, ly=(y1+y2)/2-sc*4;
+      ctx.font=`600 ${Math.max(12,sc*11)}px Barlow,sans-serif`;
+      const tw2=ctx.measureText(conn.label).width;
+      const ph=Math.max(8,sc*8), pw=Math.max(10,sc*12);
+      ctx.fillStyle='rgba(8,8,6,0.88)';
+      ctx.beginPath();ctx.roundRect(lx-tw2/2-pw,ly-ph,tw2+pw*2,ph*2+Math.max(10,sc*10),sc*5);ctx.fill();
+      ctx.strokeStyle=col+'66';ctx.lineWidth=Math.max(1,sc*1.5);ctx.stroke();
+      ctx.fillStyle=col;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(conn.label,lx,ly+ph*.5);
+    }
   });
-  // Draw nodes
-  const r=Math.max(6,10*sc);
+
+  // ── Draw nodes ────────────────────────────────────────────────
+  const nw2=NW*sc, nh2=NH*sc, r=Math.max(8,sc*12);
+  const hdrH=nh2*0.28;
   FC.nodes.forEach(node=>{
     const nt=NODE_TYPES[node.type]||NODE_TYPES.area;
     const brd=node.colorOverride||nt.border;
-    const nx=node.x*sc+offX,ny=node.y*sc+offY,nw=160*sc,nh=130*sc;
-    ctx.fillStyle='rgba(0,0,0,0.4)';ctx.beginPath();ctx.roundRect(nx+3*sc,ny+4*sc,nw,nh,r);ctx.fill();
-    ctx.fillStyle=nt.color;ctx.strokeStyle=brd;ctx.lineWidth=Math.max(2,3*sc);
-    ctx.beginPath();ctx.roundRect(nx,ny,nw,nh,r);ctx.fill();ctx.stroke();
-    ctx.fillStyle=brd+'28';ctx.beginPath();ctx.roundRect(nx,ny,nw,28*sc,Math.max(4,r*.8));ctx.fill();
-    ctx.fillStyle=brd;ctx.font=`bold ${Math.max(8,10*sc)}px Rajdhani,sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';
-    ctx.fillText(nt.label.toUpperCase(),nx+30*sc,ny+14*sc);
-    ctx.font=`${Math.max(10,14*sc)}px serif`;ctx.fillText(node.icon||nt.icon,nx+6*sc,ny+16*sc);
-    const plainLabel=(node.label||nt.label).replace(/<[^>]+>/g,'');
-    ctx.fillStyle='rgba(230,220,200,0.92)';ctx.font=`500 ${Math.max(9,12*sc)}px Barlow,sans-serif`;ctx.textBaseline='top';
-    ctx.fillText(plainLabel,nx+8*sc,ny+34*sc,nw-16*sc);
-    if(node.desc){const d=node.desc.replace(/<[^>]+>/g,'');ctx.fillStyle=brd+'aa';ctx.font=`${Math.max(7,9*sc)}px Barlow,sans-serif`;ctx.fillText(d,nx+8*sc,ny+58*sc,nw-16*sc);}
+    const nx=node.x*sc+offX, ny=node.y*sc+offY;
+    // Drop shadow
+    ctx.save();ctx.shadowColor='rgba(0,0,0,0.6)';ctx.shadowBlur=sc*16;ctx.shadowOffsetX=sc*3;ctx.shadowOffsetY=sc*5;
+    ctx.fillStyle=nt.color;ctx.beginPath();ctx.roundRect(nx,ny,nw2,nh2,r);ctx.fill();ctx.restore();
+    // Body fill
+    const bgGr=ctx.createLinearGradient(nx,ny,nx,ny+nh2);
+    bgGr.addColorStop(0,nt.color);bgGr.addColorStop(1,_hexBlend(nt.color,'#000000',0.3));
+    ctx.fillStyle=bgGr;ctx.beginPath();ctx.roundRect(nx,ny,nw2,nh2,r);ctx.fill();
+    // Border glow
+    ctx.save();ctx.shadowColor=brd;ctx.shadowBlur=sc*12;
+    ctx.strokeStyle=brd;ctx.lineWidth=Math.max(2,sc*2.5);
+    ctx.beginPath();ctx.roundRect(nx,ny,nw2,nh2,r);ctx.stroke();ctx.restore();
+    // Header band
+    const hdrGr=ctx.createLinearGradient(nx,ny,nx,ny+hdrH);
+    hdrGr.addColorStop(0,brd+'45');hdrGr.addColorStop(1,brd+'10');
+    ctx.fillStyle=hdrGr;
+    ctx.beginPath();ctx.roundRect(nx,ny,nw2,hdrH,{upperLeft:r,upperRight:r,lowerLeft:0,lowerRight:0});ctx.fill();
+    // Separator line under header
+    ctx.strokeStyle=brd+'55';ctx.lineWidth=Math.max(1,sc*1.2);
+    ctx.beginPath();ctx.moveTo(nx+r*.5,ny+hdrH);ctx.lineTo(nx+nw2-r*.5,ny+hdrH);ctx.stroke();
+    // Icon
+    ctx.font=`${Math.max(14,hdrH*0.58)}px serif`;ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText(node.icon||nt.icon, nx+sc*10, ny+hdrH/2+sc*1);
+    // Type label
+    ctx.fillStyle=brd;ctx.font=`700 ${Math.max(9,hdrH*0.3)}px Rajdhani,sans-serif`;
+    ctx.textBaseline='middle';ctx.textAlign='left';
+    ctx.fillText(nt.label.toUpperCase(), nx+sc*10+hdrH*0.7, ny+hdrH/2);
+    // Node label (main text)
+    const plainLabel=(node.label||nt.label).replace(/<[^>]+>/g,'').trim();
+    ctx.fillStyle='rgba(240,232,210,0.96)';
+    const lblSz=Math.max(11,sc*13);
+    ctx.font=`600 ${lblSz}px Barlow,sans-serif`;ctx.textBaseline='top';ctx.textAlign='left';
+    _wrapText(plainLabel,nx+sc*10,ny+hdrH+sc*10,nw2-sc*20,lblSz*1.35);
+    // Description
+    if(node.desc){
+      const plainDesc=node.desc.replace(/<[^>]+>/g,'').trim();
+      const descSz=Math.max(9,sc*10);
+      ctx.fillStyle=brd+'bb';ctx.font=`${descSz}px Barlow,sans-serif`;
+      _wrapText(plainDesc,nx+sc*10,ny+hdrH+sc*10+lblSz*2.8,nw2-sc*20,descSz*1.4);
+    }
   });
   ctx.textAlign='left';ctx.textBaseline='alphabetic';
-  showToast(`Generando ${label}…`);
+
+  // ── Legend ────────────────────────────────────────────────────
+  const legY=TH-LEGEND_H+30;
+  ctx.fillStyle='rgba(255,255,255,0.04)';ctx.fillRect(0,legY-20,TW,LEGEND_H);
+  ctx.fillStyle='rgba(201,162,39,0.18)';ctx.fillRect(0,legY-20,TW,2);
+  ctx.fillStyle='rgba(200,190,160,0.4)';
+  ctx.font=`700 ${Math.round(sc*10)}px Rajdhani,sans-serif`;
+  ctx.textBaseline='middle';ctx.fillText('NODE LEGEND',PAD,legY+sc*4);
+  // Draw a mini legend tile per node type
+  const legTypes=Object.entries(NODE_TYPES);
+  const cols=Math.min(legTypes.length,10);
+  const legTileW=(TW-PAD*2)/cols, legTileH=LEGEND_H-sc*30;
+  legTypes.forEach(([type,nt],i)=>{
+    const lx=PAD+i*legTileW, ly=legY+sc*18;
+    const tw=legTileW-sc*8, th=legTileH;
+    // Mini node
+    ctx.fillStyle=nt.color;ctx.strokeStyle=nt.border;ctx.lineWidth=Math.max(1,sc*1.5);
+    ctx.beginPath();ctx.roundRect(lx,ly,tw,th,Math.max(4,sc*6));ctx.fill();ctx.stroke();
+    // Header strip
+    ctx.fillStyle=nt.border+'38';ctx.beginPath();ctx.roundRect(lx,ly,tw,th*0.42,{upperLeft:Math.max(4,sc*6),upperRight:Math.max(4,sc*6),lowerLeft:0,lowerRight:0});ctx.fill();
+    // Icon
+    ctx.font=`${Math.max(12,th*0.28)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(nt.icon,lx+tw/2,ly+th*0.2);
+    // Type label
+    ctx.fillStyle=nt.border;ctx.font=`700 ${Math.max(8,th*0.14)}px Rajdhani,sans-serif`;
+    ctx.textBaseline='top';
+    ctx.fillText(nt.label.toUpperCase(),lx+sc*4,ly+th*0.44,tw-sc*8);
+    // Description
+    ctx.fillStyle='rgba(200,190,160,0.55)';ctx.font=`${Math.max(7,th*0.1)}px Barlow,sans-serif`;
+    ctx.fillText(nt.desc,lx+sc*4,ly+th*0.62,tw-sc*8);
+  });
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';
+
+  showToast(`Generando ${resLabel}…`);
   setTimeout(()=>{
     off.toBlob(blob=>{
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');
-      a.download=`flowchart-${label}.png`;
+      const name=(PS.data.projectName||PS.data.docs?.ldd?.title||'flowchart').replace(/<[^>]+>/g,'').replace(/\s+/g,'_')||'flowchart';
+      a.download=`${name}-flowchart-${resLabel}.png`;
       a.href=url;a.click();
       setTimeout(()=>URL.revokeObjectURL(url),15000);
-      showToast(`✓ Flowchart ${label} — ${TW}×${TH}px`);
+      showToast(`✓ ${resLabel} — ${TW}×${TH}px`);
     },'image/png');
   },80);
+}
+// blend two hex colors; t=0 → colorA, t=1 → colorB
+function _hexBlend(a,b,t){
+  const p=s=>parseInt(s,16);
+  const r1=p(a.slice(1,3)),g1=p(a.slice(3,5)),b1=p(a.slice(5,7));
+  const r2=p(b.slice(1,3)),g2=p(b.slice(3,5)),b2=p(b.slice(5,7));
+  const rr=Math.round(r1+(r2-r1)*t),rg=Math.round(g1+(g2-g1)*t),rb=Math.round(b1+(b2-b1)*t);
+  return '#'+[rr,rg,rb].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 
 let _pendingConn=null;
