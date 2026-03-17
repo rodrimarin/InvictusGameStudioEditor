@@ -4373,26 +4373,52 @@ function initLDD() {
         // Node-based flowchart
         if(!PS.data.docs.ldd[sec.key]) PS.data.docs.ldd[sec.key]={nodes:[],connections:[]};
         html+=`<div class="doc-field-wrap">
-          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-bottom:8px;">
-            <div class="doc-field-label" style="margin:0;flex:0 0 auto">Node Flowchart</div>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-left:auto;">
-              <button class="btn btn-xs" onclick="addFlowNode('start')">▶ Start</button>
+          <div style="margin-bottom:6px;">
+            <div class="doc-field-label" style="margin-bottom:5px">Node Flowchart</div>
+            <!-- Row 1: Core Flow -->
+            <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:3px;align-items:center;">
+              <span style="font-family:var(--fu);font-size:8px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-right:2px">FLOW</span>
+              <button class="btn btn-xs" onclick="addFlowNode('start')" style="border-color:#4ecb71;color:#4ecb71">▶ Start</button>
+              <button class="btn btn-xs" onclick="addFlowNode('exit')" style="border-color:#e05252;color:#e05252">🚪 Exit</button>
+              <button class="btn btn-xs" onclick="addFlowNode('transition')" style="border-color:#0088ff;color:#0088ff">🌀 Transition</button>
+              <button class="btn btn-xs" onclick="addFlowNode('branch')" style="border-color:#cccccc;color:#cccccc">🔀 Branch</button>
+              <button class="btn btn-xs" onclick="addFlowNode('checkpoint')" style="border-color:#f0e040;color:#f0e040">🏁 Checkpoint</button>
+              <span style="width:1px;background:var(--border);margin:0 1px;align-self:stretch;display:inline-block"></span>
+              <span style="font-family:var(--fu);font-size:8px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-right:2px">SPACE</span>
               <button class="btn btn-xs" onclick="addFlowNode('area')" style="border-color:#4a9eff;color:#4a9eff">🏛️ Area</button>
+              <button class="btn btn-xs" onclick="addFlowNode('secret')" style="border-color:#9b6bde;color:#9b6bde">🔍 Secret</button>
+            </div>
+            <!-- Row 2: Actions -->
+            <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:3px;align-items:center;">
+              <span style="font-family:var(--fu);font-size:8px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-right:2px">ACTION</span>
               <button class="btn btn-xs" onclick="addFlowNode('combat')" style="border-color:#e05252;color:#e05252">⚔️ Combat</button>
+              <button class="btn btn-xs" onclick="addFlowNode('boss')" style="border-color:#ff2222;color:#ff2222">💀 Boss</button>
+              <button class="btn btn-xs" onclick="addFlowNode('interact')" style="border-color:#2ecc71;color:#2ecc71">🖐️ Interact</button>
+              <button class="btn btn-xs" onclick="addFlowNode('pickup')" style="border-color:#00ff88;color:#00ff88">✨ Pickup</button>
+              <button class="btn btn-xs" onclick="addFlowNode('puzzle')" style="border-color:#4a9eff;color:#4a9eff">🧩 Puzzle</button>
+              <button class="btn btn-xs" onclick="addFlowNode('hazard')" style="border-color:#ff6600;color:#ff6600">⚠️ Hazard</button>
+              <span style="width:1px;background:var(--border);margin:0 1px;align-self:stretch;display:inline-block"></span>
+              <span style="font-family:var(--fu);font-size:8px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-right:2px">STORY</span>
+              <button class="btn btn-xs" onclick="addFlowNode('npc')" style="border-color:#4ecb71;color:#4ecb71">💬 NPC</button>
+              <button class="btn btn-xs" onclick="addFlowNode('dialogue')" style="border-color:#55ccee;color:#55ccee">🗣️ Dialogue</button>
+              <button class="btn btn-xs" onclick="addFlowNode('cutscene')" style="border-color:#cc88ff;color:#cc88ff">🎬 Cutscene</button>
+            </div>
+            <!-- Row 3: Systems + tools -->
+            <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">
+              <span style="font-family:var(--fu);font-size:8px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-right:2px">SYSTEM</span>
               <button class="btn btn-xs" onclick="addFlowNode('event')" style="border-color:#9b6bde;color:#9b6bde">⚡ Event</button>
               <button class="btn btn-xs" onclick="addFlowNode('trigger')" style="border-color:#c9a227;color:#c9a227">🔮 Trigger</button>
-              <button class="btn btn-xs" onclick="addFlowNode('puzzle')" style="border-color:#4a9eff;color:#4a9eff">🧩 Puzzle</button>
-              <button class="btn btn-xs" onclick="addFlowNode('npc')" style="border-color:#4ecb71;color:#4ecb71">💬 NPC</button>
-              <button class="btn btn-xs" onclick="addFlowNode('secret')" style="border-color:#9b6bde;color:#9b6bde">🔍 Secret</button>
+              <button class="btn btn-xs" onclick="addFlowNode('shop')" style="border-color:#ffaa00;color:#ffaa00">🏪 Shop</button>
               <button class="btn btn-xs" onclick="addFlowNode('note')" style="border-color:#c9a227;color:var(--text-secondary)">📝 Note</button>
-              <button class="btn btn-xs" onclick="addFlowNode('exit')" style="border-color:#e05252;color:#e05252">🚪 Exit</button>
               <span style="width:1px;background:var(--border);margin:0 2px;align-self:stretch;display:inline-block"></span>
               <button class="btn btn-xs" onclick="fcUndo()" title="Undo (Ctrl+Z)">↩ Undo</button>
               <button class="btn btn-xs" onclick="fcRedo()" title="Redo (Ctrl+Y)">↪ Redo</button>
-              <button class="btn btn-xs btn-danger" onclick="clearFlowchart()">Clear All</button>
+              <button class="btn btn-xs btn-gold" onclick="fcExportHD(4)" title="Export 4K PNG">4K</button>
+              <button class="btn btn-xs btn-gold" onclick="fcExportHD(8)" title="Export 8K PNG">8K</button>
+              <button class="btn btn-xs btn-danger" onclick="clearFlowchart()">Clear</button>
             </div>
           </div>
-          <div id="flowchart-canvas" style="width:100%;height:480px;background:#080808;border:1px solid var(--border);border-radius:6px;position:relative;overflow:hidden;cursor:default;">
+          <div id="flowchart-canvas" style="width:100%;height:580px;background:#080808;border:1px solid var(--border);border-radius:6px;position:relative;overflow:hidden;cursor:default;">
             <div id="flow-viewport" style="position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:0 0;">
               <svg id="flow-svg" style="position:absolute;top:0;left:0;width:10000px;height:10000px;pointer-events:none;overflow:visible;"></svg>
               <div id="flow-nodes" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>
@@ -4401,12 +4427,11 @@ function initLDD() {
             <div style="position:absolute;top:8px;right:8px;display:flex;gap:3px;z-index:10;">
               <button class="btn btn-xs" onclick="fcZoom(1.2)" title="Zoom in (+)">+</button>
               <button class="btn btn-xs" onclick="fcZoom(1/1.2)" title="Zoom out (-)">−</button>
-              <button class="btn btn-xs" onclick="fcFitAll()" title="Fit all nodes to screen">Fit</button>
-              <button class="btn btn-xs" onclick="fcResetCam()" title="Reset zoom to 100%">1:1</button>
+              <button class="btn btn-xs" onclick="fcFitAll()" title="Fit all">Fit</button>
+              <button class="btn btn-xs" onclick="fcResetCam()" title="Reset zoom">1:1</button>
             </div>
-            <!-- Zoom indicator -->
             <div id="fc-zoom-lbl" style="position:absolute;bottom:8px;right:10px;font-family:var(--fm);font-size:9px;color:var(--text-muted);pointer-events:none;">100%</div>
-            <div style="position:absolute;bottom:8px;left:10px;font-family:var(--fm);font-size:9px;color:var(--text-muted);pointer-events:none;">Drag to move · Scroll to zoom · Middle-drag to pan · Right-click to delete</div>
+            <div style="position:absolute;bottom:8px;left:10px;font-family:var(--fm);font-size:9px;color:var(--text-muted);pointer-events:none;">Drag=move · Scroll=zoom · Space+drag=pan · Select node to edit type/color · Right-click=delete</div>
           </div>
         </div>`;
       } else if(sec.checklistKey) {
@@ -9549,57 +9574,147 @@ async function exportFullPDF(){
 }
 
 // ════════════════════════════════════════════════════════════
-// BEAT TABLE (LDD Excel-like)
+// BEAT TABLE (LDD Excel-like) — resize cols/rows + undo
 // ════════════════════════════════════════════════════════════
+const _BEAT_HIST=[];
+function beatPushHistory(){
+  const snap=JSON.stringify(PS.data.docs.ldd.beat_table);
+  if(_BEAT_HIST[_BEAT_HIST.length-1]===snap)return;
+  _BEAT_HIST.push(snap);
+  if(_BEAT_HIST.length>60)_BEAT_HIST.shift();
+}
+function beatUndo(){
+  if(!_BEAT_HIST.length)return;
+  PS.data.docs.ldd.beat_table=JSON.parse(_BEAT_HIST.pop());
+  renderBeatTable();autoSave();showToast('↩ Undo');
+}
+
+const _BEAT_COLS=['situation','skills','elements','intensity','time_pacing'];
+const _BEAT_DEF_W=[160,160,160,160,120];
+
 function renderBeatTable() {
   const tbody = document.getElementById('beat-tbody');
   if (!tbody) return;
-  if (!PS.data.docs.ldd.beat_table) PS.data.docs.ldd.beat_table={rows:[]};
-  if (!PS.data.docs.ldd.beat_table.rows.length) {
-    PS.data.docs.ldd.beat_table.rows = Array.from({length:12},(_,i)=>({id:i+1,situation:'',skills:'',elements:'',intensity:'',time_pacing:''}));
+  if (!PS.data.docs.ldd.beat_table) PS.data.docs.ldd.beat_table={rows:[],colW:{},rowH:{}};
+  const bt=PS.data.docs.ldd.beat_table;
+  if(!bt.colW)bt.colW={};
+  if(!bt.rowH)bt.rowH={};
+  if (!bt.rows.length) {
+    bt.rows = Array.from({length:12},(_,i)=>({id:i+1,situation:'',skills:'',elements:'',intensity:'',time_pacing:''}));
+  }
+  // Apply column widths to thead
+  const thead=document.querySelector('#beat-table thead');
+  if(thead){
+    const ths=thead.querySelectorAll('th');
+    _BEAT_COLS.forEach((col,ci)=>{
+      if(ths[ci+1]) ths[ci+1].style.minWidth=(bt.colW[ci]||_BEAT_DEF_W[ci])+'px';
+    });
   }
   tbody.innerHTML='';
-  const cols=['situation','skills','elements','intensity','time_pacing'];
-  PS.data.docs.ldd.beat_table.rows.forEach((row,ri)=>{
+  bt.rows.forEach((row,ri)=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td style="border:1px solid var(--border);padding:4px 6px;font-family:var(--fm);font-size:10px;color:var(--text-muted);text-align:center;background:#0d0d0d;width:28px;">${ri+1}</td>`;
-    cols.forEach(col=>{
+    if(bt.rowH[ri]) tr.style.height=bt.rowH[ri]+'px';
+
+    // Row number cell with row-resize handle
+    const tdNum=document.createElement('td');
+    tdNum.style.cssText='border:1px solid var(--border);padding:4px 6px;font-family:var(--fm);font-size:10px;color:var(--text-muted);text-align:center;background:#0d0d0d;width:28px;position:relative;user-select:none;';
+    tdNum.textContent=ri+1;
+    const rowH=document.createElement('div');
+    rowH.style.cssText='position:absolute;left:0;right:0;bottom:-2px;height:4px;cursor:row-resize;z-index:5;';
+    rowH.addEventListener('mousedown',ev=>{
+      ev.preventDefault();
+      const startY=ev.clientY,startH=tr.offsetHeight;
+      const onMove=e2=>{tr.style.height=Math.max(22,startH+(e2.clientY-startY))+'px';};
+      const onUp=e2=>{bt.rowH[ri]=Math.max(22,startH+(e2.clientY-startY));autoSave();document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
+      document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+    });
+    tdNum.appendChild(rowH);
+    tr.appendChild(tdNum);
+
+    _BEAT_COLS.forEach((col,ci)=>{
       const td=document.createElement('td');
-      td.style.cssText='border:1px solid var(--border);padding:0;background:var(--bg-input);';
+      const w=bt.colW[ci]||_BEAT_DEF_W[ci];
+      td.style.cssText=`border:1px solid var(--border);padding:0;background:var(--bg-input);min-width:${w}px;`;
       const inp=document.createElement('input');
       inp.type='text';
       inp.value=row[col]||'';
-      inp.style.cssText='width:100%;background:transparent;border:none;padding:5px 8px;color:var(--text-primary);font-family:var(--fb);font-size:12px;outline:none;';
-      inp.addEventListener('focus',()=>{td.style.outline='2px solid var(--gold-dim)';td.style.outlineOffset='-2px';});
+      inp.style.cssText='width:100%;height:100%;min-height:28px;background:transparent;border:none;padding:5px 8px;color:var(--text-primary);font-family:var(--fb);font-size:12px;outline:none;box-sizing:border-box;';
+      inp.addEventListener('focus',()=>{beatPushHistory();td.style.outline='2px solid var(--gold-dim)';td.style.outlineOffset='-2px';});
       inp.addEventListener('blur',()=>{td.style.outline='';});
       inp.addEventListener('input',()=>{row[col]=inp.value;autoSave();});
       inp.addEventListener('keydown',e=>{
-        if(e.key==='Tab'){e.preventDefault();const inputs=Array.from(document.querySelectorAll('#beat-tbody input'));const idx=inputs.indexOf(inp);if(inputs[idx+1])inputs[idx+1].focus();}
-        if(e.key==='Enter'){e.preventDefault();const inputs=Array.from(document.querySelectorAll(`#beat-tbody tr:nth-child(${ri+2}) input`));if(inputs[0])inputs[0].focus();}
+        if(e.key==='Tab'){
+          e.preventDefault();
+          const all=Array.from(document.querySelectorAll('#beat-tbody input'));
+          const idx=all.indexOf(inp);
+          const next=e.shiftKey?all[idx-1]:all[idx+1];
+          if(next)next.focus();
+        }
+        if(e.key==='Enter'){
+          e.preventDefault();
+          const nextRow=document.querySelectorAll(`#beat-tbody tr:nth-child(${ri+2}) input`);
+          if(nextRow[0])nextRow[0].focus();
+        }
+        if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();beatUndo();}
       });
       td.appendChild(inp);
       tr.appendChild(td);
     });
+
     const tdDel=document.createElement('td');
     tdDel.style.cssText='border:1px solid var(--border);padding:2px;background:#0d0d0d;text-align:center;';
     const btn=document.createElement('button');
     btn.className='btn btn-xs btn-danger';
     btn.textContent='×';
-    btn.onclick=()=>{PS.data.docs.ldd.beat_table.rows.splice(ri,1);renderBeatTable();autoSave();};
+    btn.onclick=()=>{beatPushHistory();bt.rows.splice(ri,1);renderBeatTable();autoSave();};
     tdDel.appendChild(btn);
     tr.appendChild(tdDel);
     tbody.appendChild(tr);
   });
+  _initBeatColResize();
+}
+
+function _initBeatColResize(){
+  const ths=document.querySelectorAll('#beat-table thead th');
+  ths.forEach((th,thi)=>{
+    if(thi===0||thi>=ths.length-1)return;
+    const ci=thi-1;
+    if(th._resizeInited)return;
+    th._resizeInited=true;
+    th.style.position='relative';
+    const handle=document.createElement('div');
+    handle.style.cssText='position:absolute;right:-2px;top:0;bottom:0;width:5px;cursor:col-resize;z-index:5;';
+    handle.addEventListener('mousedown',ev=>{
+      ev.preventDefault();
+      const startX=ev.clientX,startW=th.offsetWidth;
+      const bt=PS.data.docs.ldd.beat_table;
+      const onMove=e2=>{
+        const newW=Math.max(60,startW+(e2.clientX-startX));
+        th.style.minWidth=newW+'px';
+        document.querySelectorAll(`#beat-tbody td:nth-child(${thi+1})`).forEach(td=>td.style.minWidth=newW+'px');
+      };
+      const onUp=e2=>{
+        if(!bt.colW)bt.colW={};
+        bt.colW[ci]=Math.max(60,startW+(e2.clientX-startX));
+        autoSave();
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+      };
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
+    th.appendChild(handle);
+  });
 }
 
 function addBeatRow() {
-  if (!PS.data.docs.ldd.beat_table) PS.data.docs.ldd.beat_table={rows:[]};
+  if (!PS.data.docs.ldd.beat_table) PS.data.docs.ldd.beat_table={rows:[],colW:{},rowH:{}};
+  beatPushHistory();
   const id=PS.data.docs.ldd.beat_table.rows.length+1;
   PS.data.docs.ldd.beat_table.rows.push({id,situation:'',skills:'',elements:'',intensity:'',time_pacing:''});
-  renderBeatTable();
-  autoSave();
+  renderBeatTable();autoSave();
 }
-function clearBeatTable(){if(confirm('Clear all rows?')){PS.data.docs.ldd.beat_table={rows:[]};renderBeatTable();autoSave();}}
+function clearBeatTable(){if(confirm('Clear all rows?')){beatPushHistory();PS.data.docs.ldd.beat_table={rows:[],colW:{},rowH:{}};renderBeatTable();autoSave();}}
 
 // ════════════════════════════════════════════════════════════
 // FLOWCHART (LDD Node System)
@@ -9614,20 +9729,37 @@ const FC = {
   history: [], future: [],
   _canvasInited: false,
   cam: {x:0, y:0, zoom:1},
-  panning: false, panStart: null
+  panning: false, panStart: null,
+  _spaceDown: false
 };
 
 const NODE_TYPES = {
-  start:   {color:'#0a1e0a',border:'#4ecb71',icon:'▶',label:'Start',desc:'Entry point'},
-  area:    {color:'#1a1e2a',border:'#4a9eff',icon:'🏛️',label:'Area',desc:'Room or zone'},
-  combat:  {color:'#2a0a0a',border:'#e05252',icon:'⚔️',label:'Combat',desc:'Fight encounter'},
-  event:   {color:'#1a1a2e',border:'#9b6bde',icon:'⚡',label:'Event',desc:'Scripted event'},
-  trigger: {color:'#2a1e06',border:'#c9a227',icon:'🔮',label:'Trigger',desc:'Logic trigger'},
-  secret:  {color:'#1a0e2a',border:'#9b6bde',icon:'🔍',label:'Secret',desc:'Hidden area'},
-  puzzle:  {color:'#0a1a2a',border:'#4a9eff',icon:'🧩',label:'Puzzle',desc:'Puzzle area'},
-  npc:     {color:'#0a1e18',border:'#4ecb71',icon:'💬',label:'NPC',desc:'Character/dialogue'},
-  exit:    {color:'#2a0f0f',border:'#e05252',icon:'🚪',label:'Exit',desc:'Level exit'},
-  note:    {color:'#1a1a0a',border:'#c9a227',icon:'📝',label:'Note',desc:'Design note'}
+  // ── Core flow ──────────────────────────────────────────────────────────
+  start:      {color:'#0a1e0a',border:'#4ecb71',icon:'▶',  label:'Start',      desc:'Entry point'},
+  exit:       {color:'#2a0f0f',border:'#e05252',icon:'🚪', label:'Exit',       desc:'Level exit / end'},
+  transition: {color:'#081018',border:'#0088ff',icon:'🌀', label:'Transition',  desc:'Level load / portal / door'},
+  branch:     {color:'#101018',border:'#cccccc',icon:'🔀', label:'Branch',      desc:'Decision / branching point'},
+  // ── Spaces ────────────────────────────────────────────────────────────
+  area:       {color:'#1a1e2a',border:'#4a9eff',icon:'🏛️',label:'Area',        desc:'Room or zone'},
+  secret:     {color:'#1a0e2a',border:'#9b6bde',icon:'🔍', label:'Secret',      desc:'Hidden area / optional'},
+  // ── Player actions ────────────────────────────────────────────────────
+  combat:     {color:'#2a0a0a',border:'#e05252',icon:'⚔️', label:'Combat',      desc:'Fight encounter'},
+  boss:       {color:'#2a0808',border:'#ff2222',icon:'💀', label:'Boss',        desc:'Boss encounter'},
+  interact:   {color:'#0e1a12',border:'#2ecc71',icon:'🖐️',label:'Interact',    desc:'Examine / use / interact'},
+  pickup:     {color:'#081a10',border:'#00ff88',icon:'✨', label:'Pickup',      desc:'Item / collectible / reward'},
+  puzzle:     {color:'#0a1a2a',border:'#4a9eff',icon:'🧩', label:'Puzzle',      desc:'Puzzle / challenge'},
+  hazard:     {color:'#1a0a08',border:'#ff6600',icon:'⚠️', label:'Hazard',      desc:'Environmental hazard / trap'},
+  // ── Story / narrative ─────────────────────────────────────────────────
+  npc:        {color:'#0a1e18',border:'#4ecb71',icon:'💬', label:'NPC',         desc:'Character / dialogue'},
+  dialogue:   {color:'#0a1018',border:'#55ccee',icon:'🗣️',label:'Dialogue',    desc:'Conversation / dialogue tree'},
+  cutscene:   {color:'#0e0a1e',border:'#cc88ff',icon:'🎬', label:'Cutscene',    desc:'Cinematic / scripted sequence'},
+  // ── Systems / logic ───────────────────────────────────────────────────
+  event:      {color:'#1a1a2e',border:'#9b6bde',icon:'⚡', label:'Event',       desc:'Scripted / world event'},
+  trigger:    {color:'#2a1e06',border:'#c9a227',icon:'🔮', label:'Trigger',     desc:'Logic trigger / condition'},
+  checkpoint: {color:'#0a1a08',border:'#f0e040',icon:'🏁', label:'Checkpoint',  desc:'Save point / checkpoint'},
+  shop:       {color:'#1a1208',border:'#ffaa00',icon:'🏪', label:'Shop',        desc:'Merchant / vendor / shop'},
+  // ── Meta ──────────────────────────────────────────────────────────────
+  note:       {color:'#1a1a0a',border:'#c9a227',icon:'📝', label:'Note',        desc:'Design note / annotation'}
 };
 
 function fcPushHistory(){FC.history.push(JSON.stringify({nodes:FC.nodes,connections:FC.connections}));if(FC.history.length>50)FC.history.shift();FC.future=[];}
@@ -9694,11 +9826,18 @@ function initFlowCanvas(){
     fcZoom(e.deltaY<0?1.15:1/1.15, e.clientX-cr.left, e.clientY-cr.top);
   },{passive:false});
 
-  // ── MIDDLE-MOUSE PAN ─────────────────────────────────────────
+  // ── SPACE KEY (pan mode) ─────────────────────────────────────
+  const _fcKeyDown=e=>{if(e.code==='Space'&&!e.target.isContentEditable&&e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA'){FC._spaceDown=true;canvas.style.cursor='grab';e.preventDefault();}};
+  const _fcKeyUp=e=>{if(e.code==='Space'){FC._spaceDown=false;if(!FC.panning)canvas.style.cursor='default';}};
+  document.addEventListener('keydown',_fcKeyDown);
+  document.addEventListener('keyup',_fcKeyUp);
+
+  // ── MIDDLE-MOUSE + SPACE PAN ─────────────────────────────────
   canvas.addEventListener('mousedown',e=>{
-    if(e.button===1){
+    if(e.button===1||(e.button===0&&FC._spaceDown)){
       e.preventDefault();
       FC.panning=true;
+      canvas.style.cursor='grabbing';
       FC.panStart={sx:e.clientX,sy:e.clientY,cx:FC.cam.x,cy:FC.cam.y};
     }
   });
@@ -9710,6 +9849,7 @@ function initFlowCanvas(){
       FC.cam.y=FC.panStart.cy+(e.clientY-FC.panStart.sy);
       _applyFcCam(); return;
     }
+    if(FC._spaceDown) canvas.style.cursor='grab';
     if(!FC.dragging) return;
     const cr=canvas.getBoundingClientRect();
     const w=_fcScreenToWorld(e.clientX-cr.left, e.clientY-cr.top);
@@ -9724,7 +9864,7 @@ function initFlowCanvas(){
   });
 
   canvas.addEventListener('mouseup',e=>{
-    if(FC.panning){FC.panning=false;FC.panStart=null;return;}
+    if(FC.panning){FC.panning=false;FC.panStart=null;canvas.style.cursor=FC._spaceDown?'grab':'default';return;}
     if(FC.dragging){FC.dragging=null;saveFlowchart();}
   });
   canvas.addEventListener('mouseleave',()=>{FC.panning=false;FC.panStart=null;});
@@ -9757,31 +9897,41 @@ function renderFlowNodes() {
     const div=document.createElement('div');
     div.id='fnode-'+node.id;
     div.className='fnode'+(isSelected?' fnode-selected':'')+(isConnecting?' fnode-connecting':'');
-    div.style.cssText=`position:absolute;left:${node.x||60}px;top:${node.y||60}px;width:150px;min-height:70px;background:${nt.color};border:2px solid ${nt.border};border-radius:10px;padding:10px 10px 8px;cursor:move;user-select:none;z-index:${isSelected?20:10};transition:box-shadow .15s;`;
-    if(isSelected) div.style.boxShadow=`0 0 0 2px ${nt.border},0 0 16px ${nt.border}44`;
+    const border=node.colorOverride||nt.border;
+    div.style.cssText=`position:absolute;left:${node.x||60}px;top:${node.y||60}px;width:160px;min-height:70px;background:${nt.color};border:2px solid ${border};border-radius:10px;padding:10px 10px 8px;cursor:move;user-select:none;z-index:${isSelected?20:10};transition:box-shadow .15s;`;
+    if(isSelected) div.style.boxShadow=`0 0 0 2px ${border},0 0 18px ${border}55`;
     if(isConnecting) div.style.boxShadow=`0 0 0 2px #4a9eff,0 0 20px rgba(74,158,255,.5)`;
+
+    const nodeColorDots=['#c9a227','#4a9eff','#4ecb71','#e05252','#9b6bde','#00cfff','#ff8800','#ff2222','#00ffcc','#f0e040'].map(c=>`<span onclick="event.stopPropagation();setNodeColor('${node.id}','${c}')" style="width:11px;height:11px;border-radius:50%;background:${c};cursor:pointer;display:inline-block;flex-shrink:0;border:1.5px solid ${c===border?'#fff':'transparent'};transition:border .1s" title="${c}"></span>`).join('');
+
+    const typeOptions=Object.entries(NODE_TYPES).map(([k,v])=>`<option value="${k}" ${node.type===k?'selected':''}>${v.icon} ${v.label}</option>`).join('');
 
     div.innerHTML=`
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;">
         <span style="font-size:13px;cursor:pointer;" title="Click to change icon" onclick="event.stopPropagation();changeNodeIcon('${node.id}')">${node.icon||nt.icon}</span>
-        <span style="font-family:var(--fu);font-size:8px;color:${nt.border};letter-spacing:1px;text-transform:uppercase;flex:1">${nt.label}</span>
+        <span style="font-family:var(--fu);font-size:8px;color:${border};letter-spacing:1px;text-transform:uppercase;flex:1">${nt.label}</span>
         <span style="font-size:9px;color:var(--red);cursor:pointer;padding:1px 4px;border:1px solid var(--red);border-radius:2px;line-height:1.4;" onclick="event.stopPropagation();deleteFlowNode('${node.id}')">×</span>
       </div>
       <div contenteditable="true" spellcheck="false" id="fnlabel-${node.id}"
-        style="font-family:var(--fb);font-size:12px;font-weight:500;color:var(--text-primary);outline:none;word-break:break-word;min-height:16px;line-height:1.4;border-bottom:1px solid ${nt.border}22;padding-bottom:4px;margin-bottom:6px;"
+        style="font-family:var(--fb);font-size:12px;font-weight:500;color:var(--text-primary);outline:none;word-break:break-word;min-height:16px;line-height:1.4;border-bottom:1px solid ${border}22;padding-bottom:4px;margin-bottom:6px;"
         oninput="updateNodeLabel('${node.id}',this.innerHTML)"
         onclick="event.stopPropagation()"
         onmousedown="event.stopPropagation()">${node.label||nt.label}</div>
-      <div style="font-size:10px;color:${nt.border}88;min-height:12px;line-height:1.4;" 
+      <div style="font-size:10px;color:${border}99;min-height:12px;line-height:1.4;"
         contenteditable="true" spellcheck="false" id="fndesc-${node.id}"
         oninput="updateNodeDesc('${node.id}',this.innerHTML)"
         onclick="event.stopPropagation()"
         onmousedown="event.stopPropagation()">${node.desc||''}</div>
       <div style="display:flex;gap:4px;margin-top:8px;align-items:center;">
-        <span class="fnode-btn" style="color:${FC.connectFrom===node.id?'#4a9eff':nt.border};border-color:${FC.connectFrom===node.id?'#4a9eff':nt.border};" 
-          onclick="event.stopPropagation();startConnect('${node.id}')" 
+        <span class="fnode-btn" style="color:${FC.connectFrom===node.id?'#4a9eff':border};border-color:${FC.connectFrom===node.id?'#4a9eff':border};"
+          onclick="event.stopPropagation();startConnect('${node.id}')"
           title="Click to start/finish a connection">${FC.connectFrom===node.id?'● linking…':'⬡ link'}</span>
-      </div>`;
+      </div>
+      ${isSelected?`<div style="margin-top:8px;padding-top:6px;border-top:1px solid ${border}33;" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()">
+        <select style="width:100%;background:var(--bg-input,#1a1a1a);border:1px solid ${border}66;color:var(--text-primary,#eee);font-size:10px;padding:3px 4px;border-radius:4px;margin-bottom:5px;cursor:pointer;" onchange="event.stopPropagation();changeNodeType('${node.id}',this.value)">${typeOptions}</select>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">${nodeColorDots}</div>
+      </div>`:''}
+    `;
 
     // Drag logic
     div.addEventListener('mousedown', e=>{
@@ -9922,11 +10072,99 @@ function changeNodeIcon(id){
   const emoji=prompt('Enter an emoji for this node:',node.icon||'📍');
   if(emoji!==null){node.icon=emoji||node.icon;if(PS.data.docs.ldd.flowchart)PS.data.docs.ldd.flowchart.nodes=FC.nodes;renderFlowNodes();saveFlowchart();}
 }
+function changeNodeType(id,type){
+  const node=FC.nodes.find(n=>n.id===id);
+  if(!node)return;
+  fcPushHistory();
+  const nt=NODE_TYPES[type]||NODE_TYPES.area;
+  node.type=type;
+  node.icon=nt.icon; // reset icon to type default
+  delete node.colorOverride; // let new type's color show
+  if(PS.data.docs.ldd.flowchart)PS.data.docs.ldd.flowchart.nodes=FC.nodes;
+  renderFlowNodes();renderFlowConnections();saveFlowchart();
+}
+function setNodeColor(id,color){
+  const node=FC.nodes.find(n=>n.id===id);
+  if(!node)return;
+  fcPushHistory();
+  node.colorOverride=color;
+  if(PS.data.docs.ldd.flowchart)PS.data.docs.ldd.flowchart.nodes=FC.nodes;
+  renderFlowNodes();saveFlowchart();
+}
+function fcExportHD(k){
+  if(!FC.nodes.length){showToast('No nodes to export');return;}
+  const presets={4:[3840,2160],8:[7680,4320]};
+  const [TW,TH]=presets[k]||presets[4];
+  const label=k===4?'4K':'8K';
+  let mnX=Infinity,mnY=Infinity,mxX=-Infinity,mxY=-Infinity;
+  FC.nodes.forEach(n=>{mnX=Math.min(mnX,n.x);mnY=Math.min(mnY,n.y);mxX=Math.max(mxX,n.x+170);mxY=Math.max(mxY,n.y+140);});
+  const PAD=100, bw=mxX-mnX+PAD*2, bh=mxY-mnY+PAD*2;
+  const sc=Math.min(TW/bw,TH/bh,4);
+  const offX=(TW-bw*sc)/2+PAD*sc-mnX*sc;
+  const offY=(TH-bh*sc)/2+PAD*sc-mnY*sc;
+  const off=document.createElement('canvas');
+  off.width=TW;off.height=TH;
+  const ctx=off.getContext('2d');
+  ctx.fillStyle='#080808';ctx.fillRect(0,0,TW,TH);
+  // Draw connections
+  FC.connections.forEach(conn=>{
+    const a=FC.nodes.find(n=>n.id===conn.from),b=FC.nodes.find(n=>n.id===conn.to);
+    if(!a||!b)return;
+    const x1=a.x*sc+offX+80*sc, y1=a.y*sc+offY+75*sc;
+    const x2=b.x*sc+offX+80*sc, y2=b.y*sc+offY+35*sc;
+    const cpx=(x1+x2)/2, cpy1=y1+Math.abs(y2-y1)*0.5, cpy2=y2-Math.abs(y2-y1)*0.3;
+    ctx.strokeStyle=conn.color||'#8a6e1a';ctx.lineWidth=Math.max(2,3*sc);
+    ctx.setLineDash(conn.dashed?[10*sc,5*sc]:[]);
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.bezierCurveTo(cpx,cpy1,cpx,cpy2,x2,y2);ctx.stroke();
+    ctx.setLineDash([]);
+    const ang=Math.atan2(y2-cpy2,x2-cpx),ah=Math.max(8,12*sc);
+    ctx.fillStyle=conn.color||'#8a6e1a';
+    ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-ah*Math.cos(ang-.4),y2-ah*Math.sin(ang-.4));ctx.lineTo(x2-ah*Math.cos(ang+.4),y2-ah*Math.sin(ang+.4));ctx.closePath();ctx.fill();
+    if(conn.label){const tw2=ctx.measureText(conn.label).width;ctx.fillStyle='rgba(10,10,0,0.8)';ctx.fillRect((x1+x2)/2-tw2/2-6,(y1+y2)/2-10,tw2+12,20);ctx.fillStyle='#c9a227';ctx.font=`${Math.max(9,12*sc)}px Barlow,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(conn.label,(x1+x2)/2,(y1+y2)/2);}
+  });
+  // Draw nodes
+  const r=Math.max(6,10*sc);
+  FC.nodes.forEach(node=>{
+    const nt=NODE_TYPES[node.type]||NODE_TYPES.area;
+    const brd=node.colorOverride||nt.border;
+    const nx=node.x*sc+offX,ny=node.y*sc+offY,nw=160*sc,nh=130*sc;
+    ctx.fillStyle='rgba(0,0,0,0.4)';ctx.beginPath();ctx.roundRect(nx+3*sc,ny+4*sc,nw,nh,r);ctx.fill();
+    ctx.fillStyle=nt.color;ctx.strokeStyle=brd;ctx.lineWidth=Math.max(2,3*sc);
+    ctx.beginPath();ctx.roundRect(nx,ny,nw,nh,r);ctx.fill();ctx.stroke();
+    ctx.fillStyle=brd+'28';ctx.beginPath();ctx.roundRect(nx,ny,nw,28*sc,Math.max(4,r*.8));ctx.fill();
+    ctx.fillStyle=brd;ctx.font=`bold ${Math.max(8,10*sc)}px Rajdhani,sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText(nt.label.toUpperCase(),nx+30*sc,ny+14*sc);
+    ctx.font=`${Math.max(10,14*sc)}px serif`;ctx.fillText(node.icon||nt.icon,nx+6*sc,ny+16*sc);
+    const plainLabel=(node.label||nt.label).replace(/<[^>]+>/g,'');
+    ctx.fillStyle='rgba(230,220,200,0.92)';ctx.font=`500 ${Math.max(9,12*sc)}px Barlow,sans-serif`;ctx.textBaseline='top';
+    ctx.fillText(plainLabel,nx+8*sc,ny+34*sc,nw-16*sc);
+    if(node.desc){const d=node.desc.replace(/<[^>]+>/g,'');ctx.fillStyle=brd+'aa';ctx.font=`${Math.max(7,9*sc)}px Barlow,sans-serif`;ctx.fillText(d,nx+8*sc,ny+58*sc,nw-16*sc);}
+  });
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  showToast(`Generando ${label}…`);
+  setTimeout(()=>{
+    off.toBlob(blob=>{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.download=`flowchart-${label}.png`;
+      a.href=url;a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),15000);
+      showToast(`✓ Flowchart ${label} — ${TW}×${TH}px`);
+    },'image/png');
+  },80);
+}
 
 let _pendingConn=null;
 function _fcColorBtnsHtml(selectedColor,btnIdPrefix){
-  const colors=[{v:'#8a6e1a',l:'Gold',t:'#c9a227'},{v:'#4a9eff',l:'Blue',t:'#4a9eff'},{v:'#4ecb71',l:'Green',t:'#4ecb71'},{v:'#e05252',l:'Red',t:'#e05252'}];
-  return colors.map(c=>`<button type="button" onclick="setFcColor('${c.v}',this,'${btnIdPrefix}')" class="btn btn-sm" style="border-color:${c.v};color:${c.t};${selectedColor===c.v?'outline:2px solid '+c.t+';outline-offset:2px;':''}">${c.l}</button>`).join('');
+  const colors=[
+    {v:'#8a6e1a',l:'Gold',   t:'#c9a227'},{v:'#4a9eff',l:'Blue',   t:'#4a9eff'},
+    {v:'#4ecb71',l:'Green',  t:'#4ecb71'},{v:'#e05252',l:'Red',    t:'#e05252'},
+    {v:'#9b6bde',l:'Purple', t:'#9b6bde'},{v:'#00cfff',l:'Cyan',   t:'#00cfff'},
+    {v:'#ff8800',l:'Orange', t:'#ff8800'},{v:'#ff88bb',l:'Pink',   t:'#ff88bb'},
+    {v:'#00ffcc',l:'Teal',   t:'#00ffcc'},{v:'#cccccc',l:'White',  t:'#cccccc'},
+    {v:'#ff2222',l:'Crimson',t:'#ff4444'},{v:'#f0e040',l:'Yellow', t:'#f0e040'},
+  ];
+  return colors.map(c=>`<button type="button" onclick="setFcColor('${c.v}',this,'${btnIdPrefix}')" class="btn btn-sm" style="border-color:${c.v};color:${c.t};padding:2px 7px;${selectedColor===c.v?'outline:2px solid '+c.t+';outline-offset:2px;':''}">${c.l}</button>`).join('');
 }
 function setFcColor(color,btn,prefix){
   document.getElementById(prefix+'-color').value=color;
@@ -10543,17 +10781,20 @@ document.addEventListener('keydown', e => {
     const activeModule = document.querySelector('.sb-item.active')?.dataset?.mod;
     if(e.key==='z'&&!e.shiftKey){
       e.preventDefault();
-      if(activeModule==='ldd' && document.getElementById('flowchart-canvas')) fcUndo();
-      else mapUndo();
+      if(activeModule==='ldd'){
+        // If focused in beat table input → beat undo; else flowchart undo
+        if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#beat-tbody')) beatUndo();
+        else fcUndo();
+      } else mapUndo();
     }
     if(e.key==='z'&&e.shiftKey){
       e.preventDefault();
-      if(activeModule==='ldd' && document.getElementById('flowchart-canvas')) fcRedo();
+      if(activeModule==='ldd') fcRedo();
       else mapRedo();
     }
     if(e.key==='y'){
       e.preventDefault();
-      if(activeModule==='ldd' && document.getElementById('flowchart-canvas')) fcRedo();
+      if(activeModule==='ldd') fcRedo();
       else mapRedo();
     }
     return;
