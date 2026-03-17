@@ -1175,7 +1175,9 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
           <select class="fs" style="width:170px;" id="map-sel" onchange="loadSelectedMap()"><option value="">Select Map…</option></select>
           <button class="btn btn-gold btn-sm" onclick="newMap()">+ New Map</button>
-          <button class="btn btn-sm" onclick="exportMapPNG()">PNG</button>
+          <button class="btn btn-sm" onclick="exportMapPNG()" title="Export current view as PNG">PNG</button>
+          <button class="btn btn-sm btn-gold" onclick="exportMapHD(4)" title="Export full map at 4K (3840×2160)">4K</button>
+          <button class="btn btn-sm btn-gold" onclick="exportMapHD(8)" title="Export full map at 8K (7680×4320)">8K</button>
           <button class="btn btn-sm" onclick="exportMapJSON()">JSON</button>
           <button class="btn btn-sm" onclick="importMapJSON()">Import</button>
           <button class="btn btn-sm" style="border-color:var(--red);color:var(--red)" onclick="deleteCurrentMap()" title="Delete current map">🗑 Delete Map</button>
@@ -1234,7 +1236,9 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
             <button class="mt" title="Zoom Out (-)" onclick="zoomMap(0.83)">−</button>
           </div>
           <div class="map-tool-group">
-            <button class="mt" title="Export PNG" onclick="exportMapPNG()">📷</button>
+            <button class="mt" title="Export PNG (vista actual)" onclick="exportMapPNG()">📷</button>
+            <button class="mt" title="Export 4K (encuadra todo el mapa)" onclick="exportMapHD(4)" style="font-size:9px;font-weight:700;letter-spacing:-.5px">4K</button>
+            <button class="mt" title="Export 8K (encuadra todo el mapa)" onclick="exportMapHD(8)" style="font-size:9px;font-weight:700;letter-spacing:-.5px">8K</button>
             <button class="mt" title="Export JSON" onclick="exportMapJSON()">💾</button>
           </div>
           <div style="margin-left:auto;font-family:var(--fm);font-size:10px;color:var(--text-secondary);padding:0 8px;" id="map-tool-hint">Select: click to pick · Shift+click multi-select · Delete to remove</div>
@@ -1345,7 +1349,7 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
         <div class="g3">
           <div class="exp-card" style="border-color:var(--gold-dim);background:rgba(201,162,39,.04)"><div class="exp-card-title" style="color:var(--gold)">📑 Full PDF Report</div><div class="exp-card-desc">Complete project PDF: GDD + LDD + Maps in one document. Open browser print dialog to save as PDF.</div><button class="btn btn-gold" onclick="exportFullPDF()">Full PDF</button></div>
           <div class="exp-card"><div class="exp-card-title">📦 Full Project</div><div class="exp-card-desc">Complete JSON backup of all GDD, LDD, Tasks, Maps, Charts and Assets. Reimport to continue editing.</div><button class="btn btn-gold" onclick="exportFullProject()">Export JSON</button></div>
-          <div class="exp-card"><div class="exp-card-title">🗺️ Maps Package</div><div class="exp-card-desc">Export current map as PNG image or JSON data for re-editing.</div><div style="display:flex;gap:6px;"><button class="btn" onclick="exportMapJSON()">JSON</button><button class="btn" onclick="exportMapPNG()">PNG</button></div></div>
+          <div class="exp-card"><div class="exp-card-title">🗺️ Maps Package</div><div class="exp-card-desc">Export current map as PNG (vista actual), 4K o 8K (encuadra todos los objetos automáticamente).</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn" onclick="exportMapJSON()">JSON</button><button class="btn" onclick="exportMapPNG()">PNG</button><button class="btn btn-gold" onclick="exportMapHD(4)">4K PNG</button><button class="btn btn-gold" onclick="exportMapHD(8)">8K PNG</button></div></div>
           <div class="exp-card"><div class="exp-card-title">📄 GDD</div><div class="exp-card-desc">Game Design Document as Markdown, JSON, or print as PDF.</div><div style="display:flex;gap:6px;"><button class="btn" onclick="exportGDDMarkdown()">MD</button><button class="btn" onclick="exportGDDJSON()">JSON</button><button class="btn btn-gold" onclick="exportGDDPDF()">PDF</button></div></div>
           <div class="exp-card"><div class="exp-card-title">📐 LDD</div><div class="exp-card-desc">Level Design Document as JSON or print as PDF.</div><div style="display:flex;gap:6px;"><button class="btn" onclick="exportLDDJSON()">JSON</button><button class="btn btn-gold" onclick="exportLDDPDF()">PDF</button></div></div>
           <div class="exp-card"><div class="exp-card-title">📊 Charts</div><div class="exp-card-desc">Export difficulty, pacing and flow curves as PNG images.</div><button class="btn" onclick="exportChartPNG()">PNG</button></div>
@@ -8760,8 +8764,52 @@ function mapSaveCurrent(pushNow){
 }
 
 function exportMapPNG(){
-  if(!MAP.canvas){showToast('No map loaded');return;}
-  const link=document.createElement('a');link.download='map.png';link.href=MAP.canvas.toDataURL('image/png');link.click();
+  if(!MAP.canvas||!MAP.currentMapId){showToast('No map loaded');return;}
+  const mapName=(PS.data.maps.find(m=>m.id===MAP.currentMapId)||{}).name||'map';
+  MAP.canvas.toBlob(blob=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.download=mapName+'.png';a.href=url;a.click();setTimeout(()=>URL.revokeObjectURL(url),8000);},'image/png');
+}
+function exportMapHD(k){
+  if(!MAP.canvas||!MAP.currentMapId){showToast('No map loaded');return;}
+  const presets={4:[3840,2160],8:[7680,4320]};
+  const [TW,TH]=presets[k]||presets[4];
+  const label=k===4?'4K':'8K';
+  // Bounding box of all visible objects
+  const objs=MAP.objects.filter(o=>!o.hidden);
+  let mnX=Infinity,mnY=Infinity,mxX=-Infinity,mxY=-Infinity;
+  objs.forEach(o=>{const bb=_getObjBBox(o);mnX=Math.min(mnX,bb.x);mnY=Math.min(mnY,bb.y);mxX=Math.max(mxX,bb.x+bb.w);mxY=Math.max(mxY,bb.y+bb.h);});
+  if(!isFinite(mnX)){mnX=-640;mnY=-360;mxX=640;mxY=360;}
+  // Fit zoom to fill canvas with padding
+  const PAD=96, bw=mxX-mnX+PAD*2, bh=mxY-mnY+PAD*2;
+  const fitZoom=Math.min(TW/bw,TH/bh);
+  const cX=(mnX+mxX)/2, cY=(mnY+mxY)/2;
+  // Offscreen canvas
+  const off=document.createElement('canvas');
+  off.width=TW; off.height=TH;
+  const offCtx=off.getContext('2d');
+  // Save & redirect MAP rendering state
+  const _c=MAP.canvas,_x=MAP.ctx,_w=MAP.wrap;
+  const _z=MAP.cam.zoom,_px=MAP.cam.x,_py=MAP.cam.y;
+  MAP.canvas=off; MAP.ctx=offCtx;
+  MAP.wrap={clientWidth:TW,clientHeight:TH};
+  MAP.cam.zoom=fitZoom;
+  MAP.cam.x=-cX*fitZoom;
+  MAP.cam.y=-cY*fitZoom;
+  renderMap();
+  // Restore
+  MAP.canvas=_c;MAP.ctx=_x;MAP.wrap=_w;
+  MAP.cam.zoom=_z;MAP.cam.x=_px;MAP.cam.y=_py;
+  renderMap();
+  // Download
+  const mapName=(PS.data.maps.find(m=>m.id===MAP.currentMapId)||{}).name||'map';
+  showToast(`Generando ${label}…`);
+  setTimeout(()=>{
+    off.toBlob(blob=>{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.download=`${mapName}-${label}.png`;a.href=url;a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),15000);
+      showToast(`✓ ${label} exportado — ${TW}×${TH}px`);
+    },'image/png');
+  },80);
 }
 function exportMapJSON(){
   mapSaveCurrent();
