@@ -6887,6 +6887,140 @@ function _drawGameprop(ctx,obj,p){
       ctx.fillStyle='#1a1a2a'; ctx.strokeStyle='rgba(150,180,220,0.55)'; ctx.lineWidth=Math.max(.8,1.2*z);
       ctx.beginPath(); ctx.arc(cx2,cy2,r*.12,0,PI2); ctx.fill(); ctx.stroke();
       break;}
+    // ── Navigation & Signs ────────────────────────────────────────────────
+    case 'spawn_pt':{
+      const r=Math.min(sw,sh)*.38, cx2=p.x+sw/2, cy2=p.y+sh/2;
+      // Pulse rings
+      ctx.strokeStyle=sc||'#00cfff'; ctx.lineWidth=Math.max(.8,1.2*z);
+      [1.65,1.35,1.1].forEach((m,i)=>{ctx.globalAlpha=0.14-i*0.04;ctx.beginPath();ctx.arc(cx2,cy2,r*m,0,PI2);ctx.stroke();});
+      ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.globalAlpha=1; ctx.beginPath(); ctx.ellipse(cx2+1,cy2+2,r+1,r*.28,0,0,PI2); ctx.fill();
+      const grSp=ctx.createRadialGradient(cx2-r*.25,cy2-r*.25,r*.05,cx2,cy2,r);
+      grSp.addColorStop(0,'#1a3a4a'); grSp.addColorStop(1,fc||'#0a1a2a');
+      ctx.fillStyle=grSp; ctx.strokeStyle=sc||'#00cfff'; ctx.lineWidth=Math.max(1.5,2.5*z); ctx.globalAlpha=1;
+      ctx.beginPath(); ctx.arc(cx2,cy2,r,0,PI2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle=sc||'#00cfff'; ctx.lineWidth=Math.max(.8,1.2*z); ctx.globalAlpha=0.45;
+      ctx.beginPath(); ctx.arc(cx2,cy2,r*.55,0,PI2); ctx.stroke();
+      // 4 outward arrows
+      ctx.strokeStyle=sc||'#00cfff'; ctx.fillStyle=sc||'#00cfff'; ctx.lineWidth=Math.max(1.5,2.5*z); ctx.globalAlpha=0.92;
+      const ah=Math.max(4,6*z);
+      [[0,-1],[0,1],[-1,0],[1,0]].forEach(([dx,dy])=>{
+        const ix=cx2+dx*r*.32, iy=cy2+dy*r*.32, ox=cx2+dx*r*.78, oy=cy2+dy*r*.78;
+        ctx.beginPath(); ctx.moveTo(ix,iy); ctx.lineTo(ox,oy); ctx.stroke();
+        const px=-dy, py=dx;
+        ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(ox-dx*ah*1.2+px*ah*.6,oy-dy*ah*1.2+py*ah*.6); ctx.lineTo(ox-dx*ah*1.2-px*ah*.6,oy-dy*ah*1.2-py*ah*.6); ctx.closePath(); ctx.fill();
+      });
+      const grDot=ctx.createRadialGradient(cx2,cy2,0,cx2,cy2,r*.22);
+      grDot.addColorStop(0,'rgba(0,207,255,0.95)'); grDot.addColorStop(1,'rgba(0,100,200,0)');
+      ctx.fillStyle=grDot; ctx.globalAlpha=0.9; ctx.beginPath(); ctx.arc(cx2,cy2,r*.22,0,PI2); ctx.fill();
+      break;}
+    case 'waypoint':{
+      const cx2=p.x+sw/2, cy2=p.y+sh/2;
+      const ph=sh*.38, pw2=Math.max(2,3*z);
+      // Pole
+      ctx.strokeStyle=sc||'#00ffcc'; ctx.lineWidth=pw2; ctx.globalAlpha=0.65;
+      ctx.beginPath(); ctx.moveTo(cx2,cy2+sh*.44); ctx.lineTo(cx2,cy2-ph); ctx.stroke();
+      // Base disc
+      ctx.fillStyle=fc||'#0a2020'; ctx.strokeStyle=sc||'#00ffcc'; ctx.lineWidth=Math.max(1,1.5*z); ctx.globalAlpha=0.75;
+      ctx.beginPath(); ctx.ellipse(cx2,cy2+sh*.44,sw*.22,sh*.08,0,0,PI2); ctx.fill(); ctx.stroke();
+      // Pulse rings
+      [2.1,1.65,1.2].forEach((m,i)=>{ctx.strokeStyle=sc||'#00ffcc'; ctx.lineWidth=Math.max(.5,.7*z); ctx.globalAlpha=0.06+i*0.04;ctx.beginPath();ctx.arc(cx2,cy2-ph,sw*.3*m,0,PI2);ctx.stroke();});
+      // Diamond
+      const ds=Math.min(sw*.32,sh*.3), dcy=cy2-ph;
+      ctx.globalAlpha=1;
+      const grDia=ctx.createRadialGradient(cx2,dcy,0,cx2,dcy,ds*1.1);
+      grDia.addColorStop(0,'rgba(140,255,220,0.95)'); grDia.addColorStop(.5,sc||'#00ffcc'); grDia.addColorStop(1,fc||'#0a2020');
+      ctx.fillStyle=grDia; ctx.strokeStyle=sc||'#00ffcc'; ctx.lineWidth=Math.max(1.5,2.5*z);
+      ctx.beginPath(); ctx.moveTo(cx2,dcy-ds*1.15); ctx.lineTo(cx2+ds,dcy); ctx.lineTo(cx2,dcy+ds*1.15); ctx.lineTo(cx2-ds,dcy); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,0.32)'; ctx.globalAlpha=1;
+      ctx.beginPath(); ctx.moveTo(cx2,dcy-ds*.72); ctx.lineTo(cx2+ds*.32,dcy); ctx.lineTo(cx2,dcy-ds*.12); ctx.closePath(); ctx.fill();
+      break;}
+    case 'checkpoint_flag':{
+      const cx2=p.x+sw/2, cy2=p.y+sh/2;
+      const poleX=p.x+sw*.22, poleTopY=cy2-sh*.4, poleBotY=cy2+sh*.42;
+      // Dashed line on ground
+      ctx.strokeStyle=sc||'#c9a227'; ctx.lineWidth=Math.max(2.5,3.5*z); ctx.globalAlpha=0.6;
+      ctx.setLineDash([Math.max(4,5*z),Math.max(3,4*z)]);
+      ctx.beginPath(); ctx.moveTo(p.x+sw*.06,poleBotY); ctx.lineTo(p.x+sw*.94,poleBotY); ctx.stroke();
+      ctx.setLineDash([]);
+      // Pole
+      ctx.strokeStyle=sc||'#c9a227'; ctx.lineWidth=Math.max(2,3*z); ctx.globalAlpha=0.9;
+      ctx.beginPath(); ctx.moveTo(poleX,poleBotY); ctx.lineTo(poleX,poleTopY); ctx.stroke();
+      // Checkered flag
+      const fw=sw*.55, fh=sh*.35, fy=poleTopY;
+      const sqW=fw/4, sqH=fh/2;
+      [[0,0,'#fff'],[1,0,sc],[2,0,'#fff'],[3,0,sc],[0,1,sc],[1,1,'#fff'],[2,1,sc],[3,1,'#fff']].forEach(([col,row,clr])=>{
+        ctx.fillStyle=clr; ctx.globalAlpha=0.88;
+        ctx.fillRect(poleX+col*sqW, fy+row*sqH, sqW, sqH);
+      });
+      ctx.strokeStyle=sc||'#c9a227'; ctx.lineWidth=Math.max(1,1.5*z); ctx.globalAlpha=1;
+      ctx.strokeRect(poleX, fy, fw, fh);
+      break;}
+    case 'quest_marker':{
+      const cx2=p.x+sw/2, cy2=p.y+sh/2;
+      const ds=Math.min(sw,sh)*.44;
+      // Outer glow
+      const grQg=ctx.createRadialGradient(cx2,cy2,0,cx2,cy2,ds*1.5);
+      grQg.addColorStop(0,'rgba(255,204,0,0.22)'); grQg.addColorStop(1,'rgba(255,204,0,0)');
+      ctx.fillStyle=grQg; ctx.globalAlpha=1;
+      ctx.beginPath(); ctx.arc(cx2,cy2,ds*1.5,0,PI2); ctx.fill();
+      // Diamond
+      ctx.fillStyle=fc||'#1a0a00'; ctx.strokeStyle=sc||'#ffcc00'; ctx.lineWidth=Math.max(2,3*z); ctx.globalAlpha=1;
+      ctx.beginPath(); ctx.moveTo(cx2,cy2-ds*1.12); ctx.lineTo(cx2+ds,cy2); ctx.lineTo(cx2,cy2+ds*1.12); ctx.lineTo(cx2-ds,cy2); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // Exclamation mark
+      ctx.fillStyle=sc||'#ffcc00'; ctx.globalAlpha=1;
+      const fhQ=Math.max(8,13*z);
+      ctx.font=`bold ${fhQ}px Rajdhani`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('!', cx2, cy2);
+      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+      break;}
+    case 'exit_pt':{
+      const cx2=p.x+sw/2, cy2=p.y+sh/2;
+      const dw=sw*.68, dh=sh*.78, dx=cx2-dw/2, dy=cy2-dh/2;
+      // Glow bg
+      const grExG=ctx.createRadialGradient(cx2,cy2,0,cx2,cy2,Math.max(sw,sh)*.55);
+      grExG.addColorStop(0,'rgba(78,203,113,0.18)'); grExG.addColorStop(1,'rgba(78,203,113,0)');
+      ctx.fillStyle=grExG; ctx.globalAlpha=1;
+      ctx.beginPath(); ctx.arc(cx2,cy2,Math.max(sw,sh)*.55,0,PI2); ctx.fill();
+      // Door frame
+      ctx.fillStyle=fc||'#0a1a0a'; ctx.strokeStyle=sc||'#4ecb71'; ctx.lineWidth=Math.max(2,3*z); ctx.globalAlpha=1;
+      ctx.beginPath(); ctx.roundRect(dx,dy,dw,dh,Math.max(2,3*z)); ctx.fill(); ctx.stroke();
+      // Inner glow
+      const grExI=ctx.createLinearGradient(dx,dy,dx,dy+dh);
+      grExI.addColorStop(0,'rgba(78,203,113,0.38)'); grExI.addColorStop(1,'rgba(0,50,20,0.08)');
+      ctx.fillStyle=grExI; ctx.globalAlpha=0.7;
+      ctx.beginPath(); ctx.roundRect(dx+Math.max(3,4*z),dy+Math.max(3,4*z),dw-Math.max(6,8*z),dh-Math.max(6,8*z),Math.max(2,3*z)); ctx.fill();
+      // Right arrow
+      ctx.strokeStyle=sc||'#4ecb71'; ctx.lineWidth=Math.max(2,3*z); ctx.globalAlpha=0.95;
+      const arX=dx+dw*.18, arEx=dx+dw*.78, arY=cy2;
+      ctx.beginPath(); ctx.moveTo(arX,arY); ctx.lineTo(arEx,arY); ctx.stroke();
+      const arH=Math.max(4,6*z);
+      ctx.fillStyle=sc||'#4ecb71';
+      ctx.beginPath(); ctx.moveTo(arEx,arY); ctx.lineTo(arEx-arH,arY-arH); ctx.lineTo(arEx-arH,arY+arH); ctx.closePath(); ctx.fill();
+      // Doorknob
+      ctx.fillStyle=sc||'#4ecb71'; ctx.globalAlpha=0.65;
+      ctx.beginPath(); ctx.arc(dx+dw*.2,cy2,Math.max(2,2.5*z),0,PI2); ctx.fill();
+      break;}
+    case 'path_arrow':{
+      const cx2=p.x+sw/2, cy2=p.y+sh/2;
+      ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.globalAlpha=1;
+      ctx.beginPath(); ctx.ellipse(cx2+1,cy2+2,sw*.44,sh*.18,0,0,PI2); ctx.fill();
+      const bW=sw*.58, bH=sh*.28, hW=sw*.35, hH=sh*.5;
+      const ax=p.x+sw*.07, ay=cy2-bH/2;
+      const grAr=ctx.createLinearGradient(p.x,0,p.x+sw,0);
+      grAr.addColorStop(0,'rgba(30,20,0,0.6)'); grAr.addColorStop(1,'rgba(201,162,39,0.15)');
+      ctx.fillStyle=grAr; ctx.strokeStyle=sc||'#c9a227'; ctx.lineWidth=Math.max(1.5,2.5*z); ctx.globalAlpha=1;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(ax+bW, ay);
+      ctx.lineTo(ax+bW, cy2-hH/2);
+      ctx.lineTo(ax+bW+hW, cy2);
+      ctx.lineTo(ax+bW, cy2+hH/2);
+      ctx.lineTo(ax+bW, ay+bH);
+      ctx.lineTo(ax, ay+bH);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle=sc||'#c9a227'; ctx.lineWidth=Math.max(1,1.5*z); ctx.globalAlpha=0.38;
+      ctx.beginPath(); ctx.moveTo(ax+sw*.06,cy2); ctx.lineTo(ax+bW+hW*.35,cy2); ctx.stroke();
+      break;}
     default:{
       const grDef=ctx.createLinearGradient(p.x,p.y,p.x,q.y);
       grDef.addColorStop(0,fc||'#3a3530'); grDef.addColorStop(1,sc||'#1a1510');
@@ -8306,6 +8440,13 @@ function _spSVG(type, f, s) {
     case 'cryo_pod': return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="8" y="2" width="20" height="24" rx="9" fill="${f}" stroke="${s}" stroke-width="2"/><rect x="10" y="5" width="16" height="18" rx="7" fill="rgba(100,160,255,0.18)"/><line x1="12" y1="10" x2="18" y2="10" stroke="rgba(200,230,255,0.4)" stroke-width="1"/><line x1="14" y1="14" x2="22" y2="14" stroke="rgba(200,230,255,0.4)" stroke-width="1"/><line x1="12" y1="18" x2="20" y2="18" stroke="rgba(200,230,255,0.4)" stroke-width="1"/><line x1="16" y1="8" x2="16" y2="20" stroke="rgba(200,230,255,0.25)" stroke-width="1"/><line x1="20" y1="8" x2="20" y2="20" stroke="rgba(200,230,255,0.25)" stroke-width="1"/><circle cx="18" cy="4" r="2.5" fill="${s}" opacity=".9"/></svg>`;
     case 'mine':     return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><circle cx="18" cy="15" r="11" fill="${f}" stroke="${s}" stroke-width="2"/><circle cx="18" cy="15" r="6" fill="none" stroke="${s}" stroke-width="1" opacity=".4"/><line x1="18" y1="4" x2="18" y2="1" stroke="${s}" stroke-width="2"/><circle cx="18" cy="1" r="2" fill="${s}"/><line x1="9" y1="9" x2="7" y2="7" stroke="${s}" stroke-width="2"/><circle cx="6" cy="6" r="2" fill="${s}"/><line x1="27" y1="9" x2="29" y2="7" stroke="${s}" stroke-width="2"/><circle cx="30" cy="6" r="2" fill="${s}"/><circle cx="18" cy="15" r="3.5" fill="#cc2020"/><circle cx="18" cy="15" r="1.5" fill="#ff6060"/></svg>`;
     case 'drone':    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><line x1="5" y1="5" x2="31" y2="23" stroke="${f}" stroke-width="3" stroke-linecap="round"/><line x1="31" y1="5" x2="5" y2="23" stroke="${f}" stroke-width="3" stroke-linecap="round"/><circle cx="5" cy="5" r="5" fill="${f}" stroke="${s}" stroke-width="1.5" opacity=".7"/><circle cx="31" cy="5" r="5" fill="${f}" stroke="${s}" stroke-width="1.5" opacity=".7"/><circle cx="5" cy="23" r="5" fill="${f}" stroke="${s}" stroke-width="1.5" opacity=".7"/><circle cx="31" cy="23" r="5" fill="${f}" stroke="${s}" stroke-width="1.5" opacity=".7"/><circle cx="18" cy="14" r="5" fill="${f}" stroke="${s}" stroke-width="2"/><circle cx="18" cy="14" r="2" fill="${s}"/></svg>`;
+    // ── Navigation & Signs icons ──────────────────────────────────────────
+    case 'spawn_pt':       return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><circle cx="18" cy="14" r="11" fill="${f}" stroke="${s}" stroke-width="1.5" opacity=".9"/><circle cx="18" cy="14" r="6" fill="none" stroke="${s}" stroke-width="1" opacity=".35"/><line x1="18" y1="3" x2="18" y2="8" stroke="${s}" stroke-width="2"/><polygon points="18,1 15,6 21,6" fill="${s}"/><line x1="18" y1="20" x2="18" y2="25" stroke="${s}" stroke-width="2"/><polygon points="18,27 15,22 21,22" fill="${s}"/><line x1="7" y1="14" x2="12" y2="14" stroke="${s}" stroke-width="2"/><polygon points="5,14 10,11 10,17" fill="${s}"/><line x1="24" y1="14" x2="29" y2="14" stroke="${s}" stroke-width="2"/><polygon points="31,14 26,11 26,17" fill="${s}"/><circle cx="18" cy="14" r="3" fill="${s}" opacity=".9"/></svg>`;
+    case 'waypoint':       return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><circle cx="18" cy="9" r="9" fill="${s}" opacity=".1"/><circle cx="18" cy="9" r="6" fill="${s}" opacity=".12"/><line x1="18" y1="28" x2="18" y2="17" stroke="${s}" stroke-width="2.5"/><ellipse cx="18" cy="27" rx="5" ry="2" fill="${f}" stroke="${s}" stroke-width="1.2" opacity=".6"/><polygon points="18,0 27,9 18,18 9,9" fill="${f}" stroke="${s}" stroke-width="2"/><polygon points="18,2 24,9 18,9" fill="${s}" opacity=".3"/><circle cx="18" cy="9" r="3" fill="${s}" opacity=".9"/></svg>`;
+    case 'checkpoint_flag':return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><line x1="8" y1="26" x2="8" y2="4" stroke="${s}" stroke-width="2.5"/><rect x="8" y="4" width="20" height="12" fill="${f}" stroke="${s}" stroke-width="1.5"/><rect x="8"  y="4"  width="5" height="6" fill="${s}" opacity=".85"/><rect x="18" y="4"  width="5" height="6" fill="${s}" opacity=".85"/><rect x="13" y="10" width="5" height="6" fill="${s}" opacity=".85"/><rect x="23" y="10" width="5" height="6" fill="${s}" opacity=".85"/><line x1="2" y1="26" x2="30" y2="26" stroke="${s}" stroke-width="1.5" stroke-dasharray="3,3" opacity=".55"/></svg>`;
+    case 'quest_marker':   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polygon points="18,1 35,14 18,27 1,14" fill="${f}" stroke="${s}" stroke-width="2"/><text x="18" y="20" text-anchor="middle" font-family="Rajdhani,sans-serif" font-size="15" font-weight="bold" fill="${s}">!</text></svg>`;
+    case 'exit_pt':        return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="3" y="2" width="20" height="24" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/><rect x="5" y="4" width="16" height="20" rx="1" fill="${s}" opacity=".18"/><line x1="16" y1="14" x2="30" y2="14" stroke="${s}" stroke-width="2.5"/><polygon points="33,14 26,10 26,18" fill="${s}"/><circle cx="10" cy="14" r="2.5" fill="${s}" opacity=".65"/></svg>`;
+    case 'path_arrow':     return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polygon points="2,9 20,9 20,4 34,14 20,24 20,19 2,19" fill="${f}" stroke="${s}" stroke-width="2"/><line x1="5" y1="14" x2="18" y2="14" stroke="${s}" stroke-width="1" opacity=".4"/></svg>`;
     default:       return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="2" y="3" width="32" height="22" rx="2" fill="${f}" stroke="${s}" stroke-width="2"/></svg>`;
   }
 }
@@ -8421,6 +8562,14 @@ function renderShapesPanel(){
       {type:'cryo_pod',     f:'#1a2a4a',s:'#4a9eff',label:'Cryo Pod',  fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'cryo_pod',     fill:'#1a2a4a',stroke:'#4a9eff',name:'Cryo Pod',        w:28,h:52}}},
       {type:'mine',         f:'#2a2a2a',s:'#e05252',label:'Mine',       fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'mine',         fill:'#2a2a2a',stroke:'#e05252',name:'Proximity Mine',  w:24,h:24}}},
       {type:'drone',        f:'#1a2030',s:'#4a9eff',label:'Drone',      fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'drone',        fill:'#1a2030',stroke:'#4a9eff',name:'Drone',            w:32,h:32}}},
+    ]},
+    {label:'Navigation & Signs',shapes:[
+      {type:'spawn_pt',        f:'#0a1a2a',s:'#00cfff',label:'Spawn',      fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'spawn_pt',        fill:'#0a1a2a',stroke:'#00cfff',name:'Spawn Point',    w:40,h:40}}},
+      {type:'waypoint',        f:'#0a2020',s:'#00ffcc',label:'Waypoint',   fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'waypoint',        fill:'#0a2020',stroke:'#00ffcc',name:'Waypoint',       w:32,h:56}}},
+      {type:'checkpoint_flag', f:'#1a1a1a',s:'#c9a227',label:'Checkpoint', fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'checkpoint_flag', fill:'#1a1a1a',stroke:'#c9a227',name:'Checkpoint',     w:64,h:48}}},
+      {type:'quest_marker',    f:'#1a0a00',s:'#ffcc00',label:'Objective',  fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'quest_marker',    fill:'#1a0a00',stroke:'#ffcc00',name:'Objective',      w:36,h:40}}},
+      {type:'exit_pt',         f:'#0a1a0a',s:'#4ecb71',label:'Exit',       fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'exit_pt',         fill:'#0a1a0a',stroke:'#4ecb71',name:'Exit',           w:36,h:48}}},
+      {type:'path_arrow',      f:'#0a0a1a',s:'#c9a227',label:'Direction',  fn:()=>{setTool('rect');MAP.shapePreset={type:'gameprop',subtype:'path_arrow',      fill:'#0a0a1a',stroke:'#c9a227',name:'Direction',      w:64,h:32}}},
     ]},
     {label:'Hazards & Objects',shapes:[
       {type:'hazard',  f:'#3a1a0a',s:'#e07820',label:'Hazard',    fn:()=>{setTool('rect');MAP.shapePreset={fill:'#3a1a0a',stroke:'#e07820',name:'Hazard',opacity:.8}}},
