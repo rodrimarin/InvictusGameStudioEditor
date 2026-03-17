@@ -7030,20 +7030,8 @@ function _drawGameprop(ctx,obj,p){
   }
   // Label — skip for subtypes that draw their own label internally
   const _ownLabelSubtypes=new Set(['vault','zipline','ropeswing','monkeybar','crawlspace','wallrun','grapplepnt','slidezone','pushblock','interact','breakable']);
-  const _dl=obj.label||((_ownLabelSubtypes.has(obj.subtype))?null:obj.name);
-  if(_dl&&z>0.35){
-    const lx=cx, ly=q.y-Math.max(1,2*z);
-    ctx.save();
-    // Counter-flip so label text is always readable
-    if(obj.flipX||obj.flipY){ctx.translate(lx,ly);ctx.scale(obj.flipX?-1:1,obj.flipY?-1:1);ctx.translate(-lx,-ly);}
-    ctx.globalAlpha=.9; ctx.font=`bold ${Math.max(7,9*z)}px Rajdhani`;
-    ctx.textAlign='center'; ctx.textBaseline='bottom';
-    ctx.fillStyle='rgba(0,0,0,0.55)';
-    ctx.fillText(_dl,lx+1,ly+1);
-    ctx.fillStyle='rgba(255,255,255,0.85)';
-    ctx.fillText(_dl,lx,ly);
-    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-    ctx.restore();
+  if(!_ownLabelSubtypes.has(obj.subtype)){
+    _drawLabel(ctx,obj, cx, q.y-Math.max(1,2*z), z, {minZoom:0.35,size:9,minSize:7,bold:true,font:'Rajdhani',align:'center',baseline:'bottom'});
   }
   ctx.restore();
 }
@@ -7519,6 +7507,40 @@ function renderMap() {
   document.getElementById('sb-objs').textContent=MAP.objects.length;
 }
 
+// ── Unified label renderer — respects obj.labelOffsetX/Y, labelSize, labelColor, labelBold, labelBg ──
+function _drawLabel(ctx, obj, baseLx, baseLy, z, def){
+  const text = obj.label || obj.name;
+  if(!text || z < (def.minZoom||0.3)) return;
+  const ox = (obj.labelOffsetX||0)*z;
+  const oy = (obj.labelOffsetY||0)*z;
+  const lx = baseLx + ox;
+  const ly = baseLy + oy;
+  const sz = obj.labelSize ? Math.max(6, obj.labelSize*z) : Math.max(def.minSize||7, (def.size||9)*z);
+  const bold = obj.labelBold!==undefined ? obj.labelBold : (def.bold||false);
+  const color = obj.labelColor || def.color || 'rgba(255,255,255,0.85)';
+  const align = def.align || 'center';
+  const baseline = def.baseline || 'bottom';
+  ctx.save();
+  if(obj.flipX||obj.flipY){ctx.translate(lx,ly);ctx.scale(obj.flipX?-1:1,obj.flipY?-1:1);ctx.translate(-lx,-ly);}
+  ctx.globalAlpha = .95;
+  ctx.font = `${bold?'bold ':''}${sz}px ${def.font||'Barlow'}`;
+  ctx.textAlign = align;
+  ctx.textBaseline = baseline;
+  // optional background pill
+  if(obj.labelBg){
+    const tw = ctx.measureText(text).width;
+    const ph = sz*0.35, pw = sz*0.5;
+    const bx = align==='center'?lx-tw/2-pw:lx-pw, by = baseline==='bottom'?ly-sz-ph:baseline==='middle'?ly-sz/2-ph:ly-ph;
+    ctx.fillStyle='rgba(0,0,0,0.62)';
+    ctx.beginPath(); ctx.roundRect(bx,by,tw+pw*2,sz+ph*2,Math.max(3,4*z)); ctx.fill();
+  }
+  // drop shadow
+  ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillText(text,lx+1,ly+1);
+  ctx.fillStyle=color; ctx.fillText(text,lx,ly);
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.restore();
+}
+
 function drawObj(obj,ctx) {
   if(obj.hidden){return;}
   ctx.save();
@@ -7592,7 +7614,7 @@ function drawObj(obj,ctx) {
     else{ctx.beginPath();ctx.moveTo(ax,ayE);ctx.lineTo(ax-ah,ayE+ah*1.4);ctx.lineTo(ax+ah,ayE+ah*1.4);ctx.closePath();ctx.fill();}
     // Border
     ctx.strokeStyle=sc2; ctx.lineWidth=Math.max(1,2*z2); ctx.globalAlpha=1; ctx.strokeRect(p.x,p.y,sw,sh);
-    {const _dl=obj.label||obj.name;if(_dl&&z2>0.3){const lx=(p.x+q.x)/2,ly=(p.y+q.y)/2;ctx.save();if(obj.flipX||obj.flipY){ctx.translate(lx,ly);ctx.scale(obj.flipX?-1:1,obj.flipY?-1:1);ctx.translate(-lx,-ly);}ctx.font=`${Math.max(8,10*z2)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(201,162,39,0.7)';ctx.fillText(_dl,lx,ly);ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.restore();}}
+    _drawLabel(ctx,obj,(p.x+q.x)/2,(p.y+q.y)/2,z2,{minZoom:0.3,size:10,minSize:8,bold:false,align:'center',baseline:'middle',color:'rgba(201,162,39,0.85)'});
   } else if(obj.type==='light'){
     const lr=(obj.r||48)*MAP.cam.zoom;
     const grad=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,lr);
@@ -7600,7 +7622,7 @@ function drawObj(obj,ctx) {
     grad.addColorStop(0,fc+'bb');grad.addColorStop(0.45,fc+'44');grad.addColorStop(1,fc+'00');
     ctx.beginPath();ctx.arc(p.x,p.y,lr,0,Math.PI*2);ctx.fillStyle=grad;ctx.fill();
     ctx.beginPath();ctx.arc(p.x,p.y,Math.max(3,5*MAP.cam.zoom),0,Math.PI*2);ctx.fillStyle=fc;ctx.fill();
-    {const _dl=obj.label||obj.name;if(_dl&&MAP.cam.zoom>0.3){ctx.font=`${Math.max(7,9*MAP.cam.zoom)}px Barlow`;ctx.fillStyle=fc;ctx.fillText(_dl,p.x+6,p.y-lr*.6);}}
+    _drawLabel(ctx,obj,p.x,p.y-lr*.6,MAP.cam.zoom,{minZoom:0.3,size:9,minSize:7,bold:false,align:'left',baseline:'bottom',color:fc});
   } else if(obj.type==='person'){
     const sz=Math.max(3,10*MAP.cam.zoom);
     const fc=obj.fill||'#4a9eff';
@@ -7610,7 +7632,7 @@ function drawObj(obj,ctx) {
     ctx.moveTo(p.x+sz*.6,p.y+sz*2.4);ctx.lineTo(p.x+sz*.1,p.y+sz*3.2);
     ctx.moveTo(p.x+sz*.6,p.y+sz*2.4);ctx.lineTo(p.x+sz*1.1,p.y+sz*3.2);
     ctx.strokeStyle=fc;ctx.lineWidth=Math.max(1,1.5*MAP.cam.zoom);ctx.stroke();
-    {const _dl=obj.label||obj.name;if(_dl&&MAP.cam.zoom>0.4){const px2=w2s(obj.x+((obj.w||24))/2,obj.y+((obj.h||32))/2);ctx.font=`bold ${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=fc;ctx.fillText(_dl,px2.x,px2.y);ctx.textAlign='left';ctx.textBaseline='alphabetic';}}
+    {const px2=w2s(obj.x+((obj.w||24))/2,obj.y+((obj.h||32))/2);_drawLabel(ctx,obj,px2.x,px2.y,MAP.cam.zoom,{minZoom:0.4,size:10,minSize:8,bold:true,align:'center',baseline:'middle',color:fc});}
   } else if(obj.type==='enemy'){
     const sz=Math.max(3,9*MAP.cam.zoom);
     const fc=obj.fill||'#e05252';
@@ -7619,7 +7641,7 @@ function drawObj(obj,ctx) {
     ctx.beginPath();ctx.moveTo(p.x+sz*.25,p.y+sz*.45);ctx.lineTo(p.x+sz*1.75,p.y+sz*1.95);
     ctx.moveTo(p.x+sz*1.75,p.y+sz*.45);ctx.lineTo(p.x+sz*.25,p.y+sz*1.95);
     ctx.strokeStyle=fc;ctx.lineWidth=Math.max(1,2*MAP.cam.zoom);ctx.stroke();
-    {const _dl=obj.label||obj.name;if(_dl&&MAP.cam.zoom>0.4){const px3=w2s(obj.x+((obj.w||24))/2,obj.y+((obj.h||24))/2);ctx.font=`bold ${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=fc;ctx.fillText(_dl,px3.x,px3.y);ctx.textAlign='left';ctx.textBaseline='alphabetic';}}
+    {const px3=w2s(obj.x+((obj.w||24))/2,obj.y+((obj.h||24))/2);_drawLabel(ctx,obj,px3.x,px3.y,MAP.cam.zoom,{minZoom:0.4,size:10,minSize:8,bold:true,align:'center',baseline:'middle',color:fc});}
   } else if(obj.type==='arrow'){
     const p2=w2s(obj.x2!==undefined?obj.x2:obj.x+64,obj.y2!==undefined?obj.y2:obj.y);
     const fc=obj.fill||'#c9a227';
@@ -7627,7 +7649,7 @@ function drawObj(obj,ctx) {
     ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p2.x,p2.y);ctx.stroke();
     const ang=Math.atan2(p2.y-p.y,p2.x-p.x),al=Math.max(10,14*MAP.cam.zoom);
     ctx.beginPath();ctx.moveTo(p2.x,p2.y);ctx.lineTo(p2.x-al*Math.cos(ang-.45),p2.y-al*Math.sin(ang-.45));ctx.lineTo(p2.x-al*Math.cos(ang+.45),p2.y-al*Math.sin(ang+.45));ctx.closePath();ctx.fillStyle=fc;ctx.fill();
-    {const _dl=obj.label||obj.name;if(_dl&&MAP.cam.zoom>0.4){ctx.font=`${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=fc;ctx.fillText(_dl,(p.x+p2.x)/2,(p.y+p2.y)/2);ctx.textAlign='left';ctx.textBaseline='alphabetic';}}
+    _drawLabel(ctx,obj,(p.x+p2.x)/2,(p.y+p2.y)/2,MAP.cam.zoom,{minZoom:0.4,size:10,minSize:8,bold:false,align:'center',baseline:'middle',color:fc});
   } else if(obj.type==='draw'){
     if(!obj.points||obj.points.length<2){ctx.restore();return;}
     const dpts=obj.points.map(pt=>w2s(pt.x,pt.y));
@@ -7660,13 +7682,8 @@ function drawObj(obj,ctx) {
         ctx.strokeStyle='rgba(201,162,39,.4)';ctx.lineWidth=1;ctx.strokeRect(p.x,p.y,iw,ih);
       }
     }
-    {const _dl=obj.label||obj.name;if(_dl&&MAP.cam.zoom>0.3){
-      const bb2=_getObjBBox(obj);const bc=w2s(bb2.x+bb2.w/2,bb2.y+bb2.h/2);
-      ctx.font=`${Math.max(8,10*MAP.cam.zoom)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillStyle='rgba(232,224,204,0.55)';
-      ctx.fillText(_dl,bc.x,bc.y);
-      ctx.textAlign='left';ctx.textBaseline='alphabetic';
-    }}
+    {const bb2=_getObjBBox(obj);const bc=w2s(bb2.x+bb2.w/2,bb2.y+bb2.h/2);
+     _drawLabel(ctx,obj,bc.x,bc.y,MAP.cam.zoom,{minZoom:0.3,size:10,minSize:8,bold:false,align:'center',baseline:'middle',color:'rgba(232,224,204,0.7)'});}
   } else if(obj.type==='gameprop'){
     _drawGameprop(ctx,obj,p);
   } else {
@@ -7865,17 +7882,8 @@ function drawObj(obj,ctx) {
       ctx.restore();
     }
     ctx.restore();
-    // Object label — centered inside the object (counter-flip so text is always readable)
-    {const _dl=obj.label||obj.name;if(_dl && z>0.3){
-      const lx=p.x+w/2, ly=p.y+h/2;
-      ctx.save();
-      if(obj.flipX||obj.flipY){ctx.translate(lx,ly);ctx.scale(obj.flipX?-1:1,obj.flipY?-1:1);ctx.translate(-lx,-ly);}
-      ctx.font=`${Math.max(8,10*z)}px Barlow`;ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillStyle='rgba(232,224,204,0.45)';
-      ctx.fillText(_dl, lx, ly);
-      ctx.textAlign='left';ctx.textBaseline='alphabetic';
-      ctx.restore();
-    }}
+    // Object label — centered inside the object
+    _drawLabel(ctx,obj,p.x+w/2,p.y+h/2,z,{minZoom:0.3,size:10,minSize:8,bold:false,align:'center',baseline:'middle',color:'rgba(232,224,204,0.6)'});
   }
   // ── Locked indicator (small padlock at top-right, non-obtrusive) ──
   if(obj.locked && MAP.cam.zoom>0.28){
@@ -8722,9 +8730,24 @@ function renderMapProps() {
     <div class="mp-section">
       <div class="mp-section-title">Identity</div>
       <div class="mp-row"><span class="mp-label">Name</span><input class="mp-input" value="${obj.name||''}" oninput="updateMapObj('${id}','name',this.value)"></div>
-      <div class="mp-row"><span class="mp-label">Label</span><input class="mp-input" value="${obj.label||''}" placeholder="Center text (blank = name)" oninput="updateMapObj('${id}','label',this.value)"></div>
       <div class="mp-row"><span class="mp-label">Layer</span><select class="mp-input" onchange="updateMapObj('${id}','layer',this.value)">${MAP.layers.map(l=>`<option ${obj.layer===l?'selected':''}>${l}</option>`).join('')}</select></div>
       <div class="mp-row"><span class="mp-label">Type</span><span style="font-family:var(--fm);font-size:11px;color:var(--text-secondary)">${obj.type}</span></div>
+    </div>
+    <div class="mp-section">
+      <div class="mp-section-title">Label</div>
+      <div class="mp-row"><span class="mp-label">Text</span><input class="mp-input" value="${obj.label||''}" placeholder="(blank = name)" oninput="updateMapObj('${id}','label',this.value)"></div>
+      <div class="mp-row">
+        <span class="mp-label">Offset X</span><input class="mp-input" type="number" value="${obj.labelOffsetX||0}" oninput="updateMapObj('${id}','labelOffsetX',+this.value)">
+        <span class="mp-label" style="margin-left:4px">Y</span><input class="mp-input" type="number" value="${obj.labelOffsetY||0}" oninput="updateMapObj('${id}','labelOffsetY',+this.value)">
+      </div>
+      <div class="mp-row">
+        <span class="mp-label">Size</span><input class="mp-input" type="number" min="4" max="72" value="${obj.labelSize||''}" placeholder="auto" oninput="updateMapObj('${id}','labelSize',this.value===''?null:+this.value)">
+        <span class="mp-label" style="margin-left:4px">Color</span><input type="color" class="mp-color" value="${obj.labelColor||'#ffffff'}" oninput="updateMapObj('${id}','labelColor',this.value)">
+      </div>
+      <div class="mp-row" style="gap:8px">
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" ${obj.labelBold?'checked':''} onchange="updateMapObj('${id}','labelBold',this.checked)" style="accent-color:var(--gold)"> Bold</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" ${obj.labelBg?'checked':''} onchange="updateMapObj('${id}','labelBg',this.checked)" style="accent-color:var(--gold)"> Background</label>
+      </div>
     </div>
     <div class="mp-section">
       <div class="mp-section-title">Transform</div>
