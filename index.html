@@ -1160,6 +1160,8 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
           <select class="fs" style="width:170px;" id="ldd-map-link"><option value="">Link to Map…</option></select>
           <button class="btn btn-sm" onclick="exportLDDJSON()">JSON</button>
           <button class="btn btn-gold btn-sm" onclick="exportLDDPDF()">PDF</button>
+          <button class="btn btn-sm btn-gold" onclick="fcExportHD(4)" title="Export Level Flowchart 4K PNG">FC 4K</button>
+          <button class="btn btn-sm btn-gold" onclick="fcExportHD(8)" title="Export Level Flowchart 8K PNG">FC 8K</button>
         </div>
       </div>
       <div class="doc-layout">
@@ -4386,9 +4388,6 @@ function initLDD() {
             <span style="width:1px;background:var(--border);align-self:stretch;display:inline-block;margin:0 2px"></span>
             <button class="btn btn-xs" onclick="fcFitAll()" title="Fit all nodes">⊡ Fit</button>
             <button class="btn btn-xs" onclick="fcResetCam()" title="Reset zoom">1:1</button>
-            <span style="width:1px;background:var(--border);align-self:stretch;display:inline-block;margin:0 2px"></span>
-            <button class="btn btn-xs btn-gold" onclick="fcExportHD(4)" title="Export 4K PNG">↓ 4K</button>
-            <button class="btn btn-xs btn-gold" onclick="fcExportHD(8)" title="Export 8K PNG">↓ 8K</button>
             <span style="width:1px;background:var(--border);align-self:stretch;display:inline-block;margin:0 2px"></span>
             <button class="btn btn-xs btn-danger" onclick="clearFlowchart()">Clear</button>
           </div>
