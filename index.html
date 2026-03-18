@@ -4375,21 +4375,20 @@ function initLDD() {
         // Node-based flowchart
         if(!PS.data.docs.ldd[sec.key]) PS.data.docs.ldd[sec.key]={nodes:[],connections:[]};
         html+=`<div class="doc-field-wrap">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
-            <div class="doc-field-label" style="margin:0;flex-shrink:0">Level Flowchart</div>
-            <!-- ── Node palette dropdown ── -->
-            <div style="position:relative;" id="fc-pal-wrap">
-              <button class="btn btn-sm btn-gold" id="fc-pal-btn" onclick="toggleFcPalette()" style="padding:4px 10px;font-weight:700">＋ Add Node ▾</button>
-              <div id="fc-palette" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:200;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px;width:390px;box-shadow:0 10px 32px rgba(0,0,0,.7);"></div>
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;">
+            <!-- Node type groups -->
+            <div style="display:flex;align-items:flex-end;gap:0;flex-wrap:wrap;margin-bottom:8px;">
+              ${_fcNodeBtnsHtml()}
             </div>
-            <span style="width:1px;background:var(--border);align-self:stretch;display:inline-block;margin:0 2px"></span>
-            <button class="btn btn-xs" onclick="fcUndo()" title="Undo Ctrl+Z">↩</button>
-            <button class="btn btn-xs" onclick="fcRedo()" title="Redo Ctrl+Y">↪</button>
-            <span style="width:1px;background:var(--border);align-self:stretch;display:inline-block;margin:0 2px"></span>
-            <button class="btn btn-xs" onclick="fcFitAll()" title="Fit all nodes">⊡ Fit</button>
-            <button class="btn btn-xs" onclick="fcResetCam()" title="Reset zoom">1:1</button>
-            <span style="width:1px;background:var(--border);align-self:stretch;display:inline-block;margin:0 2px"></span>
-            <button class="btn btn-xs btn-danger" onclick="clearFlowchart()">Clear</button>
+            <!-- Utility row -->
+            <div style="display:flex;align-items:center;gap:5px;border-top:1px solid var(--border);padding-top:7px;">
+              <button class="btn btn-xs" onclick="fcUndo()" title="Undo (Ctrl+Z)">↩ Undo</button>
+              <button class="btn btn-xs" onclick="fcRedo()" title="Redo (Ctrl+Y)">↪ Redo</button>
+              <span style="flex:1"></span>
+              <button class="btn btn-xs" onclick="fcFitAll()" title="Fit all nodes in view">⊡ Fit</button>
+              <button class="btn btn-xs" onclick="fcResetCam()" title="Reset zoom to 100%">1:1</button>
+              <button class="btn btn-xs btn-danger" onclick="clearFlowchart()" title="Clear all nodes">✕ Clear</button>
+            </div>
           </div>
           <div id="flowchart-canvas" style="width:100%;height:580px;background:#080808;border:1px solid var(--border);border-radius:6px;position:relative;overflow:hidden;cursor:default;">
             <div id="flow-viewport" style="position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:0 0;">
@@ -10072,6 +10071,25 @@ const _FC_PAL_CATS = [
   {label:'Story & Characters',types:['npc','dialogue','cutscene']},
   {label:'Systems & Meta',    types:['event','trigger','shop','note']},
 ];
+// Generates inline node-type button groups for the flowchart toolbar
+function _fcNodeBtnsHtml(){
+  const cats=[
+    {label:'Flow',    types:['start','exit','transition','branch','checkpoint']},
+    {label:'Spaces',  types:['area','secret']},
+    {label:'Actions', types:['combat','boss','interact','pickup','puzzle','hazard']},
+    {label:'Story',   types:['npc','dialogue','cutscene']},
+    {label:'Systems', types:['event','trigger','shop','note']},
+  ];
+  const btnStyle='padding:2px 7px 2px 5px;border-radius:4px;font-family:var(--fu);font-size:10px;font-weight:600;letter-spacing:0.3px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:3px;line-height:1.7;transition:filter .1s';
+  return cats.map((cat,ci)=>{
+    const btns=cat.types.map(t=>{
+      const nt=NODE_TYPES[t]||{};
+      return '<button onclick="addFlowNode(\''+t+'\')" title="'+nt.label+' \u2014 '+(nt.desc||'')+'" style="background:'+nt.color+';border:1px solid '+nt.border+';color:'+nt.border+';'+btnStyle+'" onmouseover="this.style.filter=\'brightness(1.5)\'" onmouseout="this.style.filter=\'\'"><span style="font-size:12px">'+nt.icon+'</span>'+nt.label+'</button>';
+    }).join('');
+    const sep=ci<cats.length-1?'<div style="width:1px;background:var(--border);align-self:stretch;margin:0 4px;flex-shrink:0"></div>':'';
+    return '<div style="display:flex;flex-direction:column;gap:3px;"><div style="font-size:8px;color:var(--text-muted);font-family:var(--fu);letter-spacing:1px;text-transform:uppercase;padding-left:1px">'+cat.label+'</div><div style="display:flex;gap:3px;">'+btns+'</div></div>'+sep;
+  }).join('');
+}
 function toggleFcPalette(){
   const pal=document.getElementById('fc-palette');
   if(!pal)return;
