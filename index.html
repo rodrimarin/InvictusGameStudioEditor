@@ -1799,6 +1799,10 @@ const _MOD_SECTION = { tasks:'tasks', map:'maps', notes:'notes', calendar:'calen
 // Sections locally modified but not yet confirmed pushed — protected from remote overwrite
 const _ALL_SECTIONS = ['tasks','maps','calendarEvents','assets','charts','docs','settings','currentProject','studying','notes','ia'];
 let _localDirty = new Set();
+// Guard flags: collectDocData() must not overwrite Firebase-loaded docs with empty form fields
+// before the user has actually visited & rendered those modules from current PS.data.
+let _gddVisited = false;
+let _lddVisited = false;
 
 function autoSave() {
   // Tag which section changed based on the currently active module
@@ -1857,7 +1861,8 @@ function showModule(name) {
   if (name === 'map') { initMapEditor(); renderMapSelect(); }
   if (name === 'charts') initCurveEditor();
   if (name === 'assets') renderAssets();
-  if (name === 'ldd') { populateLDDMapLink(); }
+  if (name === 'gdd') { _gddVisited = true; initGDD(); }
+  if (name === 'ldd') { _lddVisited = true; initLDD(); populateLDDMapLink(); }
   if (name === 'studying') { ensureStudying(); renderStudyTopics(); renderStudyNotes(); }
   if (name === 'notes') { ensureNotes(); renderNotesLists(); renderNotesItems(); }
   if (name === 'annotator') { IA.onShow(); }
@@ -2779,6 +2784,7 @@ function _fbApply() {
   if (!mod) return;
   try {
     if (mod === 'map') {
+      renderMapSelect(); // always refresh the map list when remote data arrives
       if (MAP.currentMapId) {
         // Reload in-memory MAP.objects from the just-merged PS.data so renderMap draws fresh data
         const map = PS.data.maps?.find(m => m.id === MAP.currentMapId);
@@ -2791,8 +2797,8 @@ function _fbApply() {
     }
     else if (mod === 'notes')    { renderNotesLists(); renderNotesItems(); }
     else if (mod === 'tasks')    { renderTasks(); }
-    else if (mod === 'gdd')      { initGDD(); }
-    else if (mod === 'ldd')      { initLDD(); }
+    else if (mod === 'gdd')      { _gddVisited = true; initGDD(); }
+    else if (mod === 'ldd')      { _lddVisited = true; initLDD(); }
     else if (mod === 'calendar') { renderCalendar(); }
     else if (mod === 'charts')   { initCurveEditor(); }
     else if (mod === 'assets')   { renderAssets(); }
@@ -4464,22 +4470,27 @@ function populateLDDMapLink() {
 }
 
 function collectDocData() {
-  // GDD
-  GDD_SECS.forEach(grp=>grp.items.forEach(sec=>{
-    if(!sec.fields) return;
-    sec.fields.forEach(f=>{
-      const el=document.getElementById(`gdd-${sec.key}-${f.k}`);
-      if(el){if(!PS.data.docs.gdd[sec.key])PS.data.docs.gdd[sec.key]={};PS.data.docs.gdd[sec.key][f.k]=el.value;}
-    });
-  }));
-  // LDD
-  LDD_SECS.forEach(grp=>grp.items.forEach(sec=>{
-    if(!sec.fields) return;
-    sec.fields.forEach(f=>{
-      const el=document.getElementById(`ldd-${sec.key}-${f.k}`);
-      if(el){if(!PS.data.docs.ldd[sec.key])PS.data.docs.ldd[sec.key]={};PS.data.docs.ldd[sec.key][f.k]=el.value;}
-    });
-  }));
+  // GDD — only collect if user has visited GDD; otherwise form fields are empty/stale
+  // and would overwrite Firebase-loaded data with blank strings.
+  if (_gddVisited) {
+    GDD_SECS.forEach(grp=>grp.items.forEach(sec=>{
+      if(!sec.fields) return;
+      sec.fields.forEach(f=>{
+        const el=document.getElementById(`gdd-${sec.key}-${f.k}`);
+        if(el){if(!PS.data.docs.gdd[sec.key])PS.data.docs.gdd[sec.key]={};PS.data.docs.gdd[sec.key][f.k]=el.value;}
+      });
+    }));
+  }
+  // LDD — same guard
+  if (_lddVisited) {
+    LDD_SECS.forEach(grp=>grp.items.forEach(sec=>{
+      if(!sec.fields) return;
+      sec.fields.forEach(f=>{
+        const el=document.getElementById(`ldd-${sec.key}-${f.k}`);
+        if(el){if(!PS.data.docs.ldd[sec.key])PS.data.docs.ldd[sec.key]={};PS.data.docs.ldd[sec.key][f.k]=el.value;}
+      });
+    }));
+  }
 }
 
 // ════════════════════════════════════════════════════════════
