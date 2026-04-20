@@ -282,100 +282,115 @@ body.focus-mode #map-left-panel,body.focus-mode #map-right-panel{display:none!im
 body.focus-mode #focus-btn{display:flex}
 
 /* ═══════════════════════════════
-   MAP EDITOR
+   MAP EDITOR — BLUEPRINT / CAD
 ═══════════════════════════════ */
+/* Blueprint color vars */
+:root{
+  --bp-bg:#091420; --bp-grid-minor:rgba(0,80,160,.22); --bp-grid-major:rgba(0,120,220,.3);
+  --bp-axis:rgba(0,160,240,.32); --bp-cyan:#00c8ff; --bp-border:#1a3a5a;
+  --bp-panel:#060d18; --bp-panel2:#080f1a;
+}
 #map-editor-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
-#map-toolbar-top{height:44px;background:#0a0a0a;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:4px;flex-shrink:0}
+#map-toolbar-top{height:44px;background:var(--bp-panel2);border-bottom:1px solid var(--bp-border);display:flex;align-items:center;padding:0 10px;gap:4px;flex-shrink:0}
 .map-draw-sw{width:18px;height:18px;border-radius:3px;border:2px solid transparent;cursor:pointer;flex-shrink:0;transition:all .12s}
 .map-draw-sw:hover{transform:scale(1.15)}
 .map-draw-sw.active{border-color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.3)}
-.map-tool-group{display:flex;gap:2px;padding:0 6px;border-right:1px solid var(--border)}
+.map-tool-group{display:flex;gap:2px;padding:0 6px;border-right:1px solid var(--bp-border)}
 .map-tool-group:last-child{border-right:none}
-.mt{width:32px;height:32px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .12s;font-family:var(--fm);position:relative;flex-shrink:0}
-.mt:hover{border-color:var(--border);color:var(--text-primary);background:rgba(255,255,255,.04)}
-.mt.active{border-color:var(--gold);color:var(--gold);background:rgba(201,162,39,.1)}
-.mt.toggled{border-color:var(--blue);color:var(--blue);background:rgba(74,158,255,.1)}
-.mt[title]:hover::after{content:attr(title);position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);background:#000;border:1px solid var(--border);color:var(--text-primary);font-size:10px;padding:2px 6px;border-radius:3px;white-space:nowrap;pointer-events:none;z-index:200;font-family:var(--fb)}
+.mt{width:32px;height:32px;border:1px solid transparent;border-radius:4px;background:transparent;color:#3a6a9a;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .12s;font-family:var(--fm);position:relative;flex-shrink:0}
+.mt:hover{border-color:var(--bp-border);color:#7ab8d8;background:rgba(0,200,255,.06)}
+.mt.active{border-color:var(--bp-cyan);color:var(--bp-cyan);background:rgba(0,200,255,.12)}
+.mt.toggled{border-color:var(--bp-cyan);color:var(--bp-cyan);background:rgba(0,200,255,.1)}
+.mt[title]:hover::after{content:attr(title);position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);background:#040b14;border:1px solid var(--bp-border);color:#a8d4f0;font-size:10px;padding:2px 6px;border-radius:3px;white-space:nowrap;pointer-events:none;z-index:200;font-family:var(--fb)}
 #map-main{flex:1;display:flex;overflow:hidden}
 /* ── LEFT SHAPES PANEL ── */
-#map-left-panel{width:190px;background:var(--bg-panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
-#map-left-panel-hdr{padding:8px 10px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:4px}
+#map-left-panel{width:190px;background:var(--bp-panel);border-right:1px solid var(--bp-border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+#map-left-panel-hdr{padding:8px 10px;border-bottom:1px solid var(--bp-border);flex-shrink:0;display:flex;align-items:center;gap:4px}
 #map-shapes-body{flex:1;overflow-y:auto;padding:4px 6px}
-.shape-cat{font-family:var(--fu);font-size:9px;letter-spacing:1.5px;color:var(--text-muted);text-transform:uppercase;padding:8px 4px 3px;margin-top:2px}
+.shape-cat{font-family:var(--fu);font-size:9px;letter-spacing:1.5px;color:#2a5a8a;text-transform:uppercase;padding:8px 4px 3px;margin-top:2px}
 .shape-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:4px}
-.shape-btn{background:var(--bg-card);border:1px solid var(--border);border-radius:5px;padding:5px 3px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .12s;min-width:0}
-.shape-btn:hover{border-color:var(--gold-dim);background:rgba(201,162,39,.1);transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.4)}
-.shape-btn.active-shape{border-color:var(--gold);background:rgba(201,162,39,.18);box-shadow:0 0 0 1px var(--gold)}
+.shape-btn{background:rgba(0,30,60,.6);border:1px solid var(--bp-border);border-radius:5px;padding:5px 3px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .12s;min-width:0}
+.shape-btn:hover{border-color:var(--bp-cyan);background:rgba(0,200,255,.08);transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.shape-btn.active-shape{border-color:var(--bp-cyan);background:rgba(0,200,255,.15);box-shadow:0 0 0 1px var(--bp-cyan)}
 .shape-btn svg{display:block;flex-shrink:0}
-.shape-btn span{font-family:var(--fu);font-size:8.5px;font-weight:600;color:var(--text-secondary);letter-spacing:.4px;text-align:center;line-height:1.1;overflow:hidden;width:100%;white-space:nowrap;text-overflow:ellipsis;text-transform:uppercase}
+.shape-btn span{font-family:var(--fu);font-size:8.5px;font-weight:600;color:#5a8ab0;letter-spacing:.4px;text-align:center;line-height:1.1;overflow:hidden;width:100%;white-space:nowrap;text-overflow:ellipsis;text-transform:uppercase}
 /* Canvas area */
-#map-canvas-area{flex:1;overflow:hidden;position:relative;background:#080808}
-#map-canvas{display:block;position:absolute;top:0;left:0}
-/* ── RIGHT PANEL (Properties + Layers) ── */
-#map-right-panel{width:220px;border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;transition:width .18s}
+#map-canvas-area{flex:1;overflow:hidden;position:relative;background:var(--bp-bg)}
+#map-canvas{display:block;position:absolute;top:0;left:0;cursor:crosshair}
+/* ── RIGHT PANEL ── */
+#map-right-panel{width:224px;border-left:1px solid var(--bp-border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;background:var(--bp-panel);transition:width .18s}
 #map-right-panel.collapsed{width:18px;overflow:visible}
+#map-right-panel.collapsed .mp-tabs,
+#map-right-panel.collapsed .mp-tab-content,
 #map-right-panel.collapsed #map-props-panel,
 #map-right-panel.collapsed #map-layers-panel{display:none!important}
-#map-panel-toggle{position:absolute;left:-18px;top:50%;transform:translateY(-50%);width:18px;height:48px;background:var(--bg-card);border:1px solid var(--border);border-right:none;border-radius:4px 0 0 4px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:10px;z-index:20;transition:color .12s,background .12s}
-#map-panel-toggle:hover{color:var(--gold);background:var(--bg-panel)}
-#map-props-panel{background:var(--bg-panel);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;border-bottom:1px solid var(--border);max-height:46%}
-/* ── LAYERS PANEL (now part of right panel) ── */
-#map-layers-panel{background:var(--bg-panel);display:flex;flex-direction:column;flex:1;overflow:hidden}
-#map-layers-hdr{padding:8px 10px 4px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-#layer-search{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-family:var(--fm);font-size:10px;color:var(--text-primary);outline:none;margin-top:4px;flex-shrink:0}
-#layer-search::placeholder{color:var(--text-muted)}
-#layer-search:focus{border-color:var(--gold-dim)}
+#map-panel-toggle{position:absolute;left:-18px;top:50%;transform:translateY(-50%);width:18px;height:48px;background:var(--bp-panel);border:1px solid var(--bp-border);border-right:none;border-radius:4px 0 0 4px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#3a6a9a;font-size:10px;z-index:20;transition:color .12s,background .12s}
+#map-panel-toggle:hover{color:var(--bp-cyan);background:var(--bp-panel2)}
+/* Tabbed right panel */
+.mp-tabs{display:flex;border-bottom:1px solid var(--bp-border);flex-shrink:0}
+.mp-tab{flex:1;padding:7px 4px;font-family:var(--fu);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#3a6a9a;cursor:pointer;text-align:center;border-bottom:2px solid transparent;transition:all .12s}
+.mp-tab:hover{color:#7ab8d8}
+.mp-tab.active{color:var(--bp-cyan);border-bottom-color:var(--bp-cyan)}
+.mp-tab-content{display:none;flex:1;flex-direction:column;overflow:hidden}
+.mp-tab-content.active{display:flex}
+#map-props-panel{background:var(--bp-panel);display:flex;flex-direction:column;overflow:hidden;flex:1}
+/* ── LAYERS PANEL ── */
+#map-layers-panel{background:var(--bp-panel);display:flex;flex-direction:column;flex:1;overflow:hidden}
+#map-layers-hdr{padding:8px 10px 4px;border-bottom:1px solid var(--bp-border);flex-shrink:0;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+#layer-search{width:100%;background:rgba(0,30,60,.8);border:1px solid var(--bp-border);border-radius:4px;padding:3px 7px;font-family:var(--fm);font-size:10px;color:#a8d4f0;outline:none;margin-top:4px;flex-shrink:0}
+#layer-search::placeholder{color:#2a5a8a}
+#layer-search:focus{border-color:var(--bp-cyan)}
 #map-layers-list{flex:1;overflow-y:auto;padding:4px}
 .layer-row{display:flex;align-items:center;gap:3px;padding:5px 5px;border-radius:4px;cursor:pointer;border:1px solid transparent;border-top:2px solid transparent;border-bottom:2px solid transparent;transition:background .12s,border-color .12s,transform .1s,opacity .12s;margin-bottom:1px;position:relative}
-.layer-row:hover{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.05)}
-.layer-row.active{border-color:var(--gold-dim)!important;background:rgba(201,162,39,.09)}
-/* Drag states */
+.layer-row:hover{background:rgba(0,200,255,.05);border-color:rgba(0,200,255,.1)}
+.layer-row.active{border-color:rgba(0,200,255,.35)!important;background:rgba(0,200,255,.08)}
 .layer-row.dragging{opacity:.3;transform:scale(.96);pointer-events:none}
-.layer-row.drag-over-top{border-top:2px solid var(--gold)!important;background:rgba(201,162,39,.05)}
-.layer-row.drag-over-bottom{border-bottom:2px solid var(--gold)!important;background:rgba(201,162,39,.05)}
-/* Name */
-.layer-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--fb);font-size:10px;color:var(--text-secondary);letter-spacing:.1px}
-.layer-row.active .layer-name{color:var(--gold);font-weight:600}
-/* Type icon — default block types */
-.layer-type-icon{font-size:11px;flex-shrink:0;width:16px;text-align:center;color:var(--text-muted);line-height:1}
-/* Text type: italic gold T */
-.layer-type-text{flex-shrink:0;width:14px;text-align:center;font-family:var(--fu);font-size:10px;font-weight:700;font-style:italic;color:var(--gold);letter-spacing:-1px;line-height:1}
-/* Visibility / lock icon buttons */
-.layer-icon-btn{width:15px;height:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:2px;transition:background .1s,color .1s;flex-shrink:0;color:var(--text-muted);opacity:.7}
-.layer-icon-btn:hover{background:rgba(255,255,255,.1);color:var(--text-primary);opacity:1}
-/* Lock states */
-.layer-lock-open{color:#555!important;opacity:.5!important}
-.layer-lock-closed{color:#c9a227!important;opacity:1!important}
-/* Hidden row */
+.layer-row.drag-over-top{border-top:2px solid var(--bp-cyan)!important;background:rgba(0,200,255,.05)}
+.layer-row.drag-over-bottom{border-bottom:2px solid var(--bp-cyan)!important;background:rgba(0,200,255,.05)}
+.layer-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--fb);font-size:10px;color:#5a8ab0;letter-spacing:.1px}
+.layer-row.active .layer-name{color:var(--bp-cyan);font-weight:600}
+.layer-type-icon{font-size:11px;flex-shrink:0;width:16px;text-align:center;color:#2a5a8a;line-height:1}
+.layer-type-text{flex-shrink:0;width:14px;text-align:center;font-family:var(--fu);font-size:10px;font-weight:700;font-style:italic;color:var(--bp-cyan);letter-spacing:-1px;line-height:1}
+.layer-icon-btn{width:15px;height:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:2px;transition:background .1s,color .1s;flex-shrink:0;color:#2a5a8a;opacity:.7}
+.layer-icon-btn:hover{background:rgba(0,200,255,.1);color:#a8d4f0;opacity:1}
+.layer-lock-open{color:#2a4a6a!important;opacity:.5!important}
+.layer-lock-closed{color:var(--bp-cyan)!important;opacity:1!important}
 .layer-row.hidden-obj{opacity:.35}
-.layer-row.locked-obj{border-left:2px solid rgba(201,162,39,.6)!important;background:rgba(201,162,39,.04)}
+.layer-row.locked-obj{border-left:2px solid rgba(0,200,255,.5)!important;background:rgba(0,200,255,.04)}
 .layer-row.layer-flash{animation:layerFlash .5s ease 3}
-@keyframes layerFlash{0%,100%{background:rgba(201,162,39,.0)}50%{background:rgba(201,162,39,.28)}}
-/* Color swatch */
+@keyframes layerFlash{0%,100%{background:rgba(0,200,255,.0)}50%{background:rgba(0,200,255,.22)}}
 .layer-color-swatch{width:8px;height:8px;border-radius:2px;flex-shrink:0;border:1px solid rgba(255,255,255,.18);margin-right:1px}
-/* Type badge for non-block types */
-.layer-type-badge{font-family:var(--fu);font-size:7px;letter-spacing:.5px;padding:1px 3px;border-radius:2px;flex-shrink:0;text-transform:uppercase;background:rgba(255,255,255,.07);color:var(--text-muted)}
-/* Text layer name — italic gold */
-.layer-name-text{font-style:italic;color:#d4b75a!important}
-#map-layers-footer{padding:6px 8px;border-top:1px solid var(--border);flex-shrink:0}
-#map-props-hdr{padding:10px 12px 6px;border-bottom:1px solid var(--border);flex-shrink:0;font-family:var(--fu);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--gold);text-transform:uppercase}
+.layer-type-badge{font-family:var(--fu);font-size:7px;letter-spacing:.5px;padding:1px 3px;border-radius:2px;flex-shrink:0;text-transform:uppercase;background:rgba(0,200,255,.07);color:#3a6a9a}
+.layer-name-text{font-style:italic;color:#6ab4d8!important}
+#map-layers-footer{padding:6px 8px;border-top:1px solid var(--bp-border);flex-shrink:0}
+#map-props-hdr{padding:10px 12px 6px;border-bottom:1px solid var(--bp-border);flex-shrink:0;font-family:var(--fu);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--bp-cyan);text-transform:uppercase}
 #map-props-body{flex:1;overflow-y:auto;padding:10px}
 .mp-section{margin-bottom:10px}
-.mp-section-title{font-family:var(--fu);font-size:9px;letter-spacing:1.5px;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid var(--border)}
+.mp-section-title{font-family:var(--fu);font-size:9px;letter-spacing:1.5px;color:#3a6a9a;text-transform:uppercase;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid var(--bp-border)}
 .mp-row{display:flex;align-items:center;gap:6px;margin-bottom:5px}
-.mp-label{font-family:var(--fu);font-size:10px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;min-width:44px}
-.mp-input{flex:1;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;padding:3px 6px;color:var(--text-primary);font-family:var(--fm);font-size:11px;transition:border-color .15s;width:100%;min-width:0}
-.mp-input:focus{outline:none;border-color:var(--gold-dim)}
-.mp-color{width:30px;height:22px;border:1px solid var(--border);border-radius:3px;background:none;cursor:pointer;padding:1px;flex-shrink:0}
+.mp-label{font-family:var(--fu);font-size:10px;color:#4a7a9a;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;min-width:44px}
+.mp-input{flex:1;background:rgba(0,30,60,.8);border:1px solid var(--bp-border);border-radius:3px;padding:3px 6px;color:#a8d4f0;font-family:var(--fm);font-size:11px;transition:border-color .15s;width:100%;min-width:0}
+.mp-input:focus{outline:none;border-color:var(--bp-cyan)}
+.mp-color{width:30px;height:22px;border:1px solid var(--bp-border);border-radius:3px;background:none;cursor:pointer;padding:1px;flex-shrink:0}
 /* Status bar */
-#map-statusbar{height:24px;background:#060606;border-top:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:16px;font-family:var(--fm);font-size:10px;color:var(--text-secondary);flex-shrink:0;user-select:none}
+#map-statusbar{height:22px;background:#040b14;border-top:1px solid var(--bp-border);display:flex;align-items:center;padding:0 12px;gap:16px;font-family:var(--fm);font-size:10px;color:#3a6a9a;flex-shrink:0;user-select:none}
 .sb-stat{display:flex;gap:4px;align-items:center;white-space:nowrap}
-.sb-stat b{color:var(--gold-light)}
-#map-sel-name{margin-left:auto;color:var(--text-secondary);font-size:10px}
+.sb-stat b{color:#6ab4d8}
+#map-sel-name{margin-left:auto;color:#3a6a9a;font-size:10px}
+/* Command line (AutoCAD style) */
+#map-cmdline{height:24px;background:#040b14;border-top:1px solid var(--bp-border);display:flex;align-items:center;padding:0 8px;gap:8px;flex-shrink:0}
+#map-cmd-label{font-family:var(--fm);font-size:9px;letter-spacing:1.5px;color:#2a5a8a;text-transform:uppercase;flex-shrink:0}
+#map-cmd-input{flex:1;background:transparent;border:none;outline:none;font-family:var(--fm);font-size:11px;color:var(--bp-cyan);caret-color:var(--bp-cyan)}
+#map-cmd-input::placeholder{color:#1a3a5a}
+#map-cmd-echo{font-family:var(--fm);font-size:10px;color:#3a6a9a;flex-shrink:0;margin-left:auto}
 /* No map */
-#map-no-map{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text-secondary)}
+#map-no-map{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#2a5a8a}
 #map-no-map .icon{font-size:48px;opacity:.2}
-#map-no-map .hint{font-family:var(--fu);font-size:12px;letter-spacing:1px;text-transform:uppercase}
+#map-no-map .hint{font-family:var(--fu);font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#3a6a9a}
+/* Layer ctx menu blueprint */
+#layer-ctx-menu{background:var(--bp-panel)!important;border:1px solid var(--bp-border)!important}
+#layer-ctx-menu button{color:#a8d4f0!important}
+#layer-ctx-menu button:hover{background:rgba(0,200,255,.1)!important;color:var(--bp-cyan)!important}
 
 /* ── CHARTS ── */
 .curve-wrap{background:var(--bg-input);border:1px solid var(--border);border-radius:6px;overflow:hidden;position:relative}
@@ -1172,18 +1187,16 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
 
     <!-- ===== MAP EDITOR ===== -->
     <div class="module" id="module-map" style="flex-direction:column;">
-      <div class="mod-hdr">
-        <div class="mod-title">Map Editor</div>
-        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-          <select class="fs" style="width:170px;" id="map-sel" onchange="loadSelectedMap()"><option value="">Select Map…</option></select>
-          <button class="btn btn-gold btn-sm" onclick="newMap()">+ New Map</button>
-          <button class="btn btn-sm" onclick="exportMapPNG()" title="Export current view as PNG">PNG</button>
-          <button class="btn btn-sm btn-gold" onclick="exportMapHD(4)" title="Export full map at 4K (3840×2160)">4K</button>
-          <button class="btn btn-sm btn-gold" onclick="exportMapHD(8)" title="Export full map at 8K (7680×4320)">8K</button>
-          <button class="btn btn-sm" onclick="exportMapJSON()">JSON</button>
-          <button class="btn btn-sm" onclick="importMapJSON()">Import</button>
-          <button class="btn btn-sm" style="border-color:var(--red);color:var(--red)" onclick="deleteCurrentMap()" title="Delete current map">🗑 Delete Map</button>
-          <button class="btn btn-sm" id="map-focus-btn" onclick="toggleMapFocus()" title="Expand map to full screen (F11)">⛶ Expand</button>
+      <div class="mod-hdr" style="background:var(--bp-panel2);border-bottom:1px solid var(--bp-border)">
+        <div class="mod-title" style="color:var(--bp-cyan)">Blueprint Studio</div>
+        <div class="mod-sub" style="color:#3a6a9a">Map Editor</div>
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+          <select style="background:rgba(0,30,60,.8);border:1px solid var(--bp-border);border-radius:4px;padding:4px 8px;color:#a8d4f0;font-family:var(--fm);font-size:11px;width:160px;" id="map-sel" onchange="loadSelectedMap()"><option value="">— Select Map —</option></select>
+          <button class="btn btn-sm" style="border-color:var(--bp-cyan);color:var(--bp-cyan)" onclick="newMap()">+ New</button>
+          <button class="btn btn-sm" style="border-color:var(--bp-border);color:#5a8ab0" onclick="exportMapJSON()">JSON</button>
+          <button class="btn btn-sm" style="border-color:var(--bp-border);color:#5a8ab0" onclick="importMapJSON()">Import</button>
+          <button class="btn btn-sm" style="border-color:#e05252;color:#e05252" onclick="deleteCurrentMap()">🗑</button>
+          <button class="btn btn-sm" id="map-focus-btn" onclick="toggleMapFocus()" style="border-color:var(--bp-border);color:#5a8ab0" title="Expand (F11)">⛶</button>
         </div>
       </div>
       <div id="map-editor-wrap">
@@ -1191,7 +1204,7 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
         <div id="map-toolbar-top">
           <div class="map-tool-group">
             <button class="mt active" id="tool-select" title="Select (W or V)" onclick="setTool('select')">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M2 2 L2 11 L5 8.5 L7 13 L8.5 12.3 L6.5 7.3 L10 7 Z"/></svg>
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor"><path d="M2 2 L2 11 L5 8.5 L7 13 L8.5 12.3 L6.5 7.3 L10 7 Z"/></svg>
             </button>
             <button class="mt" id="tool-pan" title="Pan (H · Space)" onclick="setTool('pan')">✋</button>
           </div>
@@ -1205,24 +1218,24 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
             <button class="mt" id="tool-erase" title="Erase (Del)" onclick="setTool('erase')">✕</button>
           </div>
           <div class="map-tool-group">
-            <button class="mt" id="tool-stair" title="Stairs (S)" onclick="setTool('stair')" style="font-size:11px">⊟</button>
+            <button class="mt" id="tool-stair" title="Stairs" onclick="setTool('stair')" style="font-size:11px">⊟</button>
             <button class="mt" id="tool-light" title="Light (L)" onclick="setTool('light')" style="font-size:11px">◉</button>
             <button class="mt" id="tool-person" title="Player/NPC (Y)" onclick="setTool('person')" style="font-size:13px">☺</button>
             <button class="mt" id="tool-enemy" title="Enemy (X)" onclick="setTool('enemy')" style="font-size:12px">☠</button>
             <button class="mt" id="tool-arrow" title="Arrow (A)" onclick="setTool('arrow')" style="font-size:13px">➤</button>
-            <button class="mt" id="tool-draw" title="Freehand Draw (D)" onclick="setTool('draw')" style="font-size:13px">✏</button>
+            <button class="mt" id="tool-draw" title="Freehand (D)" onclick="setTool('draw')" style="font-size:13px">✏</button>
           </div>
-          <!-- Draw options — shown only when draw tool active -->
-          <div id="map-draw-opts" style="display:none;align-items:center;gap:5px;padding:0 4px;border-left:1px solid var(--border);margin-left:2px">
-            <div class="map-draw-sw active" style="background:#c9a227" onclick="setDrawColor('#c9a227',this)" title="Gold"></div>
+          <!-- Draw options -->
+          <div id="map-draw-opts" style="display:none;align-items:center;gap:5px;padding:0 4px;border-left:1px solid var(--bp-border);margin-left:2px">
+            <div class="map-draw-sw active" style="background:#00c8ff" onclick="setDrawColor('#00c8ff',this)" title="Cyan"></div>
             <div class="map-draw-sw" style="background:#4ecb71" onclick="setDrawColor('#4ecb71',this)" title="Green"></div>
             <div class="map-draw-sw" style="background:#FF3333" onclick="setDrawColor('#FF3333',this)" title="Red"></div>
-            <div class="map-draw-sw" style="background:#00CFFF" onclick="setDrawColor('#00CFFF',this)" title="Cyan"></div>
+            <div class="map-draw-sw" style="background:#ffd040" onclick="setDrawColor('#ffd040',this)" title="Yellow"></div>
             <div class="map-draw-sw" style="background:#FFFFFF" onclick="setDrawColor('#FFFFFF',this)" title="White"></div>
             <div class="map-draw-sw" style="background:#a855f7" onclick="setDrawColor('#a855f7',this)" title="Purple"></div>
-            <input type="color" id="map-draw-custom-color" value="#c9a227" oninput="setDrawColor(this.value,null)" title="Custom color" style="width:20px;height:20px;border-radius:3px;border:1px solid var(--border);padding:1px;cursor:pointer;background:none;flex-shrink:0">
-            <input type="range" id="map-draw-size-range" min="1" max="40" value="3" oninput="MAP.drawSize=+this.value;document.getElementById('map-draw-size-lbl').textContent=this.value" style="accent-color:var(--gold);width:60px;flex-shrink:0">
-            <span id="map-draw-size-lbl" style="font-family:var(--fm);font-size:10px;color:var(--text-secondary);min-width:16px">3</span>
+            <input type="color" id="map-draw-custom-color" value="#00c8ff" oninput="setDrawColor(this.value,null)" title="Custom color" style="width:20px;height:20px;border-radius:3px;border:1px solid var(--bp-border);padding:1px;cursor:pointer;background:none;flex-shrink:0">
+            <input type="range" id="map-draw-size-range" min="1" max="40" value="3" oninput="MAP.drawSize=+this.value;document.getElementById('map-draw-size-lbl').textContent=this.value" style="accent-color:var(--bp-cyan);width:60px;flex-shrink:0">
+            <span id="map-draw-size-lbl" style="font-family:var(--fm);font-size:10px;color:#3a6a9a;min-width:16px">3</span>
           </div>
           <div class="map-tool-group">
             <button class="mt" title="Undo (Ctrl+Z)" onclick="mapUndo()">↩</button>
@@ -1230,7 +1243,8 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
           </div>
           <div class="map-tool-group">
             <button class="mt toggled" id="btn-grid" title="Toggle Grid (G)" onclick="toggleGrid()">⊞</button>
-            <button class="mt toggled" id="btn-snap" title="Toggle Snap (S)" onclick="toggleSnap()">⊕</button>
+            <button class="mt toggled" id="btn-snap" title="Toggle Snap" onclick="toggleSnap()">⊕</button>
+            <button class="mt toggled" id="btn-rulers" title="Toggle Rulers" onclick="toggleRulers()">⊡</button>
             <button class="mt" title="Fit to Screen (F)" onclick="fitToScreen()">⤢</button>
           </div>
           <div class="map-tool-group">
@@ -1238,19 +1252,26 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
             <button class="mt" title="Zoom Out (-)" onclick="zoomMap(0.83)">−</button>
           </div>
           <div class="map-tool-group">
-            <button class="mt" title="Export PNG (vista actual)" onclick="exportMapPNG()">📷</button>
-            <button class="mt" title="Export 4K (encuadra todo el mapa)" onclick="exportMapHD(4)" style="font-size:9px;font-weight:700;letter-spacing:-.5px">4K</button>
-            <button class="mt" title="Export 8K (encuadra todo el mapa)" onclick="exportMapHD(8)" style="font-size:9px;font-weight:700;letter-spacing:-.5px">8K</button>
+            <button class="mt" title="Grid Size" style="font-size:9px;padding:0 2px">
+              <select id="map-grid-sel" onchange="MAP.gridSize=+this.value;renderMap()" style="background:transparent;border:none;outline:none;color:#5a8ab0;font-family:var(--fm);font-size:9px;cursor:pointer">
+                <option value="8">8u</option><option value="16">16u</option><option value="32" selected>32u</option><option value="64">64u</option><option value="128">128u</option>
+              </select>
+            </button>
+          </div>
+          <div class="map-tool-group">
+            <button class="mt" title="Export PNG" onclick="exportMapPNG()">📷</button>
+            <button class="mt" title="Export 4K" onclick="exportMapHD(4)" style="font-size:9px;font-weight:700">4K</button>
+            <button class="mt" title="Export 8K" onclick="exportMapHD(8)" style="font-size:9px;font-weight:700">8K</button>
             <button class="mt" title="Export JSON" onclick="exportMapJSON()">💾</button>
           </div>
-          <div style="margin-left:auto;font-family:var(--fm);font-size:10px;color:var(--text-secondary);padding:0 8px;" id="map-tool-hint">Select: click to pick · Shift+click multi-select · Delete to remove</div>
+          <div style="margin-left:auto;font-family:var(--fm);font-size:10px;color:#2a5a8a;padding:0 8px;" id="map-tool-hint">Select · Shift multi · Del remove · CMD bar below</div>
         </div>
         <!-- MAIN MAP AREA -->
         <div id="map-main">
-          <!-- LEFT: SHAPES PANEL -->
+          <!-- LEFT: SHAPES -->
           <div id="map-left-panel">
             <div id="map-left-panel-hdr">
-              <span style="font-family:var(--fu);font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;flex:1">SHAPES</span>
+              <span style="font-family:var(--fu);font-size:10px;font-weight:700;color:var(--bp-cyan);letter-spacing:1px;flex:1">LIBRARY</span>
             </div>
             <div id="map-shapes-body"></div>
           </div>
@@ -1258,28 +1279,36 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
           <div id="map-canvas-area">
             <canvas id="map-canvas" tabindex="0" style="outline:none"></canvas>
             <div id="map-no-map">
-              <div class="icon">🗺️</div>
-              <div class="hint">Create or select a map to begin</div>
-              <button class="btn btn-gold" onclick="newMap()">+ New Map</button>
+              <div class="icon" style="font-size:52px;opacity:.12">📐</div>
+              <div class="hint">Create or select a blueprint</div>
+              <button class="btn btn-sm" style="border-color:var(--bp-cyan);color:var(--bp-cyan)" onclick="newMap()">+ New Blueprint</button>
             </div>
           </div>
-          <!-- RIGHT: PROPERTIES + LAYERS -->
+          <!-- RIGHT: PROPERTIES + LAYERS (tabbed) -->
           <div id="map-right-panel" style="position:relative">
-            <button id="map-panel-toggle" title="Toggle panel (P)" onclick="_toggleMapPanel()">◀</button>
-            <div id="map-props-panel">
-              <div id="map-props-hdr">Properties</div>
-              <div id="map-props-body">
-                <div class="empty"><div class="empty-icon">🖱️</div><div class="empty-txt">Select an Object</div></div>
+            <button id="map-panel-toggle" title="Toggle panel" onclick="_toggleMapPanel()">◀</button>
+            <div class="mp-tabs">
+              <div class="mp-tab active" id="mptab-props" onclick="switchMapPanel('props')">Properties</div>
+              <div class="mp-tab" id="mptab-layers" onclick="switchMapPanel('layers')">Layers</div>
+            </div>
+            <div class="mp-tab-content active" id="mpc-props">
+              <div id="map-props-panel">
+                <div id="map-props-hdr">Properties</div>
+                <div id="map-props-body">
+                  <div class="empty" style="color:#2a5a8a"><div class="empty-icon">🖱️</div><div class="empty-txt" style="color:#3a6a9a">Select an Object</div></div>
+                </div>
               </div>
             </div>
-            <div id="map-layers-panel">
-              <div id="map-layers-hdr">
-                <span style="font-family:var(--fu);font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;flex:1;text-transform:uppercase" data-i18n="layers">Layers</span>
-                <span style="font-family:var(--fm);font-size:9px;color:var(--text-muted)" id="layers-count"></span>
-                <button class="btn btn-sm" style="padding:2px 6px;font-size:10px;margin-left:4px" onclick="groupSelected()" title="Agrupar objetos seleccionados (2+)">📁 <span data-i18n="group">Group</span></button>
+            <div class="mp-tab-content" id="mpc-layers">
+              <div id="map-layers-panel">
+                <div id="map-layers-hdr">
+                  <span style="font-family:var(--fu);font-size:10px;font-weight:700;color:var(--bp-cyan);letter-spacing:1px;flex:1;text-transform:uppercase">Layers</span>
+                  <span style="font-family:var(--fm);font-size:9px;color:#2a5a8a" id="layers-count"></span>
+                  <button class="btn btn-sm" style="padding:2px 6px;font-size:10px;margin-left:4px;border-color:var(--bp-border);color:#5a8ab0" onclick="groupSelected()" title="Group selected (2+)">📁</button>
+                </div>
+                <input id="layer-search" placeholder="Filter layers…" oninput="_filterLayers(this.value)">
+                <div id="map-layers-list"></div>
               </div>
-              <input id="layer-search" placeholder="🔍 Filter layers..." oninput="_filterLayers(this.value)">
-              <div id="map-layers-list"></div>
             </div>
           </div>
         </div>
@@ -1290,9 +1319,15 @@ body.map-expand #map-focus-btn { background:rgba(201,162,39,.12);border-color:va
           <span class="sb-stat">Zoom: <b id="sb-zoom">100</b>%</span>
           <span class="sb-stat">Grid: <b id="sb-grid">ON</b></span>
           <span class="sb-stat">Snap: <b id="sb-snap">ON</b></span>
-          <span class="sb-stat">Objects: <b id="sb-objs">0</b></span>
+          <span class="sb-stat">Objs: <b id="sb-objs">0</b></span>
           <span class="sb-stat">Layer: <b id="sb-layer">Walls</b></span>
           <span id="map-sel-name"></span>
+        </div>
+        <!-- COMMAND LINE (AutoCAD style) -->
+        <div id="map-cmdline">
+          <span id="map-cmd-label">CMD</span>
+          <input id="map-cmd-input" type="text" placeholder="x,y  ·  zoom N  ·  grid N  ·  r w c p t …">
+          <span id="map-cmd-echo"></span>
         </div>
       </div>
     </div>
@@ -4507,6 +4542,7 @@ const MAP = {
   // Camera (world to screen transform)
   cam: { x: 0, y: 0, zoom: 1 },
   showGrid: true,
+  showRulers: true,
   snapToGrid: true,
   gridSize: 32,
   // Drawing state
@@ -4630,6 +4666,38 @@ function initMapEditor() {
   renderShapesPanel();
   renderMapLayers();
   renderMap();
+
+  // AutoCAD-style command line
+  const cmdInput = document.getElementById('map-cmd-input');
+  const cmdEcho  = document.getElementById('map-cmd-echo');
+  if (cmdInput && !cmdInput._mapCmdBound) {
+    cmdInput._mapCmdBound = true;
+    cmdInput.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Escape') { cmdInput.value = ''; if (cmdEcho) cmdEcho.textContent = ''; cmdInput.blur(); return; }
+      if (e.key !== 'Enter') return;
+      const raw = cmdInput.value.trim();
+      cmdInput.value = '';
+      if (!raw) return;
+      const coordMatch = raw.match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+      if (coordMatch) {
+        const wx = parseFloat(coordMatch[1]), wy = parseFloat(coordMatch[2]);
+        MAP.cam.x = -wx * MAP.cam.zoom;
+        MAP.cam.y = -wy * MAP.cam.zoom;
+        renderMap();
+        if (cmdEcho) cmdEcho.textContent = `→ (${wx}, ${wy})`;
+        return;
+      }
+      const zoomMatch = raw.match(/^zoom\s+(\d+(?:\.\d+)?)$/i);
+      if (zoomMatch) { MAP.cam.zoom = Math.max(0.05, Math.min(8, parseFloat(zoomMatch[1]))); renderMap(); if (cmdEcho) cmdEcho.textContent = `zoom: ${MAP.cam.zoom.toFixed(2)}`; return; }
+      const gridMatch = raw.match(/^grid\s+(\d+)$/i);
+      if (gridMatch) { MAP.gridSize = Math.max(4, parseInt(gridMatch[1])); const gs=document.getElementById('map-grid-sel'); if(gs) gs.value=MAP.gridSize; renderMap(); if (cmdEcho) cmdEcho.textContent = `grid: ${MAP.gridSize}u`; return; }
+      const toolMap = { r:'rect',rect:'rect',w:'wall',wall:'wall',c:'circle',circle:'circle',p:'poly',poly:'poly',s:'stair',stair:'stair',l:'light',light:'light',h:'person',person:'person',e:'enemy',enemy:'enemy',a:'arrow',arrow:'arrow',d:'draw',draw:'draw',t:'text',text:'text',sel:'select',pan:'pan',er:'erase',erase:'erase' };
+      if (toolMap[raw.toLowerCase()]) { setTool(toolMap[raw.toLowerCase()]); if (cmdEcho) cmdEcho.textContent = `tool: ${toolMap[raw.toLowerCase()]}`; return; }
+      if (cmdEcho) cmdEcho.textContent = `? ${raw}`;
+    });
+    cmdInput.addEventListener('focus', () => { if (cmdEcho) cmdEcho.textContent = ''; });
+  }
 }
 
 // World ↔ Screen conversions
@@ -7128,26 +7196,39 @@ function renderMap() {
   const W=canvas.width, H=canvas.height;
   ctx.clearRect(0,0,W,H);
 
-  // Background
-  ctx.fillStyle='#090909';
+  // Blueprint background
+  ctx.fillStyle='#091420';
   ctx.fillRect(0,0,W,H);
 
-  // Grid
+  // Blueprint grid
   if (MAP.showGrid) {
     const gs=MAP.gridSize*MAP.cam.zoom;
+    const majorEvery=4;
     const ox=(MAP.cam.x+W/2)%gs, oy=(MAP.cam.y+H/2)%gs;
-    ctx.strokeStyle='rgba(201,162,39,0.07)';
-    ctx.lineWidth=1;
-    for(let x=ox-gs;x<W+gs;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-    for(let y=oy-gs;y<H+gs;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-    // Axis
+    // Minor grid
+    ctx.lineWidth=0.5;
+    for(let xi=0,x=ox-gs;x<W+gs;x+=gs,xi++){
+      const isMajor=xi%majorEvery===0;
+      ctx.strokeStyle=isMajor?'rgba(0,120,220,.28)':'rgba(0,80,160,.18)';
+      ctx.lineWidth=isMajor?1:0.5;
+      ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
+    }
+    for(let yi=0,y=oy-gs;y<H+gs;y+=gs,yi++){
+      const isMajor=yi%majorEvery===0;
+      ctx.strokeStyle=isMajor?'rgba(0,120,220,.28)':'rgba(0,80,160,.18)';
+      ctx.lineWidth=isMajor?1:0.5;
+      ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+    }
+    // Center axes
     const origin=w2s(0,0);
-    ctx.strokeStyle='rgba(201,162,39,0.18)';ctx.lineWidth=1;
+    ctx.strokeStyle='rgba(0,160,240,.35)';ctx.lineWidth=1;
     ctx.beginPath();ctx.moveTo(origin.x,0);ctx.lineTo(origin.x,H);ctx.stroke();
     ctx.beginPath();ctx.moveTo(0,origin.y);ctx.lineTo(W,origin.y);ctx.stroke();
-    // Origin dot
-    ctx.fillStyle='rgba(201,162,39,0.4)';
-    ctx.beginPath();ctx.arc(origin.x,origin.y,3,0,Math.PI*2);ctx.fill();
+    // Origin crosshair
+    ctx.strokeStyle='rgba(0,200,255,.6)';ctx.lineWidth=1;
+    const ocs=6;
+    ctx.beginPath();ctx.moveTo(origin.x-ocs,origin.y);ctx.lineTo(origin.x+ocs,origin.y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(origin.x,origin.y-ocs);ctx.lineTo(origin.x,origin.y+ocs);ctx.stroke();
   }
 
   // Objects by layer
@@ -7185,8 +7266,8 @@ function renderMap() {
   // Selection
   MAP.objects.filter(o=>MAP.selectedIds.has(o.id)).forEach(obj=>{
     ctx.save();
-    ctx.strokeStyle='#c9a227';
-    ctx.lineWidth=2;
+    ctx.strokeStyle='#ffd040';
+    ctx.lineWidth=1.5;
     ctx.setLineDash([5,3]);
     ctx.lineDashOffset = -MAP._dashOffset;
     if(obj.type==='circle'||obj.type==='light'){
@@ -7233,14 +7314,14 @@ function renderMap() {
           corners.forEach(h=>{
             if(!_vis(h.x,h.y)) return;
             ctx.beginPath();ctx.arc(h.x,h.y,8,0,Math.PI*2);
-            ctx.fillStyle='rgba(201,162,39,0.18)';ctx.fill();
-            ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;ctx.stroke();
+            ctx.fillStyle='rgba(255,208,64,0.15)';ctx.fill();
+            ctx.strokeStyle='#ffd040';ctx.lineWidth=1.5;ctx.stroke();
             ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-            ctx.fillStyle='#c9a227';ctx.fillText('↻',h.x,h.y);
+            ctx.fillStyle='#ffd040';ctx.fillText('↻',h.x,h.y);
           });
           // Edge midpoints as smaller dots
           const mids=[{x:(p.x+q.x)/2,y:p.y},{x:(p.x+q.x)/2,y:q.y},{x:p.x,y:(p.y+q.y)/2},{x:q.x,y:(p.y+q.y)/2}];
-          mids.forEach(h=>{if(!_vis(h.x,h.y))return;ctx.beginPath();ctx.arc(h.x,h.y,4,0,Math.PI*2);ctx.fillStyle='rgba(201,162,39,0.4)';ctx.fill();ctx.strokeStyle='#c9a227';ctx.lineWidth=1;ctx.stroke();});
+          mids.forEach(h=>{if(!_vis(h.x,h.y))return;ctx.beginPath();ctx.arc(h.x,h.y,4,0,Math.PI*2);ctx.fillStyle='rgba(255,208,64,0.4)';ctx.fill();ctx.strokeStyle='#ffd040';ctx.lineWidth=1;ctx.stroke();});
         } else {
           // Select mode: resize squares + ↻ circle — draw in CLEAN screen space (reset any rotation transform)
           ctx.save();
@@ -7248,8 +7329,8 @@ function renderMap() {
           ctx.setLineDash([]);
           const _drawHandle=(hx,hy,hot)=>{
             const hs=hot?7:5;
-            ctx.fillStyle='#1a1a1a'; ctx.fillRect(hx-hs-1,hy-hs-1,(hs+1)*2,(hs+1)*2);
-            ctx.fillStyle=hot?'#fff':'#c9a227'; ctx.fillRect(hx-hs,hy-hs,hs*2,hs*2);
+            ctx.fillStyle='#091420'; ctx.fillRect(hx-hs-1,hy-hs-1,(hs+1)*2,(hs+1)*2);
+            ctx.fillStyle=hot?'#fff':'#ffd040'; ctx.fillRect(hx-hs,hy-hs,hs*2,hs*2);
           };
           if (!obj.rotation) {
             const HPAD=6, _c=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
@@ -7260,11 +7341,11 @@ function renderMap() {
              {x:cmx,y:cpy,h:'n'},{x:cmx,y:cqy,h:'s'},{x:cpx,y:cmy,h:'w'},{x:cqx,y:cmy,h:'e'}];
             _hmap.forEach(hh=>_drawHandle(hh.x,hh.y,MAP.hoverHandle===hh.h));
             const rotY=Math.max(14,cpy-25);
-            ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;
+            ctx.strokeStyle='#ffd040';ctx.lineWidth=1.5;
             ctx.beginPath();ctx.moveTo(cmx,cpy-4);ctx.lineTo(cmx,rotY+7);ctx.stroke();
             ctx.beginPath();ctx.arc(cmx,rotY,7,0,Math.PI*2);ctx.stroke();
             ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-            ctx.fillStyle='#c9a227';ctx.fillText('↻',cmx,rotY);
+            ctx.fillStyle='#ffd040';ctx.fillText('↻',cmx,rotY);
           } else {
             // Rotated: compute actual rotated screen positions of handles
             const rcp=w2s(obj.x+obj.w/2,obj.y+obj.h/2);
@@ -7277,11 +7358,11 @@ function renderMap() {
             const rStem=rpt((p.x+q.x)/2,p.y);
             const rRot=rpt((p.x+q.x)/2,p.y-25);
             if(_vis(rRot.x,rRot.y)){
-              ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;
+              ctx.strokeStyle='#ffd040';ctx.lineWidth=1.5;
               ctx.beginPath();ctx.moveTo(rStem.x,rStem.y);ctx.lineTo(rRot.x,rRot.y);ctx.stroke();
               ctx.beginPath();ctx.arc(rRot.x,rRot.y,7,0,Math.PI*2);ctx.stroke();
               ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-              ctx.fillStyle='#c9a227';ctx.fillText('↻',rRot.x,rRot.y);
+              ctx.fillStyle='#ffd040';ctx.fillText('↻',rRot.x,rRot.y);
             }
           }
           ctx.restore();
@@ -7299,12 +7380,12 @@ function renderMap() {
       ctx.save();
       const _CW=MAP.canvas.width,_CH=MAP.canvas.height,_P=8000;
       const _vis2=(x,y)=>x>-20&&x<_CW+20&&y>-20&&y<_CH+20;
-      ctx.strokeStyle='rgba(201,162,39,0.55)';ctx.lineWidth=1;ctx.setLineDash([6,4]);
+      ctx.strokeStyle='rgba(255,208,64,0.6)';ctx.lineWidth=1;ctx.setLineDash([6,4]);
       const _bx=Math.max(p1.x-6,-_P),_by=Math.max(p1.y-6,-_P);
       const _bx2=Math.min(p2.x+6,_CW+_P),_by2=Math.min(p2.y+6,_CH+_P);
       ctx.beginPath();ctx.rect(_bx,_by,_bx2-_bx,_by2-_by);ctx.stroke();
       // Resize handles
-      ctx.setLineDash([]);ctx.fillStyle='#c9a227';
+      ctx.setLineDash([]);ctx.fillStyle='#ffd040';
       const mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2;
       const hpts=[{x:p1.x-6,y:p1.y-6},{x:mx,y:p1.y-6},{x:p2.x+6,y:p1.y-6},
                   {x:p1.x-6,y:my},                     {x:p2.x+6,y:my},
@@ -7326,12 +7407,13 @@ function renderMap() {
       const _tw2 = ctx.measureText(_lbl).width;
       const _rx = Math.max(4, Math.min(W - _tw2 - 8, _rp.x - _tw2/2));
       const _ry = Math.min(H - 6, _rp.y + 16);
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillStyle = 'rgba(0,10,20,0.85)';
       ctx.beginPath();
       if(ctx.roundRect) ctx.roundRect(_rx-6,_ry-14,_tw2+12,20,4); else ctx.rect(_rx-6,_ry-14,_tw2+12,20);
       ctx.fill();
-      ctx.fillStyle = '#c9a227';
-      ctx.fillText(_lbl, _rx, _ry);
+      ctx.fillStyle = '#00ff88';
+      ctx.font='bold 12px Share Tech Mono,monospace';
+      ctx.fillText(_lbl+'u', _rx, _ry);
       ctx.restore();
     }
   } else if (MAP.isDragging && MAP.selectedIds.size === 1) {
@@ -7358,14 +7440,14 @@ function renderMap() {
     const _dc = w2s(MAP.drawCurrent.x, MAP.drawCurrent.y);
     const _lbl = `${_dw} × ${_dh}`;
     ctx.save();
-    ctx.font = 'bold 11px monospace';
+    ctx.font = 'bold 11px Share Tech Mono,monospace';
     const _dlw = ctx.measureText(_lbl).width;
-    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillStyle = 'rgba(0,10,20,0.85)';
     ctx.beginPath();
-    if(ctx.roundRect) ctx.roundRect(_dc.x+10,_dc.y+10,_dlw+12,18,3); else ctx.rect(_dc.x+10,_dc.y+10,_dlw+12,18);
+    if(ctx.roundRect) ctx.roundRect(_dc.x+10,_dc.y+10,_dlw+18,18,3); else ctx.rect(_dc.x+10,_dc.y+10,_dlw+18,18);
     ctx.fill();
-    ctx.fillStyle = '#c9a227';
-    ctx.fillText(_lbl, _dc.x+16, _dc.y+23);
+    ctx.fillStyle = '#00ff88';
+    ctx.fillText(_lbl+'u', _dc.x+16, _dc.y+23);
     ctx.restore();
   }
 
@@ -7373,7 +7455,7 @@ function renderMap() {
   if (MAP.isDrawing && MAP.drawStart && MAP.drawCurrent) {
     const s=w2s(MAP.drawStart.x,MAP.drawStart.y), c=w2s(MAP.drawCurrent.x,MAP.drawCurrent.y);
     ctx.save();
-    ctx.strokeStyle='#c9a227';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);ctx.globalAlpha=.7;
+    ctx.strokeStyle='#00c8ff';ctx.lineWidth=1;ctx.setLineDash([5,3]);ctx.globalAlpha=.65;
     if(MAP.tool==='circle'){const r=Math.hypot(c.x-s.x,c.y-s.y);ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.stroke();}
     else if(MAP.tool==='arrow'){
       ctx.setLineDash([]);ctx.lineWidth=2;
@@ -7436,9 +7518,9 @@ function renderMap() {
   if(MAP.isMarquee&&MAP.marqueeStart&&MAP.marqueeCurrent){
     const {sx:x1,sy:y1}=MAP.marqueeStart,{sx:x2,sy:y2}=MAP.marqueeCurrent;
     ctx.save();
-    ctx.strokeStyle='#c9a227';ctx.lineWidth=1;ctx.setLineDash([4,3]);ctx.globalAlpha=.9;
+    ctx.strokeStyle='#00c8ff';ctx.lineWidth=1;ctx.setLineDash([4,3]);ctx.globalAlpha=.8;
     ctx.strokeRect(x1,y1,x2-x1,y2-y1);
-    ctx.fillStyle='rgba(201,162,39,0.07)';ctx.fillRect(x1,y1,x2-x1,y2-y1);
+    ctx.fillStyle='rgba(0,200,255,0.05)';ctx.fillRect(x1,y1,x2-x1,y2-y1);
     ctx.restore();
   }
 
@@ -7513,6 +7595,9 @@ function renderMap() {
 
   document.getElementById('sb-zoom').textContent=Math.round(MAP.cam.zoom*100);
   document.getElementById('sb-objs').textContent=MAP.objects.length;
+
+  // Blueprint rulers overlay
+  if (MAP.showRulers) _drawBlueprintRulers(ctx, W, H);
 }
 
 // ── Unified label renderer — respects obj.labelOffsetX/Y, labelSize, labelColor, labelBold, labelBg ──
@@ -7570,15 +7655,14 @@ function drawObj(obj,ctx) {
   if(obj.type==='circle'){
     const r=obj.r*MAP.cam.zoom;
     ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);
-    ctx.fillStyle=obj.fill||'#1e2e18';ctx.fill();
-    ctx.strokeStyle=obj.stroke||'#4a7a3a';ctx.lineWidth=1;ctx.stroke();
+    ctx.fillStyle=obj.fill||'rgba(0,80,160,0.14)';ctx.fill();
+    ctx.strokeStyle=obj.stroke||'#00c8ff';ctx.lineWidth=Math.max(0.8,1*MAP.cam.zoom);ctx.stroke();
   } else if(obj.type==='text'){
     const fs=Math.max(4,(obj.fontSize||14)*MAP.cam.zoom);
-    ctx.font=`bold ${fs}px Rajdhani,sans-serif`;
+    ctx.font=`${fs}px Share Tech Mono,monospace`;
     ctx.textBaseline='top';
-    ctx.fillStyle=obj.fill||'#c9a227';
+    ctx.fillStyle=obj.fill||'#c8e8ff';
     ctx.fillText(obj.text||'Text',p.x,p.y);
-    // Update w/h based on measured text for accurate hit testing
     const mw=ctx.measureText(obj.text||'Text').width/MAP.cam.zoom;
     obj.w=Math.max(20,mw);obj.h=Math.max(10,(obj.fontSize||14)*1.4);
     ctx.textBaseline='alphabetic';
@@ -7587,16 +7671,16 @@ function drawObj(obj,ctx) {
     ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
     pts.slice(1).forEach(pt=>ctx.lineTo(pt.x,pt.y));
     ctx.closePath();
-    ctx.fillStyle=obj.fill||'#1e2e18';ctx.fill();
-    ctx.strokeStyle=obj.stroke||'#4a9eff';ctx.lineWidth=1;ctx.stroke();
+    ctx.fillStyle=obj.fill||'rgba(80,0,160,0.12)';ctx.fill();
+    ctx.strokeStyle=obj.stroke||'#8888ff';ctx.lineWidth=Math.max(0.8,1*MAP.cam.zoom);ctx.stroke();
   } else if(obj.type==='stair'){
     const q=w2s(obj.x+obj.w,obj.y+obj.h);
     const sw=q.x-p.x, sh=q.y-p.y;
-    const sc2=obj.stroke||'#c9a227', z2=MAP.cam.zoom;
+    const sc2=obj.stroke||'#d4a030', z2=MAP.cam.zoom;
     const steps=obj.steps||4;
     const goDown=(obj.name||'').toLowerCase().includes('down');
     // Fill
-    ctx.fillStyle=obj.fill||'#2a2010'; ctx.fillRect(p.x,p.y,sw,sh);
+    ctx.fillStyle=obj.fill||'rgba(100,80,0,0.18)'; ctx.fillRect(p.x,p.y,sw,sh);
     ctx.setLineDash([]);
     // Bold "entry" line at bottom (where you step onto the stairs)
     ctx.strokeStyle=sc2; ctx.lineWidth=Math.max(2,3.5*z2); ctx.globalAlpha=1;
