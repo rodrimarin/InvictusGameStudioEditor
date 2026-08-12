@@ -9,7 +9,15 @@
       "Bash(git push)",
       "Bash(firebase --version)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://invictus-game-studio-default-rtdb.firebaseio.com/projects/default/state.json?shallow=true\")",
-      "Bash(curl -s \"https://invictus-game-studio-default-rtdb.firebaseio.com/projects/default/state.json?shallow=true\")"
+      "Bash(curl -s \"https://invictus-game-studio-default-rtdb.firebaseio.com/projects/default/state.json?shallow=true\")",
+      "Bash(diff index.html index.html.tmp.29752.bb7af943dd3b)",
+      "Bash(wc -l /tmp_diffcheck.txt)",
+      "Bash(head -20 /tmp_diffcheck.txt)",
+      "Bash(ls -la \"C:\\\\Users\\\\PC\\\\.claude\\\\projects\\\\f--InvictusGameStudioEditor\\\\\" 2>/dev/null | head -50)",
+      "Read(//c/Users/PC/.claude/projects/f--InvictusGameStudioEditor\" 2>/dev/**)",
+      "Bash(ls -la \"/c/Users/PC/.claude/projects/f--InvictusGameStudioEditor/\")",
+      "Read(//c/Users/PC/.claude/projects/f--InvictusGameStudioEditor//**)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }
